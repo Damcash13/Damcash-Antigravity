@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a0e38"/>
+      <stop offset="100%" stop-color="#07070f"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="18" x2="0" y2="75" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#ffe680"/>
+      <stop offset="45%"  stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#92400e"/>
+    </linearGradient>
+    <linearGradient id="goldShine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#fde68a" stop-opacity="0.6"/>
+      <stop offset="50%"  stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#fde68a" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="roundedClip">
+      <rect width="100" height="100" rx="20"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100" height="100" rx="20" fill="url(#bg)"/>
+
+  <!-- Subtle inner border -->
+  <rect x="2" y="2" width="96" height="96" rx="19" fill="none"
+        stroke="#f59e0b" stroke-width="1.5" opacity="0.45"/>
+
+  <!-- ── Crown body (king-style M shape) ── -->
+  <path d="M 13 63
+           L 13 38
+           L 28 52
+           L 50 18
+           L 72 52
+           L 87 38
+           L 87 63
+           Z"
+        fill="url(#gold)"/>
+
+  <!-- Crown highlight sheen -->
+  <path d="M 13 63 L 13 38 L 28 52 L 50 18 L 72 52 L 87 38 L 87 63 Z"
+        fill="url(#goldShine)" opacity="0.5"/>
+
+  <!-- Crown base band -->
+  <rect x="13" y="61" width="74" height="12" rx="4" fill="url(#gold)"/>
+
+  <!-- Base band shine -->
+  <rect x="13" y="61" width="74" height="5" rx="4" fill="#fde68a" opacity="0.18"/>
+
+  <!-- ── Gem at each crown peak ── -->
+  <!-- Left spike gem -->
+  <circle cx="13" cy="38" r="5.5" fill="#7c3aed" filter="url(#glow)"/>
+  <circle cx="13" cy="38" r="2.5" fill="#ddd6fe"/>
+
+  <!-- Center spike gem (largest) -->
+  <circle cx="50" cy="18" r="6.5" fill="#0ea5e9" filter="url(#glow)"/>
+  <circle cx="50" cy="18" r="3"   fill="#e0f2fe"/>
+
+  <!-- Right spike gem -->
+  <circle cx="87" cy="38" r="5.5" fill="#7c3aed" filter="url(#glow)"/>
+  <circle cx="87" cy="38" r="2.5" fill="#ddd6fe"/>
+
+  <!-- ── Mini checkerboard row below crown base ── -->
+  <g clip-path="url(#roundedClip)">
+    <rect x="13"  y="77" width="12" height="12" rx="2" fill="#f59e0b" opacity="0.75"/>
+    <rect x="25"  y="77" width="12" height="12" rx="2" fill="#f59e0b" opacity="0.15"/>
+    <rect x="37"  y="77" width="12" height="12" rx="2" fill="#f59e0b" opacity="0.75"/>
+    <rect x="49"  y="77" width="12" height="12" rx="2" fill="#f59e0b" opacity="0.15"/>
+    <rect x="61"  y="77" width="12" height="12" rx="2" fill="#f59e0b" opacity="0.75"/>
+    <rect x="73"  y="77" width="14" height="12" rx="2" fill="#f59e0b" opacity="0.15"/>
+  </g>
+</svg>

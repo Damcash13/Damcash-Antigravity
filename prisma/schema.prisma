@@ -1,0 +1,186 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema#accessing-environment-variables-from-the-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  passwordHash       String
+  username           String    @unique
+
+  chessRating        Int       @default(1500)
+  peakChessRating    Int       @default(1500)
+  chessGames         Int       @default(0)
+  chessWins          Int       @default(0)
+  chessLosses        Int       @default(0)
+  chessDraws         Int       @default(0)
+
+  checkersRating     Int       @default(1450)
+  peakCheckersRating Int       @default(1450)
+  checkersGames      Int       @default(0)
+  checkersWins       Int       @default(0)
+  checkersLosses     Int       @default(0)
+  checkersDraws      Int       @default(0)
+
+  avatarUrl          String?
+  country            String    @default("")
+  bio                String?                       // free-text user biography
+  socialLinks        Json?                         // { twitter?, lichess?, chessCom? }
+  wallet             Wallet?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  matchesAsWhite     Match[]   @relation("WhitePlayer")
+  matchesAsBlack     Match[]   @relation("BlackPlayer")
+
+  sentRequests       Friend[]  @relation("SentRequests")
+  receivedRequests   Friend[]  @relation("ReceivedRequests")
+
+  corrGamesWhite     CorrespondenceGame[] @relation("CorrWhite")
+  corrGamesBlack     CorrespondenceGame[] @relation("CorrBlack")
+
+  tournaments        TournamentPlayer[]
+  puzzles            PuzzleProgress[]
+
+  @@index([chessRating])
+  @@index([checkersRating])
+  @@index([createdAt])
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance   Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+}
+
+model Transaction {
+  id               String   @id @default(uuid())
+  walletId         String
+  wallet           Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  amount           Decimal  @db.Decimal(12, 2)
+  type             String   // 'DEPOSIT', 'WITHDRAWAL', 'BET_PLACED', 'BET_WON', 'BET_REFUND'
+  status           String   @default("COMPLETED") // 'PENDING', 'COMPLETED', 'FAILED'
+  matchId          String?
+  stripeSessionId  String?  // for Stripe idempotency
+  createdAt        DateTime @default(now())
+
+  @@index([walletId])
+  @@index([createdAt])
+}
+
+model Match {
+  id           String   @id @default(uuid())
+  universe     String   // 'chess' or 'checkers'
+  timeControl  String   // e.g. '5+0'
+  status       String   // 'playing', 'ended', 'aborted'
+  result       String?  // 'white', 'black', 'draw', 'abandoned'
+  pgn          String?
+  finalFen     String?
+  betAmount    Decimal  @default(0) @db.Decimal(12, 2)
+  isRated      Boolean  @default(true)
+
+  whiteId      String
+  white        User     @relation("WhitePlayer", fields: [whiteId], references: [id], onDelete: Restrict)
+
+  blackId      String
+  black        User     @relation("BlackPlayer", fields: [blackId], references: [id], onDelete: Restrict)
+
+  createdAt    DateTime @default(now())
+  endedAt      DateTime?
+
+  @@index([whiteId])
+  @@index([blackId])
+  @@index([universe, status])
+  @@index([createdAt])
+}
+
+model Friend {
+  id          String   @id @default(uuid())
+  requesterId String
+  addresseeId String
+  status      String   @default("pending") // 'pending', 'accepted', 'declined'
+  createdAt   DateTime @default(now())
+  requester   User     @relation("SentRequests", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User     @relation("ReceivedRequests", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+}
+
+model CorrespondenceGame {
+  id              String   @id @default(uuid())
+  universe        String   // 'chess' | 'checkers'
+  status          String   @default("waiting") // 'waiting', 'active', 'ended'
+  result          String?  // 'white', 'black', 'draw'
+  resultReason    String?
+  timePerMove     Int      // ms per move
+  currentTurn     String   @default("white") // 'white' | 'black'
+  currentPosition String   // FEN for chess, JSON for draughts
+  whiteId         String
+  blackId         String?
+  moves           Json     @default("[]") // array of {from,to,san,fen,movedAt,player}
+  white           User     @relation("CorrWhite", fields: [whiteId], references: [id], onDelete: Cascade)
+  black           User?    @relation("CorrBlack", fields: [blackId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Tournament {
+  id          String   @id @default(uuid())
+  name        String
+  icon        String   @default("🏆")
+  universe    String
+  format      String   // 'arena', 'swiss', 'roundrobin'
+  timeControl String
+  rated       Boolean  @default(true)
+  betEntry    Float    @default(0)
+  prizePool   Float    @default(0)
+  maxPlayers  Int      @default(64)
+  durationMs  Int      @default(3600000)
+  totalRounds Int      @default(0)
+  status      String   @default("upcoming") // 'upcoming', 'running', 'finished'
+  description String   @default("")
+  startsAt    DateTime
+  createdAt   DateTime @default(now())
+  players     TournamentPlayer[]
+}
+
+model TournamentPlayer {
+  id           String     @id @default(uuid())
+  tournamentId String
+  userId       String
+  score        Float      @default(0)
+  wins         Int        @default(0)
+  draws        Int        @default(0)
+  losses       Int        @default(0)
+  status       String     @default("available") // 'available', 'searching', 'in_game'
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, userId])
+}
+
+model PuzzleProgress {
+  id            String   @id @default(uuid())
+  puzzleId      String
+  userId        String
+  solved        Boolean  @default(false)
+  attempts      Int      @default(0)
+  lastAttemptAt DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, puzzleId])
+}

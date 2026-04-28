@@ -1,0 +1,145 @@
+/* ===================================================================
+   NAV DROPDOWN MENUS
+   =================================================================== */
+
+/* ── Wrapper (position anchor) ── */
+.nav-dropdown-wrap {
+  position: relative;
+}
+
+/* ── Trigger button — upgrade the existing nav-btn ── */
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-base);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-btn:hover,
+.nav-btn.active {
+  color: var(--text-1);
+  background: var(--bg-3);
+}
+
+/* Chevron arrow */
+.nav-chevron {
+  font-size: 15px;
+  color: var(--text-3);
+  display: inline-block;
+  transition: transform 0.2s ease;
+  line-height: 1;
+  margin-left: 1px;
+}
+
+.nav-chevron.open {
+  transform: rotate(90deg);
+}
+
+/* ── Panel ── */
+.nav-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 240px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  z-index: 1000;
+  overflow: hidden;
+  animation: dropDown 0.18s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Wide panels (multi-section) get two column layout */
+.nav-dropdown-panel.wide {
+  min-width: 460px;
+  flex-direction: row;
+}
+
+@keyframes dropDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Section ── */
+.nav-dropdown-section {
+  flex: 1;
+  padding: 8px;
+}
+
+/* Thin divider between sections in wide mode */
+.nav-dropdown-panel.wide .nav-dropdown-section + .nav-dropdown-section {
+  border-left: 1px solid var(--border);
+}
+
+.nav-section-title {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  padding: 6px 10px 4px;
+}
+
+/* ── Item ── */
+.nav-dropdown-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+  font-family: var(--font-base);
+}
+
+.nav-dropdown-item:hover {
+  background: var(--bg-2);
+}
+
+.nav-item-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+  margin-top: 1px;
+}
+
+.nav-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1.2;
+}
+
+.nav-item-desc {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.3;
+}
+
+.nav-dropdown-item:hover .nav-item-label {
+  color: var(--accent);
+}

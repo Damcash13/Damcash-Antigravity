@@ -1,0 +1,523 @@
+/* ===================================================================
+   POST-GAME ANALYSIS BOARD
+   =================================================================== */
+
+/* ── No game state ── */
+.an-no-game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--text-1);
+}
+.an-no-game h2 { margin: 0; }
+.an-no-game p  { color: var(--text-3); margin: 0; }
+
+/* ── Page layout: eval-bar | board | sidebar ── */
+.an-page {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  height: calc(100vh - 120px);
+  min-height: 560px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ═══════════════════════════════════════════
+   EVAL BAR (left column)
+22: ═══════════════════════════════════════════ */
+.eval-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 32px;
+  flex-shrink: 0;
+  height: 100%;
+  padding: 8px 0;
+}
+
+.eval-bar {
+  flex: 1;
+  width: 14px;
+  border-radius: 7px;
+  background: #1e2030;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column-reverse;  /* white grows from bottom */
+  overflow: hidden;
+}
+
+.eval-bar-white {
+  width: 100%;
+  background: linear-gradient(to top, #f0f0f0, #e0e0e0);
+  border-radius: 7px;
+  min-height: 4px;
+}
+
+.eval-label {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--text-3);
+  text-align: center;
+  width: 32px;
+  height: 14px;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════
+   BOARD COLUMN
+74: ═══════════════════════════════════════════ */
+.an-board-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  max-width: 560px;
+}
+
+.an-player-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.an-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.an-player-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+/* ── Board ── */
+.an-board-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Classification badge top-right of board */
+.an-class-badge {
+  position: absolute;
+  top: 10px;
+  right: -120px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  animation: slideUp 0.2s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.an-class-sym {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+/* ── Nav controls ── */
+.an-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.an-nav-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-base);
+}
+.an-nav-btn:hover { background: var(--bg-2); border-color: var(--accent); color: var(--accent); }
+
+.an-nav-count {
+  font-size: 13px;
+  color: var(--text-3);
+  min-width: 52px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Eval chart ── */
+.eval-chart-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.eval-chart-svg {
+  width: 100%;
+  height: 64px;
+  display: block;
+}
+
+.an-chart-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-3);
+  padding: 2px 6px;
+}
+
+.an-chart-hint { font-style: italic; }
+
+/* ═══════════════════════════════════════════
+   RIGHT SIDEBAR
+205: ═══════════════════════════════════════════ */
+.an-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Game info ── */
+.an-game-info {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.an-game-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-1);
+  margin-bottom: 3px;
+}
+
+.an-game-meta {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ── Best move banner ── */
+.an-best-move-banner {
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.35);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  animation: slideUp 0.2s ease;
+}
+
+.an-best-label { color: var(--text-3); }
+.an-best-san   { font-weight: 800; color: var(--text-1); }
+.an-best-eval  { color: #f59e0b; font-weight: 700; margin-left: auto; }
+
+/* ── Tabs ── */
+.an-tabs {
+  display: flex;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.an-tab {
+  flex: 1;
+  padding: 9px;
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-base);
+  transition: all 0.15s;
+}
+.an-tab:hover  { color: var(--text-1); }
+.an-tab.active { background: var(--bg-card); color: var(--accent); font-weight: 800; }
+
+/* ── Move list ── */
+.an-move-list {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.an-move-pair {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.an-move-num {
+  font-size: 11px;
+  color: var(--text-3);
+  width: 24px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.an-move {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  transition: background 0.12s;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 70px;
+}
+
+.an-move:hover { background: var(--bg-2); color: var(--text-1); }
+.an-move.active { font-weight: 800; border-radius: 6px; }
+
+.an-move-sym {
+  font-size: 11px;
+  font-weight: 900;
+}
+
+/* ── Summary tab ── */
+.an-summary {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.an-acc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.an-acc-vs {
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+/* Accuracy donut */
+.acc-donut-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.acc-donut-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  max-width: 70px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Classification panels ── */
+.an-class-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.an-class-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.an-class-panel-title {
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.class-summary { display: flex; flex-direction: column; gap: 3px; }
+
+.class-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.class-symbol { font-weight: 900; font-size: 13px; min-width: 16px; text-align: center; }
+.class-label  { flex: 1; color: var(--text-2); font-weight: 600; }
+.class-count  { font-weight: 800; color: var(--text-1); }
+
+/* ── Eval table ── */
+.an-eval-table-title {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.an-eval-table {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.an-eval-head {
+  display: grid;
+  grid-template-columns: 30px 60px 55px 50px 1fr;
+  padding: 6px 10px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-3);
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.an-eval-row {
+  display: grid;
+  grid-template-columns: 30px 60px 55px 50px 1fr;
+  align-items: center;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+  font-size: 11px;
+}
+.an-eval-row:last-child { border-bottom: none; }
+.an-eval-row:hover { background: var(--bg-2); }
+.an-eval-row.active { }
+
+.an-eval-idx   { color: var(--text-3); }
+.an-eval-san   { font-family: 'Courier New', monospace; font-weight: 700; color: var(--text-1); }
+.an-eval-val   { color: var(--text-2); text-align: right; }
+.an-eval-delta { font-weight: 700; text-align: right; }
+.an-eval-class { font-weight: 600; padding-left: 6px; }
+
+/* ── Back button ── */
+.an-back-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-family: var(--font-base);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.an-back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Stockfish live eval panel ── */
+.sf-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.sf-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 12px;
+  background: var(--bg-2);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+}
+.sf-status {
+  font-size: 11px;
+  font-weight: 600;
+}
+.sf-panel-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+}
+.sf-score {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+}
+.sf-bestmove {
+  font-size: 13px;
+  color: var(--text-2);
+  font-family: 'Courier New', monospace;
+}
+.sf-bestmove strong {
+  color: var(--text-1);
+  font-size: 15px;
+}

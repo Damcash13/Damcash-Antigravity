@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:3002/api/auth/me -H \"Authorization: Bearer badtoken\")",
+      "Bash(node server/index.cjs)",
+      "Read(//tmp/**)",
+      "Bash(curl -s http://localhost:5173/api/auth/me)",
+      "Bash(curl -s http://localhost:3002/api/auth/me)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}
