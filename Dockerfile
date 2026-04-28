@@ -25,6 +25,6 @@ COPY --from=base /app/dist ./dist
 COPY --from=base /app/server ./server
 COPY --from=base /app/public ./public
 
-EXPOSE 3002
+EXPOSE 3000
 
 CMD ["node", "server/index.cjs"]

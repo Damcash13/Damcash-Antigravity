@@ -2477,4 +2477,4 @@ process.on('uncaughtException', (err) => {
 });
 
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, '127.0.0.1', () => log.info(`DamCash server → http://127.0.0.1:${PORT}`));
+httpServer.listen(PORT, '0.0.0.0', () => log.info(`DamCash server → http://0.0.0.0:${PORT}`));
