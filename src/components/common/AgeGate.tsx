@@ -137,8 +137,9 @@ const overlay: React.CSSProperties = {
   position: 'fixed', inset: 0, zIndex: 99999,
   background: 'rgba(7,7,15,0.97)',
   backdropFilter: 'blur(12px)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
   padding: '24px',
+  overflowY: 'auto',
 };
 
 const card: React.CSSProperties = {
@@ -146,4 +147,5 @@ const card: React.CSSProperties = {
   background: '#14141f', border: '1px solid #2a2a40', borderRadius: 20,
   padding: '40px 36px', maxWidth: 480, width: '100%',
   boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+  margin: 'auto',
 };
