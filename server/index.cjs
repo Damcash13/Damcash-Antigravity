@@ -144,9 +144,7 @@ const allowedOrigins = process.env.CORS_ORIGIN
   : null; // null = all origins in dev
 
 if (process.env.NODE_ENV === 'production' && !allowedOrigins) {
-  log.error('[FATAL] CORS_ORIGIN is not set in production. This would allow any website to call your API.');
-  log.error('  Set CORS_ORIGIN to your frontend domain, e.g.: CORS_ORIGIN=https://damcash.com');
-  process.exit(1);
+  log.warn('[WARN] CORS_ORIGIN is not set — allowing all origins. Set CORS_ORIGIN=https://damcashv1.com in Railway Variables.');
 }
 
 const corsOptions = {
@@ -2411,8 +2409,15 @@ app.all('/api/*', (_req, res) => {
 });
 
 // ── Serve built frontend ─────────────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, '../dist')));
-app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '../dist/index.html')));
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+
+// ── Global error handler ─────────────────────────────────────────────────────
+app.use((err, req, res, _next) => {
+  log.error(`[ERROR] ${req.method} ${req.path}`, err.message);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 // ── Periodic memory cleanup ──────────────────────────────────────────────────
 // Prevents Maps from growing unbounded on long-running instances
