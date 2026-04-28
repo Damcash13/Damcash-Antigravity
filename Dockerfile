@@ -1,6 +1,14 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 
+# Vite build-time env vars (injected by Railway from service Variables)
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_STRIPE_PUBLISHABLE_KEY
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY
+
 # Copy prisma schema FIRST so @prisma/client postinstall can find it
 COPY prisma ./prisma
 COPY package*.json ./

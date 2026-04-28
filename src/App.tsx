@@ -266,12 +266,11 @@ const App: React.FC = () => {
       {supabaseDown && (
         <div className="supabase-banner">
           <span>
-            <strong>Server unreachable.</strong> Your Supabase project may be paused.{' '}
-            <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">Open dashboard</a> to restore it, then{' '}
+            <strong>Auth service unreachable.</strong> Sign in may be unavailable.{' '}
             <button
               onClick={() => { checkSupabaseHealth().then(ok => { if (ok) setSupabaseDown(false); }); }}
               style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0, font: 'inherit' }}
-            >retry</button>.
+            >Retry</button>.
             You can still play as a guest.
           </span>
           <button onClick={() => setSupabaseDown(false)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 18, padding: '0 4px' }}>
