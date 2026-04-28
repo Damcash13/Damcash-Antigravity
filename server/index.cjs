@@ -138,14 +138,15 @@ const { Server } = require('socket.io');
 const { createClient } = require('redis');
 const { createAdapter } = require('@socket.io/redis-adapter');
 
-// CORS_ORIGIN must be set in production (comma-separated list of allowed origins)
+// CORS_ORIGIN: comma-separated list of allowed origins.
+// APP_URL is always added automatically so the server's own domain is never blocked
+// (Vite module scripts send Origin even for same-origin requests).
 const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : null; // null = all origins in dev
-
-if (process.env.NODE_ENV === 'production' && !allowedOrigins) {
-  log.warn('[WARN] CORS_ORIGIN is not set — allowing all origins. Set CORS_ORIGIN=https://damcashv1.com in Railway Variables.');
-}
+  ? [...new Set([
+      ...process.env.CORS_ORIGIN.split(',').map(o => o.trim()),
+      process.env.APP_URL,
+    ].filter(Boolean))]
+  : null; // null = allow all origins
 
 const corsOptions = {
   origin: allowedOrigins
