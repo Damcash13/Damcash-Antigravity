@@ -1,27 +1,15 @@
-// Use the global supabase object injected by the CDN script in index.html
-// The @supabase/supabase-js@2 UMD build exposes `window.supabase` with `createClient`.
+import { createClient } from '@supabase/supabase-js';
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const supabaseUrl  = (import.meta as any).env?.VITE_SUPABASE_URL  as string | undefined;
-const supabaseKey  = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;
+const supabaseKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string | undefined;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-// Support both CDN global shapes: window.supabase.createClient and window.createClient
-const _win = window as any;
-const createClient =
-  _win.supabase?.createClient ??   // @supabase/supabase-js@2 UMD
-  _win.Supabase?.createClient ??   // some CDN variants capitalise it
-  _win.createClient ??             // bare export
-  null;
-
-if (!createClient) {
-  console.error('[Supabase] CDN failed to expose createClient. Check the <script> tag in index.html.');
-}
-
 if (!supabaseUrl || !supabaseKey) {
-  console.warn('[Supabase] VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY missing in .env');
+  console.warn('[Supabase] VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY not set — auth disabled.');
 }
 
-export const supabase: any = createClient && supabaseUrl && supabaseKey
+export const supabase: any = supabaseUrl && supabaseKey
   ? createClient(supabaseUrl, supabaseKey)
   : null;
 
