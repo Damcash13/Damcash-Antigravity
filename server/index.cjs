@@ -11,6 +11,7 @@ const helmet     = require('helmet');
 const rateLimit  = require('express-rate-limit');
 const { createServer } = require('http');
 const path   = require('path');
+const fs     = require('fs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
@@ -2411,8 +2412,27 @@ app.all('/api/*', (_req, res) => {
 
 // ── Serve built frontend ─────────────────────────────────────────────────────
 const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
-app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+
+// Serve static assets (JS, CSS, images) but not index.html — we inject config into it
+app.use(express.static(distPath, { index: false }));
+
+// Inject runtime Supabase config into index.html so the frontend works even when
+// VITE_ build-time env vars weren't available during the Docker build (Railway quirk)
+let _indexHtmlCache = null;
+app.get('*', (_req, res) => {
+  const indexPath = path.join(distPath, 'index.html');
+  try {
+    if (!_indexHtmlCache) _indexHtmlCache = fs.readFileSync(indexPath, 'utf8');
+    const cfg = JSON.stringify({
+      SUPABASE_URL: process.env.VITE_SUPABASE_URL || '',
+      SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || '',
+    });
+    const html = _indexHtmlCache.replace('</head>', `<script>window.__DC_CFG__=${cfg};</script></head>`);
+    res.type('html').send(html);
+  } catch {
+    res.status(500).send('App not built — run npm run build first.');
+  }
+});
 
 // ── Global error handler ─────────────────────────────────────────────────────
 app.use((err, req, res, _next) => {
