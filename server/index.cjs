@@ -259,6 +259,32 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     escrowed: false, createdAt: Date.now(),
     chessEngine,  // null for draughts, Chess instance for chess
   });
+
+  // Create DB Match record for rated games
+  if (config?.rated !== false) {
+    try {
+      const whiteDbId = socketToUserId.get(white);
+      const blackDbId = socketToUserId.get(black);
+      if (whiteDbId && blackDbId) {
+        const dbMatch = await prisma.match.create({
+          data: {
+            universe: config.universe || 'chess',
+            timeControl: config.timeControl || '5+0',
+            status: 'playing',
+            betAmount: config.betAmount || 0,
+            whiteId: whiteDbId,
+            blackId: blackDbId,
+            isRated: true,
+          }
+        });
+        const r = rooms.get(roomId);
+        if (r) r.dbMatchId = dbMatch.id;
+      }
+    } catch (e) {
+      console.error('[DB] Failed to create initial Match record:', e.message);
+    }
+  }
+
   removeSeekBySocket(creatorId);
   removeSeekBySocket(joinerId);
 
@@ -916,16 +942,11 @@ io.on('connection', (socket) => {
           }
 
           // Save Match
-          await prisma.match.create({
+          await prisma.match.update({
+            where: { id: room.dbMatchId || roomId },
             data: {
-              whiteId: dbWhiteId,
-              blackId: dbBlackId,
-              universe: uv,
-              timeControl: room.config?.timeControl || '5+0',
               status: 'ended',
               result: result === 'win' ? 'white' : result === 'loss' ? 'black' : 'draw',
-              betAmount: room.config?.betAmount || 0,
-              isRated: true,
               pgn: room.moves.map(m => m.move || m.san).join(' '),
               endedAt: new Date()
             }
@@ -981,7 +1002,6 @@ io.on('connection', (socket) => {
     try {
       await prisma.$transaction(async (tx) => {
         // SELECT FOR UPDATE: lock both wallet rows to prevent race conditions
-        // (e.g. player spamming concurrent games or double-spending)
         const lockedWallets = await tx.$queryRawUnsafe(
           `SELECT id, "userId", balance FROM "Wallet"
            WHERE "userId" IN ($1, $2)
@@ -999,7 +1019,30 @@ io.on('connection', (socket) => {
           throw new Error(`Black has insufficient balance (need $${betAmount})`);
         }
 
-        // Deduct from both wallets (rows are locked — no race possible)
+        // 1. Update Match record if it exists, otherwise create it (fallback)
+        let finalMatchId = room.dbMatchId;
+        if (finalMatchId) {
+          await tx.match.update({
+            where: { id: finalMatchId },
+            data: { betAmount }
+          });
+        } else {
+          const dbMatch = await tx.match.create({
+            data: {
+              universe: room.config?.universe || 'chess',
+              timeControl: room.config?.timeControl || '5+0',
+              status: 'playing',
+              betAmount,
+              whiteId: whiteDbId,
+              blackId: blackDbId,
+              isRated: room.config?.rated !== false,
+            }
+          });
+          finalMatchId = dbMatch.id;
+          room.dbMatchId = finalMatchId;
+        }
+
+        // 2. Deduct from both wallets
         const [w, b] = await Promise.all([
           tx.wallet.update({
             where: { id: whiteWallet.id },
@@ -1011,19 +1054,19 @@ io.on('connection', (socket) => {
           }),
         ]);
 
-        // Record escrow transactions
+        // 3. Record escrow transactions linked to the Match
         await tx.transaction.createMany({
           data: [
-            { walletId: whiteWallet.id, amount: -betAmount, type: 'BET_PLACED', status: 'COMPLETED', matchId: roomId },
-            { walletId: blackWallet.id, amount: -betAmount, type: 'BET_PLACED', status: 'COMPLETED', matchId: roomId },
+            { walletId: whiteWallet.id, amount: -betAmount, type: 'BET_PLACED', status: 'COMPLETED', matchId: finalMatchId },
+            { walletId: blackWallet.id, amount: -betAmount, type: 'BET_PLACED', status: 'COMPLETED', matchId: finalMatchId },
           ],
         });
 
         // Notify clients of updated balance
         const whiteSocket = io.sockets.sockets.get(room.players.white);
         const blackSocket = io.sockets.sockets.get(room.players.black);
-        whiteSocket?.emit('wallet:update', { balance: w.balance });
-        blackSocket?.emit('wallet:update', { balance: b.balance });
+        whiteSocket?.emit('wallet:update', { balance: Number(w.balance) });
+        blackSocket?.emit('wallet:update', { balance: Number(b.balance) });
       });
 
       room.escrowed = true;
@@ -1042,7 +1085,7 @@ io.on('connection', (socket) => {
   // result: 'win' | 'draw' | 'loss'  (from white's perspective)
   async function settleBets(roomId, result) {
     const room = rooms.get(roomId);
-    if (!room || !room.escrowed) return; // nothing escrowed
+    if (!room || !room.escrowed) return; 
     const betAmount = room.config?.betAmount || 0;
     if (betAmount <= 0) return;
 
@@ -1050,65 +1093,77 @@ io.on('connection', (socket) => {
     const blackDbId = socketToUserId.get(room.players.black);
     if (!whiteDbId || !blackDbId) return;
 
-    const HOUSE_CUT = 0.05; // 5 %
-    const payout    = betAmount * 2 * (1 - HOUSE_CUT); // winner gets 95 % of the pot
+    const HOUSE_CUT = 0.05; 
+    const payout    = betAmount * 2 * (1 - HOUSE_CUT); 
 
-    try {
-      if (result === 'draw') {
-        // Refund both players — lock wallets first
-        await prisma.$transaction(async (tx) => {
-          const lockedWallets = await tx.$queryRawUnsafe(
-            `SELECT id, "userId", balance FROM "Wallet"
-             WHERE "userId" IN ($1, $2)
-             FOR UPDATE`,
-            whiteDbId, blackDbId
-          );
-          const ww = lockedWallets.find(w => w.userId === whiteDbId);
-          const bw = lockedWallets.find(w => w.userId === blackDbId);
-          if (!ww || !bw) throw new Error('Wallet not found during refund');
+    let attempts = 0;
+    const maxAttempts = 3;
 
-          const [w, b] = await Promise.all([
-            tx.wallet.update({ where: { id: ww.id }, data: { balance: { increment: betAmount } } }),
-            tx.wallet.update({ where: { id: bw.id }, data: { balance: { increment: betAmount } } }),
-          ]);
-          await tx.transaction.createMany({
-            data: [
-              { walletId: ww.id, amount: betAmount, type: 'BET_REFUND', status: 'COMPLETED', matchId: roomId },
-              { walletId: bw.id, amount: betAmount, type: 'BET_REFUND', status: 'COMPLETED', matchId: roomId },
-            ],
+    while (attempts < maxAttempts) {
+      try {
+        if (result === 'draw') {
+          await prisma.$transaction(async (tx) => {
+            const lockedWallets = await tx.$queryRawUnsafe(
+              `SELECT id, "userId", balance FROM "Wallet"
+               WHERE "userId" IN ($1, $2)
+               FOR UPDATE`,
+              whiteDbId, blackDbId
+            );
+            const ww = lockedWallets.find(w => w.userId === whiteDbId);
+            const bw = lockedWallets.find(w => w.userId === blackDbId);
+            if (!ww || !bw) throw new Error('Wallet not found');
+
+            const [w, b] = await Promise.all([
+              tx.wallet.update({ where: { id: ww.id }, data: { balance: { increment: betAmount } } }),
+              tx.wallet.update({ where: { id: bw.id }, data: { balance: { increment: betAmount } } }),
+              tx.match.update({ where: { id: room.dbMatchId || roomId }, data: { status: 'ended', result: 'draw', endedAt: new Date() } })
+            ]);
+            
+            await tx.transaction.createMany({
+              data: [
+                { walletId: ww.id, amount: betAmount, type: 'BET_REFUND', status: 'COMPLETED', matchId: room.dbMatchId || roomId },
+                { walletId: bw.id, amount: betAmount, type: 'BET_REFUND', status: 'COMPLETED', matchId: room.dbMatchId || roomId },
+              ],
+            });
+            io.sockets.sockets.get(room.players.white)?.emit('wallet:update', { balance: Number(w.balance) });
+            io.sockets.sockets.get(room.players.black)?.emit('wallet:update', { balance: Number(b.balance) });
           });
-          io.sockets.sockets.get(room.players.white)?.emit('wallet:update', { balance: w.balance });
-          io.sockets.sockets.get(room.players.black)?.emit('wallet:update', { balance: b.balance });
-        });
-        console.log(`[BET] Draw — refunded $${betAmount} to each player (room ${roomId})`);
-      } else {
-        // result 'win' means white won, 'loss' means black won
-        const winnerDbId = result === 'win' ? whiteDbId : blackDbId;
-        const winnerSocketId = result === 'win' ? room.players.white : room.players.black;
+        } else {
+          const winnerDbId = result === 'win' ? whiteDbId : blackDbId;
+          const winnerSocketId = result === 'win' ? room.players.white : room.players.black;
 
-        await prisma.$transaction(async (tx) => {
-          // Lock winner's wallet row before crediting
-          const [lockedWallet] = await tx.$queryRawUnsafe(
-            `SELECT id, "userId", balance FROM "Wallet"
-             WHERE "userId" = $1
-             FOR UPDATE`,
-            winnerDbId
-          );
-          if (!lockedWallet) throw new Error('Winner wallet not found');
+          await prisma.$transaction(async (tx) => {
+            const [lockedWallet] = await tx.$queryRawUnsafe(
+              `SELECT id, "userId", balance FROM "Wallet" WHERE "userId" = $1 FOR UPDATE`,
+              winnerDbId
+            );
+            if (!lockedWallet) throw new Error('Winner wallet not found');
 
-          const updated = await tx.wallet.update({
-            where: { id: lockedWallet.id },
-            data: { balance: { increment: payout } },
+            const [updated] = await Promise.all([
+              tx.wallet.update({ where: { id: lockedWallet.id }, data: { balance: { increment: payout } } }),
+              tx.match.update({ 
+                where: { id: room.dbMatchId || roomId }, 
+                data: { status: 'ended', result: result === 'win' ? 'white' : 'black', endedAt: new Date() } 
+              })
+            ]);
+
+            await tx.transaction.create({
+              data: { walletId: lockedWallet.id, amount: payout, type: 'BET_WON', status: 'COMPLETED', matchId: room.dbMatchId || roomId },
+            });
+            io.sockets.sockets.get(winnerSocketId)?.emit('wallet:update', { balance: Number(updated.balance) });
           });
-          await tx.transaction.create({
-            data: { walletId: lockedWallet.id, amount: payout, type: 'BET_WON', status: 'COMPLETED', matchId: roomId },
-          });
-          io.sockets.sockets.get(winnerSocketId)?.emit('wallet:update', { balance: updated.balance });
-        });
-        console.log(`[BET] ${result === 'win' ? 'White' : 'Black'} wins $${payout.toFixed(2)} (room ${roomId})`);
+        }
+        return; // Success!
+      } catch (e) {
+        attempts++;
+        console.error(`[BET] Settlement attempt ${attempts} failed:`, e.message);
+        if (attempts === maxAttempts) {
+          // Final failure — should probably notify admin or mark Match as "NEEDS_SETTLEMENT"
+          console.error(`[BET] FATAL: Settlement failed after ${maxAttempts} attempts for room ${roomId}`);
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // wait before retry
+        }
       }
-    } catch (e) {
-      console.error('[BET] Settlement failed:', e.message);
     }
   }
   socket.on('room:cancel', ({ roomId }) => {
@@ -2356,25 +2411,47 @@ app.get('/api/wallet/stripe/verify', requireAuth, async (req, res) => {
     if (session.payment_status !== 'paid') return res.status(400).json({ error: 'Payment not completed' });
     if (session.metadata?.userId !== req.user.id) return res.status(403).json({ error: 'Session mismatch' });
 
-    // Idempotency: check if we already processed this session
-    const existing = await prisma.transaction.findFirst({
-      where: { stripeSessionId: session_id },
-      include: { wallet: true },
-    });
-    if (existing) return res.json({ already_credited: true, balance: Number(existing.wallet?.balance ?? 0) });
-
     const amount = parseFloat(session.metadata?.amount || '0');
     if (amount <= 0) return res.status(400).json({ error: 'Invalid amount in session' });
 
-    const wallet = await prisma.wallet.update({
-      where: { userId: req.user.id },
-      data: { balance: { increment: amount } },
+    // Use a transaction for atomicity and a unique constraint check for idempotency
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.transaction.findUnique({
+        where: { stripeSessionId: session_id },
+        include: { wallet: true },
+      });
+
+      if (existing) {
+        return { already_credited: true, balance: Number(existing.wallet?.balance ?? 0) };
+      }
+
+      const wallet = await tx.wallet.update({
+        where: { userId: req.user.id },
+        data: { balance: { increment: amount } },
+      });
+
+      await tx.transaction.create({
+        data: { 
+          walletId: wallet.id, 
+          amount, 
+          type: 'DEPOSIT', 
+          status: 'COMPLETED', 
+          stripeSessionId: session_id 
+        },
+      });
+
+      return { ok: true, balance: Number(wallet.balance) };
     });
-    await prisma.transaction.create({
-      data: { walletId: wallet.id, amount, type: 'DEPOSIT', status: 'COMPLETED', stripeSessionId: session_id },
-    });
-    res.json({ ok: true, balance: wallet.balance });
-  } catch (err) { res.status(500).json({ error: 'Failed to verify payment' }); }
+
+    res.json(result);
+  } catch (err) {
+    // Handle unique constraint failure (P2002) which means it was already processed
+    if (err.code === 'P2002') {
+       return res.json({ already_credited: true, message: 'Session already processed' });
+    }
+    console.error('[Stripe Verify] Error:', err);
+    res.status(500).json({ error: 'Failed to verify payment' });
+  }
 });
 
 // Stripe webhook (for server-initiated fulfillment — optional but recommended in prod)
@@ -2386,7 +2463,10 @@ app.post('/api/wallet/stripe/webhook', express.raw({ type: 'application/json' })
   let event;
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-  } catch { return res.sendStatus(400); }
+  } catch (err) { 
+    console.error(`[Stripe Webhook] Signature verification failed: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`); 
+  }
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;

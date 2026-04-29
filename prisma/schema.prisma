@@ -75,7 +75,7 @@ model Transaction {
   type             String   // 'DEPOSIT', 'WITHDRAWAL', 'BET_PLACED', 'BET_WON', 'BET_REFUND'
   status           String   @default("COMPLETED") // 'PENDING', 'COMPLETED', 'FAILED'
   matchId          String?
-  stripeSessionId  String?  // for Stripe idempotency
+  stripeSessionId  String?  @unique // for Stripe idempotency
   createdAt        DateTime @default(now())
 
   @@index([walletId])

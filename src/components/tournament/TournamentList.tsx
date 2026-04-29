@@ -23,12 +23,6 @@ function timeLeft(t: Tournament): string {
   return `${m}m left`;
 }
 
-  const FORMAT_LABELS: Record<string, string> = {
-    arena: t('tournament.arena'), 
-    swiss: t('tournament.swiss'), 
-    roundrobin: t('tournament.roundRobin'),
-  };
-
 const STATUS_COLORS: Record<TournamentStatus, string> = {
   upcoming: '#3b82f6',
   running:  '#22c55e',

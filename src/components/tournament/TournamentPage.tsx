@@ -25,11 +25,7 @@ function timeAgo(ts: number): string {
   return `${Math.floor(m / 60)}h ago`;
 }
 
-  const FORMAT_LABEL: Record<string, string> = {
-    arena: `🎪 ${t('tournament.arena')}`, 
-    swiss: `🔀 ${t('tournament.swiss')}`, 
-    roundrobin: `🔄 ${t('tournament.roundRobin')}`,
-  };
+
 
 // ── Medal helper ──────────────────────────────────────────────────────────────
 function medal(rank: number) {
@@ -52,6 +48,12 @@ export const TournamentPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'standings' | 'pairings' | 'games' | 'info'>('standings');
   const [, forceUpdate] = useState(0);
   const [joining, setJoining] = useState(false);
+
+  const FORMAT_LABEL: Record<string, string> = {
+    arena: `🎪 ${t('tournament.arena')}`,
+    swiss: `🔀 ${t('tournament.swiss')}`,
+    roundrobin: `🔄 ${t('tournament.roundRobin')}`,
+  };
 
   // Countdown re-render
   useEffect(() => {
