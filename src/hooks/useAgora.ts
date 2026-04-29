@@ -60,16 +60,32 @@ export function useAgora() {
 
   const leave = useCallback(async () => {
     try {
-      localAudioRef.current?.close();
-      localVideoRef.current?.close();
+      if (localAudioRef.current) {
+        localAudioRef.current.stop();
+        localAudioRef.current.close();
+      }
+      if (localVideoRef.current) {
+        localVideoRef.current.stop();
+        localVideoRef.current.close();
+      }
       if (joinedRef.current && clientRef.current) {
         await clientRef.current.leave();
       }
-    } catch { /* ignore */ }
-    localAudioRef.current  = null;
-    localVideoRef.current  = null;
-    joinedRef.current      = false;
-    setState(s => ({ ...s, localStream: null, remoteStream: null, isConnected: false, isConnecting: false }));
+    } catch (err) {
+      console.error('Agora leave error:', err);
+    }
+    localAudioRef.current = null;
+    localVideoRef.current = null;
+    joinedRef.current = false;
+    setState(s => ({
+      ...s,
+      localStream: null,
+      remoteStream: null,
+      isConnected: false,
+      isConnecting: false,
+      isMuted: false,
+      isVideoOff: false
+    }));
   }, []);
 
   /** Join a video channel. channelName should be the game roomId. */
@@ -81,7 +97,7 @@ export function useAgora() {
     setState(s => ({ ...s, isConnecting: true, error: null }));
 
     try {
-      // 1. Get token from backend (uses authenticated request helper)
+      // 1. Get token from backend
       const { token, uid } = await api.agora.token(channelName, 0);
 
       // 2. Create Agora client
@@ -93,15 +109,18 @@ export function useAgora() {
       client.on('user-published', async (user: any, mediaType: 'audio' | 'video') => {
         await client.subscribe(user, mediaType);
         if (mediaType === 'video') {
-          user.videoTrack?.play(remoteVideoElRef.current || 'remote-video');
-          setState(s => ({ ...s, isConnected: true }));
+          // Pass a dummy object to trigger UI
+          setState(s => ({ ...s, remoteStream: {} as any }));
+          setTimeout(() => {
+            user.videoTrack?.play(remoteVideoElRef.current || 'remote-video');
+          }, 100);
         }
         if (mediaType === 'audio') {
           user.audioTrack?.play();
         }
       });
 
-      client.on('user-unpublished', (_user: any, mediaType: 'audio' | 'video') => {
+      client.on('user-unpublished', (user: any, mediaType: 'audio' | 'video') => {
         if (mediaType === 'video') {
           setState(s => ({ ...s, remoteStream: null }));
         }
@@ -116,11 +135,19 @@ export function useAgora() {
       localAudioRef.current = audioTrack;
       localVideoRef.current = videoTrack;
 
-      videoTrack.play(localVideoElRef.current || 'local-video');
+      // Publish first
       await client.publish([audioTrack, videoTrack]);
 
-      setState(s => ({ ...s, isConnecting: false, isConnected: true }));
+      // Set state to trigger UI video element mounting
+      setState(s => ({ ...s, isConnecting: false, isConnected: true, localStream: {} as any }));
+
+      // Wait a bit for React to mount the video element, then play into it
+      setTimeout(() => {
+        videoTrack.play(localVideoElRef.current || 'local-video');
+      }, 100);
+
     } catch (err: any) {
+      console.error('Agora join error:', err);
       const msg = err?.message?.includes('PERMISSION_DENIED')
         ? 'Camera/microphone access denied'
         : err?.message || 'Failed to connect video';

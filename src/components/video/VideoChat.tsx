@@ -23,22 +23,24 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
     toggleMute,
     toggleVideo,
     initiatePeerConnection,
+    setLocalVideoEl,
+    setRemoteVideoEl,
   } = useWebRTC();
 
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const localVideoContainerRef = useRef<HTMLDivElement>(null);
+  const remoteVideoContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
+    if (localStream && localVideoContainerRef.current) {
+      setLocalVideoEl(localVideoContainerRef.current);
     }
-  }, [localStream]);
+  }, [localStream, setLocalVideoEl]);
 
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
+    if (remoteStream && remoteVideoContainerRef.current) {
+      setRemoteVideoEl(remoteVideoContainerRef.current);
     }
-  }, [remoteStream]);
+  }, [remoteStream, setRemoteVideoEl]);
 
   const handleStart = () => {
     initiatePeerConnection(roomId);
@@ -53,9 +55,14 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
       <div className="video-streams">
         {/* Local stream */}
         <div className="video-stream">
-          {localStream && !isVideoOff ? (
-            <video ref={localVideoRef} autoPlay muted playsInline />
-          ) : (
+          {localStream ? (
+            <div 
+              ref={localVideoContainerRef}
+              id="local-video" 
+              style={{ width: '100%', height: '100%', borderRadius: 'inherit', overflow: 'hidden', backgroundColor: '#000', display: isVideoOff ? 'none' : 'block' }} 
+            />
+          ) : null}
+          {(!localStream || isVideoOff) && (
             <div className="video-placeholder">
               <span style={{ fontSize: 24 }}>👤</span>
               <span style={{ fontSize: 10 }}>
@@ -69,7 +76,11 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
         {/* Remote stream */}
         <div className="video-stream">
           {remoteStream ? (
-            <video ref={remoteVideoRef} autoPlay playsInline />
+            <div 
+              ref={remoteVideoContainerRef}
+              id="remote-video" 
+              style={{ width: '100%', height: '100%', borderRadius: 'inherit', overflow: 'hidden', backgroundColor: '#000' }} 
+            />
           ) : (
             <div className="video-placeholder">
               <span style={{ fontSize: 24 }}>👤</span>
@@ -97,10 +108,14 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
           <button
             className="video-ctrl-btn call"
             onClick={handleStart}
+            disabled={isConnecting}
             title={t('video.startCall')}
-            style={{ width: 'auto', borderRadius: 20, padding: '6px 14px', fontSize: 12 }}
+            style={{ width: 'auto', borderRadius: 20, padding: '8px 20px', fontSize: 13, gap: 8 }}
           >
-            📹 {t('video.startCall')}
+            {isConnecting ? (
+              <div className="btn-spin" style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'btn-spin 0.6s linear infinite' }} />
+            ) : '📹'}
+            {isConnecting ? t('video.connecting') : t('video.startCall')}
           </button>
         ) : (
           <>
@@ -122,8 +137,9 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
               className="video-ctrl-btn end-call"
               onClick={handleStop}
               title={t('video.endCall')}
+              style={{ width: 'auto', borderRadius: 20, padding: '8px 20px', fontSize: 13, gap: 8 }}
             >
-              📵
+              📵 {t('video.endCall')}
             </button>
           </>
         )}

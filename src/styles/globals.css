@@ -1509,7 +1509,8 @@ body {
   border: 1px solid var(--border);
 }
 
-.video-stream video {
+.video-stream video,
+.video-stream div {
   width: 100%;
   height: 100%;
   object-fit: cover;
