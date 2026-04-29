@@ -458,6 +458,11 @@ export const DraughtsGame: React.FC = () => {
       setLastMove(null);
     };
 
+    const handleRoomCancelled = () => {
+      addNotification(t('game.roomCancelled', 'Opponent left the room before starting'), 'info');
+      navigate('/');
+    };
+
     socket.on('game-start', handleGameStart);
     socket.on('spectate:list', handleSpectateList);
     socket.on('move', handleSocketMove);
@@ -663,7 +668,6 @@ export const DraughtsGame: React.FC = () => {
                 <button
                   className="btn btn-danger btn-sm"
                   onClick={() => { if(window.confirm(t('game.confirmResign'))) handleResign(); }}
-                  disabled={gameStatus === 'ended'}
                 >
                   🏳 {t('game.resign')}
                 </button>

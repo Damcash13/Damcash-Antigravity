@@ -139,7 +139,7 @@ export const PlayerHoverCard: React.FC<Props> = ({
               <button className="phc-btn phc-btn-watch" onClick={handleWatchGame}>
                 👁 Watch game
               </button>
-            ) : (isOnline && me && me.username !== username) ? (
+            ) : (isOnline && me && me.name !== username) ? (
               <button className="phc-btn phc-btn-invite" onClick={handleInvite}>
                 ⚔ Challenge
               </button>

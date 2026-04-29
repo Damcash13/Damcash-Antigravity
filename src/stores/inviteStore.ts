@@ -26,6 +26,7 @@ export interface OnlinePlayer {
   rating: { chess: number; checkers: number };
   status: 'idle' | 'playing' | 'seeking';
   universe: Universe;
+  country?: string;
 }
 
 export interface IncomingInvite {

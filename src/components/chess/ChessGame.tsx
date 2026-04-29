@@ -681,7 +681,6 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                   className="btn btn-danger btn-sm"
                   style={{ flex: 1 }}
                   onClick={() => { if(window.confirm(t('game.confirmResign'))) socket.emit('resign', { roomId }); }}
-                  disabled={gameStatus === 'ended'}
                 >
                   🏳 {t('game.resign')}
                 </button>
