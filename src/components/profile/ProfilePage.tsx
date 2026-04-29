@@ -565,19 +565,32 @@ export const ProfilePage: React.FC = () => {
                 </span>
               )}
               {editName ? (
-                <input
-                  className="pf-name-input"
-                  value={nameInput}
-                  onChange={e => setNameInput(e.target.value)}
-                  onBlur={async () => {
-                    setEditName(false);
-                    if (nameInput.trim() && nameInput !== user.name) {
-                      try { await saveUsername(nameInput); } catch {}
-                    }
-                  }}
-                  onKeyDown={e => e.key === 'Enter' && setEditName(false)}
-                  autoFocus
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    className="pf-name-input"
+                    value={nameInput}
+                    onChange={e => setNameInput(e.target.value)}
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter') {
+                        setEditName(false);
+                        if (nameInput.trim() && nameInput !== user.name) {
+                          try { await saveUsername(nameInput); } catch {}
+                        }
+                      }
+                      if (e.key === 'Escape') setEditName(false);
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={async () => {
+                      setEditName(false);
+                      if (nameInput.trim() && nameInput !== user.name) {
+                        try { await saveUsername(nameInput); } catch {}
+                      }
+                    }}
+                  >✓</button>
+                </div>
               ) : (
                 <h1 className="pf-hero-name" onClick={() => { setEditName(true); setNameInput(user.name); }}>
                   {user.name} <span className="pf-edit-icon">✏️</span>

@@ -1471,11 +1471,23 @@ app.patch('/api/auth/profile', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'No data to update' });
     }
 
-    const updated = await prisma.user.update({
-      where: { id: req.user.id },
-      data: updateData,
-      include: { wallet: true },
-    });
+    // Try update by Supabase UUID first; fall back to email in case the row
+    // was created before the ID was properly synced (edge case after trigger removal)
+    let updated;
+    try {
+      updated = await prisma.user.update({
+        where: { id: req.user.id },
+        data: updateData,
+        include: { wallet: true },
+      });
+    } catch (idErr) {
+      if (idErr.code !== 'P2025') throw idErr; // re-throw unexpected errors
+      updated = await prisma.user.update({
+        where: { email: req.user.email },
+        data: { ...updateData, id: req.user.id }, // also fix the ID while we're here
+        include: { wallet: true },
+      });
+    }
 
     res.json({ user: {
       id: updated.id, username: updated.username, country: updated.country || '',
@@ -1489,6 +1501,8 @@ app.patch('/api/auth/profile', requireAuth, async (req, res) => {
     }});
   } catch (err) {
     if (err.code === 'P2002') return res.status(400).json({ error: 'Username already taken' });
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Profile not found — please sign out and back in.' });
+    console.error('[PATCH /api/auth/profile]', err.message);
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
