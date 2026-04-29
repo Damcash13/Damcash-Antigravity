@@ -197,7 +197,7 @@ function genCode() {
 }
 
 function genId() {
-  return crypto.randomBytes(32).toString('hex'); // 64 hex chars = 256-bit entropy
+  return crypto.randomBytes(16).toString('hex'); // 32 hex chars
 }
 
 function resolveColor(colorPref, whiteId, blackId) {
