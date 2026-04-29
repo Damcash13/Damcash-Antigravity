@@ -17,6 +17,25 @@ export function AgeGate({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false);
   const [declined, setDeclined] = useState(false);
 
+  // Lock body scroll while the gate is visible so the overlay can scroll instead.
+  // This is the reliable cross-browser fix for Android Chrome touch-scroll on
+  // position:fixed overlays.
+  useEffect(() => {
+    if (verified) return;
+    const scrollY = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, [verified]);
+
   if (verified) return <>{children}</>;
 
   if (declined) {
@@ -139,7 +158,9 @@ const overlay: React.CSSProperties = {
   backdropFilter: 'blur(12px)',
   display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
   padding: '24px',
-  overflowY: 'auto',
+  overflowY: 'scroll',           // 'scroll' (not 'auto') is required for Android touch
+  overscrollBehavior: 'contain', // prevent scroll from leaking to body
+  WebkitOverflowScrolling: 'touch' as any, // momentum scroll on older iOS
 };
 
 const card: React.CSSProperties = {
