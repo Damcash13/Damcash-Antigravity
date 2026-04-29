@@ -2311,8 +2311,11 @@ app.get('/api/wallet/stripe/verify', requireAuth, async (req, res) => {
     if (session.metadata?.userId !== req.user.id) return res.status(403).json({ error: 'Session mismatch' });
 
     // Idempotency: check if we already processed this session
-    const existing = await prisma.transaction.findFirst({ where: { stripeSessionId: session_id } });
-    if (existing) return res.json({ already_credited: true, balance: existing.walletId });
+    const existing = await prisma.transaction.findFirst({
+      where: { stripeSessionId: session_id },
+      include: { wallet: true },
+    });
+    if (existing) return res.json({ already_credited: true, balance: Number(existing.wallet?.balance ?? 0) });
 
     const amount = parseFloat(session.metadata?.amount || '0');
     if (amount <= 0) return res.status(400).json({ error: 'Invalid amount in session' });
@@ -2426,6 +2429,7 @@ app.get('*', (_req, res) => {
     const cfg = JSON.stringify({
       SUPABASE_URL: process.env.VITE_SUPABASE_URL || '',
       SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || '',
+      AGORA_APP_ID: process.env.AGORA_APP_ID || process.env.VITE_AGORA_APP_ID || '',
     });
     const html = _indexHtmlCache.replace('</head>', `<script>window.__DC_CFG__=${cfg};</script></head>`);
     res.type('html').send(html);

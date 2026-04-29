@@ -22,7 +22,8 @@ async function getAgoraRTC() {
   return AgoraRTC;
 }
 
-const APP_ID = (import.meta as any).env?.VITE_AGORA_APP_ID as string | undefined;
+const _runtimeCfg = typeof window !== 'undefined' ? (window as any).__DC_CFG__ : undefined;
+const APP_ID = ((import.meta as any).env?.VITE_AGORA_APP_ID || _runtimeCfg?.AGORA_APP_ID) as string | undefined;
 
 export interface AgoraVideoState {
   localStream: MediaStream | null;   // kept for VideoChat component compatibility
