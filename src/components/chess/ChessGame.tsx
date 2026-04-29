@@ -254,14 +254,23 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     }
   };
 
-  const handleResign = () => {
-    setGameStatus('ended');
-    setResult(t('game.youResigned'));
-    play('gameEnd');
-    if (isOnline) {
+  const handleResign = useCallback(() => {
+    if (gameStatus === 'ended') return;
+    if (moveHistory.length === 0) {
+      // If no moves made, just leave the room silently (or cancel)
+      socket.emit('room:cancel', { roomId });
+      navigate('/');
+      return;
+    }
+    if (window.confirm(t('game.confirmResign'))) {
       socket.emit('resign', { roomId });
     }
-  };
+  }, [gameStatus, moveHistory.length, roomId, navigate, t]);
+
+  const handleQuitRoom = useCallback(() => {
+    socket.emit('room:cancel', { roomId });
+    navigate('/');
+  }, [roomId, navigate]);
 
   const handleOfferDraw = () => {
     if (isVsComputer) {
@@ -462,6 +471,11 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     const handleTakebackDeclined = () => { setTakebackSent(false); addNotification(t('game.takebackDeclined', 'Takeback request declined'), 'warning'); };
     const handleTakebackExpired  = () => { setTakebackSent(false); addNotification(t('game.takebackExpired', 'Takeback request expired'), 'warning'); };
 
+    const handleRoomCancelled = () => {
+      addNotification(t('game.roomCancelled', 'Opponent left the room before starting'), 'info');
+      navigate('/');
+    };
+
     socket.on('game-start', handleGameStart);
     socket.on('spectate:list', handleSpectateList);
     socket.on('move', handleSocketMove);
@@ -475,6 +489,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     socket.on('takeback:expired',  handleTakebackExpired);
     socket.on('room:tokens',  handleRoomTokens);
     socket.on('room:state',   handleRoomState);
+    socket.on('room:cancelled', handleRoomCancelled);
 
     // Attempt rejoin if this socket is new but we have a stored token for this room
     const stored = sessionStorage.getItem('damcash_rejoin_chess');
@@ -501,6 +516,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       socket.off('takeback:expired',  handleTakebackExpired);
       socket.off('room:tokens',  handleRoomTokens);
       socket.off('room:state',   handleRoomState);
+      socket.off('room:cancelled', handleRoomCancelled);
     };
   }, [isOnline, playerColor, play, timeControl.increment]);
 
@@ -522,15 +538,19 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       {/* Center: board */}
       <div className="game-center">
         {/* Opponent bar */}
-        <div className="player-bar" style={{ width: '100%' }}>
+        <div className="player-bar" style={{ width: '100%', background: 'transparent' }}>
           <div className="player-avatar">
             {isVsComputer ? '🤖' : opponent.name[0]}
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <PlayerPopover player={opponent}>
-              <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                {opponentInfo.country && <span style={{ fontSize: 15 }}>{countryFlag(opponentInfo.country)}</span>}
-                {opponent.name}
+              <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 16 }}>
+                {opponentInfo.country && (
+                  <span style={{ fontSize: 22, lineHeight: 1 }} title={opponentInfo.country}>
+                    {countryFlag(opponentInfo.country)}
+                  </span>
+                )}
+                <strong>{opponent.name}</strong>
               </div>
             </PlayerPopover>
             <div className="player-rating">({opponent.rating})</div>
@@ -656,9 +676,24 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
               >
                 {drawOffered ? '½ Offered…' : '½ Draw'}
               </button>
-              <button className="btn btn-danger btn-sm" onClick={handleResign} aria-label={t('game.resign')}>
-                🏳 {t('game.resign')}
-              </button>
+              {moveHistory.length > 0 ? (
+                <button
+                  className="btn btn-danger btn-sm"
+                  style={{ flex: 1 }}
+                  onClick={() => { if(window.confirm(t('game.confirmResign'))) socket.emit('resign', { roomId }); }}
+                  disabled={gameStatus === 'ended'}
+                >
+                  🏳 {t('game.resign')}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ flex: 1 }}
+                  onClick={() => { socket.emit('room:cancel', { roomId }); navigate('/'); }}
+                >
+                  🚪 {t('game.quitRoom')}
+                </button>
+              )}
             </>
           )}
           {gameStatus === 'ended' && (

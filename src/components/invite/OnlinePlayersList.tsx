@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInviteStore, OnlinePlayer } from '../../stores/inviteStore';
 import { useUniverseStore } from '../../stores';
+import { PlayerHoverCard } from '../common/PlayerHoverCard';
 
 interface Props {
   onInvite: (player: OnlinePlayer) => void;
@@ -32,42 +33,46 @@ export const OnlinePlayersList: React.FC<Props> = ({ onInvite }) => {
       </div>
 
       {visible.map((player) => (
-        <div
+        <PlayerHoverCard
           key={player.socketId}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
-            transition: 'background 0.15s',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-2)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          onClick={() => player.status !== 'playing' && onInvite(player)}
-          title={player.status === 'playing' ? `${player.name} is in a game` : `Challenge ${player.name}`}
+          username={player.name}
+          rating={universe === 'chess' ? player.rating.chess : player.rating.checkers}
+          wins={0} losses={0} draws={0} games={0}
+          country={player.country}
         >
-          {/* Status dot */}
-          <div style={{
-            width: 8, height: 8, borderRadius: '50%',
-            background: statusColor(player.status), flexShrink: 0,
-          }} />
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-2)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            {/* Status dot */}
+            <div style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: statusColor(player.status), flexShrink: 0,
+            }} />
 
-          {/* Name */}
-          <span style={{
-            flex: 1, fontSize: 13, color: 'var(--text-1)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {player.name}
-          </span>
+            {/* Name */}
+            <span style={{
+              flex: 1, fontSize: 13, color: 'var(--text-1)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              fontWeight: 500
+            }}>
+              {player.name}
+            </span>
 
-          {/* Rating */}
-          <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
-            {universe === 'chess' ? player.rating.chess : player.rating.checkers}
-          </span>
+            {/* Rating */}
+            <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
+              {universe === 'chess' ? player.rating.chess : player.rating.checkers}
+            </span>
 
-          {/* Challenge icon */}
-          {player.status !== 'playing' && (
-            <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.6 }}>⚔️</span>
-          )}
-        </div>
+            {/* Menu icon */}
+            <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.6 }}>⋮</span>
+          </div>
+        </PlayerHoverCard>
       ))}
 
       {onlinePlayers.length > 8 && (

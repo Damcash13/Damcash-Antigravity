@@ -1098,7 +1098,18 @@ io.on('connection', (socket) => {
     } catch (e) {
       console.error('[BET] Settlement failed:', e.message);
     }
-  }
+  socket.on('room:cancel', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+    // Only allow cancellation if no moves were made
+    if (room.moves.length === 0) {
+      socket.to(roomId).emit('room:cancelled');
+      rooms.delete(roomId);
+      reconnectTokens.delete(roomId);
+      const p = players.get(socket.id);
+      if (p) { p.status = 'idle'; players.set(socket.id, p); broadcastPlayerList(); }
+    }
+  });
 
   socket.on('resign', ({ roomId }) => {
     const room = rooms.get(roomId);

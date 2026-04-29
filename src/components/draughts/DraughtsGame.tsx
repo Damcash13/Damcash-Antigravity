@@ -471,6 +471,7 @@ export const DraughtsGame: React.FC = () => {
     socket.on('takeback:expired',  handleTakebackExpired);
     socket.on('room:tokens', handleRoomTokens);
     socket.on('room:state',  handleRoomState);
+    socket.on('room:cancelled', handleRoomCancelled);
 
     // Attempt rejoin if this socket is new but we have a stored token for this room
     const stored = sessionStorage.getItem('damcash_rejoin_draughts');
@@ -497,6 +498,7 @@ export const DraughtsGame: React.FC = () => {
       socket.off('takeback:expired',  handleTakebackExpired);
       socket.off('room:tokens', handleRoomTokens);
       socket.off('room:state',  handleRoomState);
+      socket.off('room:cancelled', handleRoomCancelled);
     };
   }, [isOnline, playerColor, play, makeMove, handleGameEnd, timeControl.increment]);
 
@@ -512,18 +514,22 @@ export const DraughtsGame: React.FC = () => {
     <div className="game-room">
       <div className="game-center">
         {/* Opponent bar */}
-        <div className="player-bar" style={{ width: '100%' }}>
-          <div className="player-avatar">{isVsComputer ? '🤖' : opponent.name[0]}</div>
-          <div>
+        <div className="player-bar" style={{ width: '100%', background: 'transparent' }}>
+          <div className="player-avatar">
+            {isVsComputer ? '🤖' : opponent.name[0]}
+          </div>
+          <div style={{ flex: 1 }}>
             <PlayerPopover player={opponent}>
-              <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                {opponentInfo.country && <span style={{ fontSize: 15 }}>{countryFlag(opponentInfo.country)}</span>}
-                {opponent.name}
+              <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 16 }}>
+                {opponentInfo.country && (
+                  <span style={{ fontSize: 22, lineHeight: 1 }} title={opponentInfo.country}>
+                    {countryFlag(opponentInfo.country)}
+                  </span>
+                )}
+                <strong>{opponent.name}</strong>
               </div>
             </PlayerPopover>
-            <div className="player-rating">
-              ({opponent.rating}) · {playerColor === 'white' ? blackPieces : whitePieces} pieces
-            </div>
+            <div className="player-rating">({opponent.rating})</div>
           </div>
           <Clock
             timeMs={playerColor === 'white' ? blackTime : whiteTime}
@@ -653,17 +659,32 @@ export const DraughtsGame: React.FC = () => {
                   {takebackSent ? `↩ ${t('game.takebackSent')}` : `↩ ${t('game.takeback')}`}
                 </button>
               )}
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={handleOfferDraw}
-                disabled={drawOffered}
-                title={drawOffered ? 'Draw offer sent' : 'Offer a draw'}
-              >
-                {drawOffered ? '½ Offered…' : '½ Draw'}
-              </button>
-              <button className="btn btn-danger btn-sm" onClick={handleResign}>
-                🏳 {t('game.resign')}
-              </button>
+              {moveHistory.length > 0 ? (
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => { if(window.confirm(t('game.confirmResign'))) handleResign(); }}
+                  disabled={gameStatus === 'ended'}
+                >
+                  🏳 {t('game.resign')}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => { socket.emit('room:cancel', { roomId }); navigate('/'); }}
+                >
+                  🚪 {t('game.quitRoom')}
+                </button>
+              )}
+              {gameStatus === 'playing' && moveHistory.length > 0 && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleOfferDraw}
+                  disabled={drawOffered}
+                  title={drawOffered ? 'Draw offer sent' : 'Offer a draw'}
+                >
+                  {drawOffered ? '½ Offered…' : '½ Draw'}
+                </button>
+              )}
             </>
           )}
           {gameStatus === 'ended' && (

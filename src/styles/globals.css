@@ -1511,13 +1511,12 @@ html, body {
 }
 
 .video-stream {
-  background: #111;
+  background: transparent;
   border-radius: 12px;
   aspect-ratio: 4/3;
   overflow: hidden;
   position: relative;
-  border: 2px solid var(--border);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
   transition: border-color 0.3s ease;
 }
 
@@ -1529,7 +1528,8 @@ html, body {
 .video-stream div {
   width: 100%;
   height: 100%;
-  object-fit: cover !important; /* Ensure video fills the box completely */
+  object-fit: cover !important;
+  background: transparent !important;
 }
 
 .video-placeholder {
@@ -1539,7 +1539,7 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #1a1a1a;
+  background: transparent;
   color: var(--text-3);
   gap: 8px;
   z-index: 1;
@@ -1567,7 +1567,7 @@ html, body {
   align-items: center;
   padding: 12px 0;
   margin-top: 8px;
-  border-top: 1px solid var(--border);
+  background: transparent;
 }
 
 .video-ctrl-group {
@@ -1919,40 +1919,71 @@ html, body {
 }
 
 .phc-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .phc-btn {
-  width: 100%;
-  padding: 6px 10px;
-  border-radius: 7px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-1);
+  color: var(--text-1);
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  border: none;
-  transition: background var(--transition), opacity var(--transition);
+  transition: all 0.2s ease;
+}
+
+.phc-btn:hover {
+  background: var(--bg-2);
+  border-color: var(--accent);
+  transform: translateY(-1px);
 }
 
 .phc-btn-invite {
   background: var(--accent);
   color: #fff;
+  border: none;
 }
-.phc-btn-invite:hover { opacity: 0.85; }
+
+.phc-btn-invite:hover {
+  background: var(--accent-hover);
+  color: #fff;
+}
 
 .phc-btn-watch {
-  background: rgba(245,158,11,0.15);
-  color: #f59e0b;
-  border: 1px solid rgba(245,158,11,0.3);
+  grid-column: span 2;
+  background: #f59e0b;
+  color: #fff;
+  border: none;
 }
-.phc-btn-watch:hover { background: rgba(245,158,11,0.25); }
+
+.phc-btn-watch:hover {
+  background: #d97706;
+  color: #fff;
+}
+
+.phc-btn-stats, .phc-btn-message {
+  background: var(--bg-2);
+}
 
 .phc-btn-profile {
+  grid-column: span 2;
   background: var(--bg-3);
-  color: var(--text-2);
+  border: 1px solid var(--border);
 }
-.phc-btn-profile:hover { background: var(--bg-1); color: var(--text-1); }
+
+.phc-btn-profile:hover {
+  background: var(--bg-1);
+  color: var(--text-1);
+}
 
 /* ===== LANGUAGE SWITCHER ===== */
 .lang-switcher {
