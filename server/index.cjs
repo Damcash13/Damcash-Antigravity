@@ -1098,6 +1098,7 @@ io.on('connection', (socket) => {
     } catch (e) {
       console.error('[BET] Settlement failed:', e.message);
     }
+  }
   socket.on('room:cancel', ({ roomId }) => {
     const room = rooms.get(roomId);
     if (!room) return;

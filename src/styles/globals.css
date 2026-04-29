@@ -1552,10 +1552,9 @@ html, body {
   font-size: 10px;
   font-weight: 700;
   color: #fff;
-  background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(4px);
-  padding: 2px 8px;
-  border-radius: 10px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
   z-index: 5;
   text-transform: uppercase;
   letter-spacing: 0.5px;

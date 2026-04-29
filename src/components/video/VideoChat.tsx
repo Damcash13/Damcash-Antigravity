@@ -59,7 +59,7 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
             <div 
               ref={localVideoContainerRef}
               id="local-video" 
-              style={{ width: '100%', height: '100%', borderRadius: 'inherit', overflow: 'hidden', backgroundColor: '#000', display: isVideoOff ? 'none' : 'block' }} 
+              style={{ width: '100%', height: '100%', borderRadius: 'inherit', overflow: 'hidden', display: isVideoOff ? 'none' : 'block' }} 
             />
           ) : null}
           {(!localStream || isVideoOff) && (
@@ -79,7 +79,7 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
             <div 
               ref={remoteVideoContainerRef}
               id="remote-video" 
-              style={{ width: '100%', height: '100%', borderRadius: 'inherit', overflow: 'hidden', backgroundColor: '#000' }} 
+              style={{ width: '100%', height: '100%', borderRadius: 'inherit', overflow: 'hidden' }} 
             />
           ) : (
             <div className="video-placeholder">
