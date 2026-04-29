@@ -158,6 +158,7 @@ const App: React.FC = () => {
         name: user?.name || `Guest_${Math.random().toString(36).slice(2, 6)}`,
         rating: user?.rating || { chess: 1500, checkers: 1450 },
         universe,
+        country: user?.country || '',
       });
     };
     register();
@@ -465,7 +466,7 @@ const WalletSuccessPage: React.FC = () => {
           <div style={{ fontSize: 56 }}>❌</div>
           <h2 style={{ color: 'var(--danger)', margin: 0 }}>Payment could not be verified</h2>
           <p style={{ color: 'var(--text-2)', margin: 0 }}>Please contact support if your card was charged.</p>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button className="btn btn-primary" onClick={() => { navigate(`/${universe}`); setTimeout(() => (document.querySelector('.wallet-display') as HTMLButtonElement)?.click(), 300); }}>
               ↩ Try Again
             </button>

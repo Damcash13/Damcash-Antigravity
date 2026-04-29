@@ -1162,6 +1162,7 @@ body {
   padding: 12px 0;
   max-width: 1200px;
   margin: 0 auto;
+  min-height: calc(100vh - var(--nav-height) - 40px);
 }
 
 .game-center {
@@ -2131,8 +2132,10 @@ html, body {
   .draughts-cell  { width: calc((100vw - 24px) / 10) !important; height: calc((100vw - 24px) / 10) !important; }
 
   /* Shrink sidebar panels so they don't push the page too tall */
-  .move-history { max-height: 160px; }
-  .chat-messages { height: 120px; }
+  .move-history { max-height: 140px; }
+  .chat-messages { height: 100px; }
+  .video-stream { aspect-ratio: 16/9; }
+  .video-streams { margin-top: 10px; gap: 8px; }
   .panel-body { padding: 8px 10px; }
 
   /* Game controls: wrap buttons on small screens */

@@ -1556,7 +1556,10 @@ app.get('/api/leaderboard', async (req, res) => {
       checkersDraws: u.checkersDraws,
     }));
     res.json(entries);
-  } catch (err) { console.error('[/api/leaderboard] DB error:', err); res.status(500).json({ error: 'Failed' }); }
+  } catch (err) {
+    console.error('[/api/leaderboard] DB error:', err);
+    res.status(500).json({ error: 'Database error fetching leaderboard', details: err.message });
+  }
 });
 
 // ── REST: Tournaments ────────────────────────────────────────────────────────

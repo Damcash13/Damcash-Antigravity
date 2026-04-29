@@ -41,6 +41,7 @@ export const OnlinePlayersList: React.FC<Props> = ({ onInvite }) => {
           country={player.country}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
