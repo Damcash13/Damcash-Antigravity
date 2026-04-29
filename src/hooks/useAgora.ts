@@ -50,13 +50,13 @@ export function useAgora() {
   const clientRef         = useRef<any>(null);
   const localAudioRef     = useRef<any>(null);
   const localVideoRef     = useRef<any>(null);
-  const localVideoElRef   = useRef<HTMLVideoElement | null>(null);
-  const remoteVideoElRef  = useRef<HTMLVideoElement | null>(null);
+  const localVideoElRef   = useRef<HTMLElement | null>(null);
+  const remoteVideoElRef  = useRef<HTMLElement | null>(null);
   const joinedRef         = useRef(false);
 
-  /** Attach a local DOM video element so Agora can render into it. */
-  const setLocalVideoEl  = useCallback((el: HTMLVideoElement | null) => { localVideoElRef.current  = el; }, []);
-  const setRemoteVideoEl = useCallback((el: HTMLVideoElement | null) => { remoteVideoElRef.current = el; }, []);
+  /** Attach a local DOM element so Agora can render into it. */
+  const setLocalVideoEl  = useCallback((el: HTMLElement | null) => { localVideoElRef.current  = el; }, []);
+  const setRemoteVideoEl = useCallback((el: HTMLElement | null) => { remoteVideoElRef.current = el; }, []);
 
   const leave = useCallback(async () => {
     try {
