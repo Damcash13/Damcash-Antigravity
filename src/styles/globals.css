@@ -2054,7 +2054,9 @@ body {
 }
 
 @media (max-width: 700px) {
-  /* Header */
+  /* Header — hide wide items so everything fits without horizontal scroll */
+  .header-search-wrap { display: none; }
+  .header-play-wrap   { display: none; }
   .header-inner { padding: 0 8px; gap: 6px; height: 48px; }
   .logo { font-size: 16px; }
   .logo-icon { font-size: 18px; }
@@ -2077,6 +2079,8 @@ body {
 @media (max-width: 480px) {
   .pairing-grid { grid-template-columns: repeat(2, 1fr); }
   .header-right { gap: 4px; }
+  /* On very narrow phones hide the logo wordmark, keep only the icon */
+  .logo-wordmark { display: none; }
   .player-bar { padding: 6px 8px; gap: 6px; }
   .player-name { font-size: 12px; }
   .player-clock { font-size: 18px; }

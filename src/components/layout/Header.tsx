@@ -407,10 +407,12 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
 
         {/* Right side */}
         <div className="header-right">
-          <PlayerSearchBar onInvite={handleInviteOrCode} />
+          <div className="header-search-wrap">
+            <PlayerSearchBar onInvite={handleInviteOrCode} />
+          </div>
 
           <button
-            className="btn btn-secondary btn-sm"
+            className="btn btn-secondary btn-sm header-play-wrap"
             onClick={onOpenCreateGame}
             title={t('header.createRoomTitle')}
             style={{ whiteSpace: 'nowrap' }}
