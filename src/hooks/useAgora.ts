@@ -47,16 +47,30 @@ export function useAgora() {
     error: null,
   });
 
-  const clientRef         = useRef<any>(null);
-  const localAudioRef     = useRef<any>(null);
-  const localVideoRef     = useRef<any>(null);
-  const localVideoElRef   = useRef<HTMLElement | null>(null);
-  const remoteVideoElRef  = useRef<HTMLElement | null>(null);
-  const joinedRef         = useRef(false);
+  const clientRef              = useRef<any>(null);
+  const localAudioRef          = useRef<any>(null);
+  const localVideoRef          = useRef<any>(null);
+  const localVideoElRef        = useRef<HTMLElement | null>(null);
+  const remoteVideoElRef       = useRef<HTMLElement | null>(null);
+  const pendingRemoteTrackRef  = useRef<any>(null);
+  const joinedRef              = useRef(false);
 
-  /** Attach a local DOM element so Agora can render into it. */
-  const setLocalVideoEl  = useCallback((el: HTMLElement | null) => { localVideoElRef.current  = el; }, []);
-  const setRemoteVideoEl = useCallback((el: HTMLElement | null) => { remoteVideoElRef.current = el; }, []);
+  /** Attach a local DOM element — plays the track immediately if already ready. */
+  const setLocalVideoEl = useCallback((el: HTMLElement | null) => {
+    localVideoElRef.current = el;
+    if (el && localVideoRef.current) {
+      localVideoRef.current.play(el);
+    }
+  }, []);
+
+  /** Attach a remote DOM element — plays any buffered remote track immediately. */
+  const setRemoteVideoEl = useCallback((el: HTMLElement | null) => {
+    remoteVideoElRef.current = el;
+    if (el && pendingRemoteTrackRef.current) {
+      pendingRemoteTrackRef.current.play(el);
+      pendingRemoteTrackRef.current = null;
+    }
+  }, []);
 
   const leave = useCallback(async () => {
     try {
@@ -109,11 +123,13 @@ export function useAgora() {
       client.on('user-published', async (user: any, mediaType: 'audio' | 'video') => {
         await client.subscribe(user, mediaType);
         if (mediaType === 'video') {
-          // Pass a dummy object to trigger UI
+          if (remoteVideoElRef.current) {
+            user.videoTrack?.play(remoteVideoElRef.current);
+          } else {
+            // Element not mounted yet — store track; setRemoteVideoEl will play it
+            pendingRemoteTrackRef.current = user.videoTrack;
+          }
           setState(s => ({ ...s, remoteStream: {} as any }));
-          setTimeout(() => {
-            user.videoTrack?.play(remoteVideoElRef.current || 'remote-video');
-          }, 100);
         }
         if (mediaType === 'audio') {
           user.audioTrack?.play();
@@ -141,10 +157,10 @@ export function useAgora() {
       // Set state to trigger UI video element mounting
       setState(s => ({ ...s, isConnecting: false, isConnected: true, localStream: {} as any }));
 
-      // Wait a bit for React to mount the video element, then play into it
-      setTimeout(() => {
-        videoTrack.play(localVideoElRef.current || 'local-video');
-      }, 100);
+      // Play immediately if the element is already in the DOM; otherwise setLocalVideoEl will play it
+      if (localVideoElRef.current) {
+        videoTrack.play(localVideoElRef.current);
+      }
 
     } catch (err: any) {
       console.error('Agora join error:', err);

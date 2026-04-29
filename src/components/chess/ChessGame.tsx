@@ -74,15 +74,18 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const [showBetting, setShowBetting] = useState(false);
   const [showVideo, setShowVideo] = useState(true);
   const [activeTab, setActiveTab] = useState<'moves' | 'chat'>('moves');
-  const [drawOffered, setDrawOffered] = useState(false);       // I offered draw
-  const [incomingDraw, setIncomingDraw] = useState(false);     // opponent offered
-  const [drawDeclinedMsg, setDrawDeclinedMsg] = useState(false); // brief "declined" flash
-  const [takebackSent, setTakebackSent] = useState(false);     // I sent a takeback request
-  const [incomingTakeback, setIncomingTakeback] = useState(false); // opponent wants takeback
-  const [spectators, setSpectators] = useState<string[]>([]); // spectator display names
+  const [drawOffered, setDrawOffered] = useState(false);
+  const [incomingDraw, setIncomingDraw] = useState(false);
+  const [drawDeclinedMsg, setDrawDeclinedMsg] = useState(false);
+  const [takebackSent, setTakebackSent] = useState(false);
+  const [incomingTakeback, setIncomingTakeback] = useState(false);
+  const [spectators, setSpectators] = useState<string[]>([]);
+  const [savingResult, setSavingResult] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef(game);
   gameRef.current = game;
+  const userRef = useRef(user);
+  userRef.current = user;
   const computerMovePending = useRef(false);
   const computerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -219,6 +222,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const handleGameOver = (g: Chess) => {
     setGameStatus('ended');
     play('gameEnd');
+    if (isOnline) setSavingResult(true);
     let res = '';
     if (g.isCheckmate()) {
       res = g.turn() === 'b' ? t('game.whiteWinsCheckmate') : t('game.blackWinsCheckmate');
@@ -423,7 +427,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     };
 
     const handleGameStart = (data: any) => {
-      const myName = user?.name || '';
+      const myName = userRef.current?.name || '';
       const isWhite = data.whitePlayer?.name === myName || myColor === 'w';
       const opp = isWhite ? data.blackPlayer : data.whitePlayer;
       if (opp) setOpponentInfo({ name: opp.name, rating: opp.rating?.chess ?? opp.rating ?? 1500, country: opp.country || '' });
@@ -448,7 +452,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       if (lastM) setLastMove({ from: lastM.from as Square, to: lastM.to as Square });
       const myCol = data.color; // 'white' | 'black'
       const opp = myCol === 'white' ? data.blackPlayer : data.whitePlayer;
-      if (opp) setOpponentInfo({ name: opp.name || 'Opponent', rating: opp.rating?.chess ?? 1500, country: opp.country || '' });
+      if (opp) setOpponentInfo({ name: opp.name || 'Opponent', rating: Number(opp.rating?.chess ?? opp.rating) || 1500, country: opp.country || '' });
     };
 
     const handleTakebackRequest = () => {
@@ -476,6 +480,15 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       navigate('/');
     };
 
+    const handleRoomPlayers = (data: any) => {
+      const opp = myColor === 'w' ? data.blackPlayer : data.whitePlayer;
+      if (opp?.name && opp.name !== 'White' && opp.name !== 'Black') {
+        setOpponentInfo({ name: opp.name, rating: Number(opp.rating?.chess ?? opp.rating) || 1500, country: opp.country || '' });
+      }
+    };
+
+    const handleRatingUpdate = () => setSavingResult(false);
+
     socket.on('game-start', handleGameStart);
     socket.on('spectate:list', handleSpectateList);
     socket.on('move', handleSocketMove);
@@ -490,6 +503,8 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     socket.on('room:tokens',  handleRoomTokens);
     socket.on('room:state',   handleRoomState);
     socket.on('room:cancelled', handleRoomCancelled);
+    socket.on('room:players', handleRoomPlayers);
+    socket.on('rating:update', handleRatingUpdate);
 
     // Attempt rejoin if this socket is new but we have a stored token for this room
     const stored = sessionStorage.getItem('damcash_rejoin_chess');
@@ -501,6 +516,9 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
         }
       } catch { /* corrupt storage — ignore */ }
     }
+
+    // Request fresh player info on mount (handles case where game-start fired before component mounted)
+    socket.emit('room:request-players', { roomId });
 
     return () => {
       socket.off('game-start', handleGameStart);
@@ -517,8 +535,18 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       socket.off('room:tokens',  handleRoomTokens);
       socket.off('room:state',   handleRoomState);
       socket.off('room:cancelled', handleRoomCancelled);
+      socket.off('room:players', handleRoomPlayers);
+      socket.off('rating:update', handleRatingUpdate);
     };
   }, [isOnline, playerColor, play, timeControl.increment]);
+
+  // Warn before closing tab mid-game
+  useEffect(() => {
+    if (!isOnline || gameStatus !== 'playing') return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isOnline, gameStatus]);
 
   const isPlayerTurn = currentTurn === playerColor;
   const inCheck = game.isCheck();
@@ -604,6 +632,12 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                 </div>
                 <div className="game-over-title">{t('game.gameOver')}</div>
                 <div className="game-over-subtitle">{result}</div>
+                {savingResult && (
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginBottom: 4 }}>
+                    <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                    {t('game.savingResult', 'Saving result…')}
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                   <button className="btn btn-primary" onClick={handleNewGame}>{t('game.rematch')}</button>
                   <button className="btn btn-secondary" onClick={() => navigate('/')}>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUserStore, useNotificationStore } from '../../stores';
-import { useTournamentStore, TournamentPlayer } from '../../stores/tournamentStore';
+import { useTournamentStore } from '../../stores/tournamentStore';
 import { TournamentList } from './TournamentList';
+import { AppErrorBoundary } from '../common/AppErrorBoundary';
 import '../../styles/tournaments.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -166,8 +167,9 @@ export const TournamentPage: React.FC = () => {
             <button
               className={`btn ${hasJoined ? 'tp-btn-withdraw' : 'tp-btn-join'}`}
               onClick={handleJoin}
+              disabled={joining}
             >
-              {hasJoined
+              {joining ? '…' : hasJoined
                 ? isRunning ? '🏳 Withdraw' : '✕ Cancel'
                 : isRunning ? '▶ Join Now' : '✓ Register'}
             </button>
@@ -231,7 +233,7 @@ export const TournamentPage: React.FC = () => {
               )}
             </div>
           ) : (
-            <>
+            <AppErrorBoundary key={tournament.id}>
               <div className="tp-table-head">
                 <span>#</span>
                 <span>Player</span>
@@ -244,33 +246,33 @@ export const TournamentPage: React.FC = () => {
                 const rank = idx + 1;
                 const isMe = player.name === myName;
                 return (
-                  <div key={player.id} className={`tp-table-row ${isMe ? 'me' : ''} ${rank <= 3 ? 'top3' : ''}`}>
+                  <div key={player.id || idx} className={`tp-table-row ${isMe ? 'me' : ''} ${rank <= 3 ? 'top3' : ''}`}>
                     <span className="tp-rank">{medal(rank)}</span>
                     <span className="tp-player-cell">
                       <div className="tp-player-avatar" style={{ background: isMe ? 'var(--accent)' : undefined }}>
-                        {player.name[0]?.toUpperCase()}
+                        {(player.name || '?')[0].toUpperCase()}
                       </div>
                       <div>
                         <div className="tp-player-name">
-                          {player.name}
+                          {player.name || 'Unknown'}
                           {isMe && <span className="tp-you-badge">you</span>}
                           {player.fire && <span title="On a streak">🔥</span>}
                         </div>
-                        <div className="tp-player-rating">{player.rating}</div>
+                        <div className="tp-player-rating">{player.rating ?? '—'}</div>
                       </div>
                     </span>
-                    <span className="tp-col-center tp-score">{player.score}</span>
-                    <span className="tp-col-center tp-dim">{player.games}</span>
+                    <span className="tp-col-center tp-score">{player.score ?? 0}</span>
+                    <span className="tp-col-center tp-dim">{player.games ?? 0}</span>
                     <span className="tp-col-center tp-wdl">
-                      <span className="tp-w">{player.wins}</span>
-                      <span className="tp-d">{player.draws}</span>
-                      <span className="tp-l">{player.losses}</span>
+                      <span className="tp-w">{player.wins ?? 0}</span>
+                      <span className="tp-d">{player.draws ?? 0}</span>
+                      <span className="tp-l">{player.losses ?? 0}</span>
                     </span>
-                    <span className="tp-col-center tp-perf">{player.performance}</span>
+                    <span className="tp-col-center tp-perf">{player.performance ?? '—'}</span>
                   </div>
                 );
               })}
-            </>
+            </AppErrorBoundary>
           )}
         </div>
       )}

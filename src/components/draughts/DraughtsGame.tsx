@@ -77,11 +77,14 @@ export const DraughtsGame: React.FC = () => {
   const [takebackSent, setTakebackSent] = useState(false);
   const [incomingTakeback, setIncomingTakeback] = useState(false);
   const [spectators, setSpectators] = useState<string[]>([]);
+  const [savingResult, setSavingResult] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef(board);
   const turnRef = useRef(turn);
   boardRef.current = board;
   turnRef.current = turn;
+  const userRef = useRef(user);
+  userRef.current = user;
   const computerMovePending = useRef(false);
   const computerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -123,9 +126,10 @@ export const DraughtsGame: React.FC = () => {
     });
   }, [board, gameStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleGameEnd = useCallback((winner: Color | 'draw', boardState: DraughtsBoardType) => {
+  const handleGameEnd = useCallback((winner: Color | 'draw', _boardState: DraughtsBoardType) => {
     setGameStatus('ended');
     play('gameEnd');
+    if (isOnline) setSavingResult(true);
     let res = '';
     if (winner === 'draw') res = t('game.draw');
     else if (winner === playerColor) res = t('game.youWon');
@@ -412,7 +416,7 @@ export const DraughtsGame: React.FC = () => {
     };
 
     const handleGameStart = (data: any) => {
-      const myName = user?.name || '';
+      const myName = userRef.current?.name || '';
       const isWhite = data.whitePlayer?.name === myName || playerColor === 'white';
       const opp = isWhite ? data.blackPlayer : data.whitePlayer;
       if (opp) setOpponentInfo({ name: opp.name, rating: opp.rating?.checkers ?? opp.rating ?? 1450, country: opp.country || '' });
@@ -441,7 +445,7 @@ export const DraughtsGame: React.FC = () => {
       if (data.turn) setTurn(data.turn as Color);
       const myCol: Color = data.color || playerColor;
       const opp = myCol === 'white' ? data.blackPlayer : data.whitePlayer;
-      if (opp) setOpponentInfo({ name: opp.name || 'Opponent', rating: opp.rating?.checkers ?? 1450, country: opp.country || '' });
+      if (opp) setOpponentInfo({ name: opp.name || 'Opponent', rating: Number(opp.rating?.checkers ?? opp.rating) || 1450, country: opp.country || '' });
     };
 
     const handleTakebackRequest  = () => { setIncomingTakeback(true); addNotification(t('game.opponentRequestsTakeback', 'Your opponent requested a takeback'), 'info'); };
@@ -463,6 +467,15 @@ export const DraughtsGame: React.FC = () => {
       navigate('/');
     };
 
+    const handleRoomPlayers = (data: any) => {
+      const opp = playerColor === 'white' ? data.blackPlayer : data.whitePlayer;
+      if (opp?.name && opp.name !== 'White' && opp.name !== 'Black') {
+        setOpponentInfo({ name: opp.name, rating: Number(opp.rating?.checkers ?? opp.rating) || 1450, country: opp.country || '' });
+      }
+    };
+
+    const handleRatingUpdate = () => setSavingResult(false);
+
     socket.on('game-start', handleGameStart);
     socket.on('spectate:list', handleSpectateList);
     socket.on('move', handleSocketMove);
@@ -477,6 +490,8 @@ export const DraughtsGame: React.FC = () => {
     socket.on('room:tokens', handleRoomTokens);
     socket.on('room:state',  handleRoomState);
     socket.on('room:cancelled', handleRoomCancelled);
+    socket.on('room:players', handleRoomPlayers);
+    socket.on('rating:update', handleRatingUpdate);
 
     // Attempt rejoin if this socket is new but we have a stored token for this room
     const stored = sessionStorage.getItem('damcash_rejoin_draughts');
@@ -488,6 +503,9 @@ export const DraughtsGame: React.FC = () => {
         }
       } catch { /* corrupt storage — ignore */ }
     }
+
+    // Request fresh player info on mount (handles case where game-start fired before component mounted)
+    socket.emit('room:request-players', { roomId });
 
     return () => {
       socket.off('game-start', handleGameStart);
@@ -504,8 +522,18 @@ export const DraughtsGame: React.FC = () => {
       socket.off('room:tokens', handleRoomTokens);
       socket.off('room:state',  handleRoomState);
       socket.off('room:cancelled', handleRoomCancelled);
+      socket.off('room:players', handleRoomPlayers);
+      socket.off('rating:update', handleRatingUpdate);
     };
   }, [isOnline, playerColor, play, makeMove, handleGameEnd, timeControl.increment]);
+
+  // Warn before closing tab mid-game
+  useEffect(() => {
+    if (!isOnline || gameStatus !== 'playing') return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isOnline, gameStatus]);
 
   // Count pieces
   const whitePieces = board.flat().filter(p => p?.color === 'white').length;
@@ -585,6 +613,12 @@ export const DraughtsGame: React.FC = () => {
                 </div>
                 <div className="game-over-title">{t('game.gameOver')}</div>
                 <div className="game-over-subtitle">{result}</div>
+                {savingResult && (
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginBottom: 4 }}>
+                    <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                    {t('game.savingResult', 'Saving result…')}
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                   <button className="btn btn-primary" onClick={handleNewGame}>{t('game.rematch')}</button>
                   <button className="btn btn-secondary" onClick={() => navigate('/')}>

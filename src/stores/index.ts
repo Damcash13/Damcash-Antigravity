@@ -193,9 +193,15 @@ export const useUserStore = create<UserStore>()(
           const newBalance = s.user.walletBalance + amount;
           // Synchronize with backend for persistence
           if (amount > 0) {
-            api.wallet.deposit(amount).catch(err => console.error('Sync deposit failed', err));
+            api.wallet.deposit(amount).catch(err => {
+              console.error('Sync deposit failed', err);
+              useNotificationStore.getState().addNotification('Wallet sync failed — please refresh', 'warning');
+            });
           } else if (amount < 0) {
-            api.wallet.withdraw(Math.abs(amount)).catch(err => console.error('Sync withdrawal failed', err));
+            api.wallet.withdraw(Math.abs(amount)).catch(err => {
+              console.error('Sync withdrawal failed', err);
+              useNotificationStore.getState().addNotification('Wallet sync failed — please refresh', 'warning');
+            });
           }
           return { user: { ...s.user, walletBalance: newBalance } };
         });

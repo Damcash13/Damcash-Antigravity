@@ -165,8 +165,13 @@ export const LeaderboardPage: React.FC = () => {
             className={`lb-tc-tab ${tc === tab.key ? 'active' : ''}`}
             style={tc === tab.key ? { borderColor: tab.color, color: tab.color } : {}}
             onClick={() => { setTc(tab.key); setPage(0); }}
+            disabled={loading}
           >
-            <span className="lb-tc-icon">{tab.icon}</span>
+            <span className="lb-tc-icon">
+              {loading && tc === tab.key
+                ? <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', verticalAlign: 'middle' }} />
+                : tab.icon}
+            </span>
             <span>{tab.label}</span>
           </button>
         ))}

@@ -540,6 +540,18 @@ io.on('connection', (socket) => {
     log.info(`[rejoin] ${socket.id} rejoined ${roomId} as ${color}`);
   });
 
+  // ── Request player info for a room (called on game component mount) ──────
+  socket.on('room:request-players', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+    const wp = players.get(room.players.white);
+    const bp = players.get(room.players.black);
+    socket.emit('room:players', {
+      whitePlayer: { name: wp?.name || 'White', rating: wp?.rating || { chess: 1500, checkers: 1450 }, country: wp?.country || '' },
+      blackPlayer: { name: bp?.name || 'Black', rating: bp?.rating || { chess: 1500, checkers: 1450 }, country: bp?.country || '' },
+    });
+  });
+
   // ── Direct invite ────────────────────────────────────────────────────────
   socket.on('invite:send', ({ targetSocketId, config, fromName, fromRating }) => {
     const inviteId = genId();
