@@ -464,8 +464,12 @@ export const ProfilePage: React.FC = () => {
     if (!user || (paramUsername && paramUsername !== user.name)) return;
     setProfileLoading(true);
     Promise.all([
-      api.users.games(user.name).then(setApiGames).catch(() => { addNotification(t('errors.profileLoad', 'Could not load game history'), 'error'); }),
-      api.users.fullStats(user.name).then(setFullStats).catch(() => { addNotification(t('errors.statsLoad', 'Could not load stats'), 'error'); }),
+      api.users.games(user.name).then(setApiGames).catch(err => {
+        if (err?.status !== 404) addNotification(t('errors.profileLoad', 'Could not load game history'), 'error');
+      }),
+      api.users.fullStats(user.name).then(setFullStats).catch(err => {
+        if (err?.status !== 404) addNotification(t('errors.statsLoad', 'Could not load stats'), 'error');
+      }),
     ]).finally(() => setProfileLoading(false));
   }, [user?.name]);  // eslint-disable-line react-hooks/exhaustive-deps
 

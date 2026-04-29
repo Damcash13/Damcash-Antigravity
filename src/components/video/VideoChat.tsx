@@ -103,14 +103,12 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
         </div>
       )}
 
-      <div className="video-controls">
+      <div className="video-footer">
         {!localStream ? (
           <button
             className="video-ctrl-btn call"
             onClick={handleStart}
             disabled={isConnecting}
-            title={t('video.startCall')}
-            style={{ width: 'auto', borderRadius: 20, padding: '8px 20px', fontSize: 13, gap: 8 }}
           >
             {isConnecting ? (
               <div className="btn-spin" style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'btn-spin 0.6s linear infinite' }} />
@@ -118,7 +116,7 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
             {isConnecting ? t('video.connecting') : t('video.startCall')}
           </button>
         ) : (
-          <>
+          <div className="video-ctrl-group">
             <button
               className={`video-ctrl-btn ${isMuted ? 'active' : ''}`}
               onClick={toggleMute}
@@ -137,11 +135,10 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
               className="video-ctrl-btn end-call"
               onClick={handleStop}
               title={t('video.endCall')}
-              style={{ width: 'auto', borderRadius: 20, padding: '8px 20px', fontSize: 13, gap: 8 }}
             >
               📵 {t('video.endCall')}
             </button>
-          </>
+          </div>
         )}
       </div>
 
