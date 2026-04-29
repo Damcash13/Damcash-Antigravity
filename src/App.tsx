@@ -38,7 +38,7 @@ import { GameReplayPage } from './components/games/GameReplayPage';
 import { useRatingUpdates } from './hooks/useRatingUpdates';
 import { socket } from './lib/socket';
 import { api } from './lib/api';
-import { checkSupabaseHealth, isSupabaseReachable } from './lib/supabase';
+import { checkSupabaseHealth, isSupabaseReachable, supabase } from './lib/supabase';
 
 
 // ── Lobby wrapper ─────────────────────────────────────────────────────────────
@@ -383,6 +383,9 @@ const App: React.FC = () => {
           <Route path="/wallet/success" element={<main className="main-content"><WalletSuccessPage /></main>} />
           <Route path="/wallet/cancel"  element={<Navigate to={`/${universe}`} replace />} />
 
+          {/* ── Supabase password-reset redirect ── */}
+          <Route path="/reset-password" element={<main className="main-content"><ResetPasswordPage /></main>} />
+
           {/* ── Correspondence shortcut (from email link) ── */}
           <Route path="/correspondence/:id" element={<main className="main-content"><CorrespondenceGame /></main>} />
 
@@ -463,6 +466,59 @@ const WalletSuccessPage: React.FC = () => {
             </button>
             <button className="btn btn-secondary" onClick={() => navigate(`/${universe}`)}>← Go back</button>
           </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ── /reset-password — handles Supabase password-reset redirect ───────────────
+const ResetPasswordPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { universe } = useUniverseStore();
+  const [password, setPassword] = React.useState('');
+  const [confirm, setConfirm]   = React.useState('');
+  const [status, setStatus]     = React.useState<'form' | 'loading' | 'done' | 'error'>('form');
+  const [errMsg, setErrMsg]     = React.useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrMsg('');
+    if (password.length < 6) { setErrMsg('Password must be at least 6 characters.'); return; }
+    if (password !== confirm) { setErrMsg('Passwords do not match.'); return; }
+    if (!supabase) { setErrMsg('Auth service unavailable.'); return; }
+    setStatus('loading');
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      setStatus('done');
+      setTimeout(() => navigate(`/${universe}`), 2500);
+    } catch (err: any) {
+      setErrMsg(err.message || 'Failed to update password.');
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 20, padding: '40px 20px' }}>
+      {status === 'done' ? (
+        <>
+          <div style={{ fontSize: 56 }}>✅</div>
+          <h2 style={{ color: '#22c55e', margin: 0 }}>Password updated!</h2>
+          <p style={{ color: 'var(--text-2)', margin: 0 }}>Redirecting you back…</p>
+        </>
+      ) : (
+        <>
+          <h2 style={{ margin: 0, fontSize: 22 }}>Set new password</h2>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
+            <input type="password" placeholder="New password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required />
+            <input type="password" placeholder="Confirm new password" value={confirm} onChange={e => setConfirm(e.target.value)} required />
+            {errMsg && <div style={{ color: 'var(--danger)', fontSize: 13 }}>{errMsg}</div>}
+            <button type="submit" className={`btn btn-primary btn-full${status === 'loading' ? ' btn-loading' : ''}`} disabled={status === 'loading'}>
+              {status === 'loading' ? '…' : 'Update password'}
+            </button>
+            <button type="button" className="btn btn-secondary btn-full" onClick={() => navigate(`/${universe}`)}>← Cancel</button>
+          </form>
         </>
       )}
     </div>

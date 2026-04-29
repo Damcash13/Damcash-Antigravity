@@ -80,14 +80,22 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
         if (signUpError) throw signUpError;
 
         if (data.session) {
+          // Supabase created a session immediately (email confirmation disabled)
           await restoreSession();
           reset();
           onClose();
         } else {
-          setInfo(t('auth.accountCreated'));
-          setLoading(false);
-          setTab('login');
-          setPassword('');
+          // Email confirmation may be required — try signing in anyway
+          try {
+            await login(email, password);
+            reset();
+            onClose();
+          } catch {
+            // Confirmation required — drop to login tab with prefilled email
+            setInfo(t('auth.accountCreated'));
+            setTab('login');
+            setPassword('');
+          }
         }
       } else {
         if (!email.trim()) { setError(t('auth.emailRequired')); setLoading(false); return; }

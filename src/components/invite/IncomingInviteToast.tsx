@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socket } from '../../lib/socket';
 import { useInviteStore, IncomingInvite } from '../../stores/inviteStore';
+import { useNotifCenterStore } from '../../stores/notifCenterStore';
 import { useSound } from '../../hooks/useSound';
 
 // Single invite card
@@ -120,13 +121,19 @@ const InviteCard: React.FC<{ invite: IncomingInvite }> = ({ invite }) => {
 
 export const IncomingInviteToast: React.FC = () => {
   const { incoming, addIncoming, dismissIncoming } = useInviteStore();
+  const { push: pushNotif } = useNotifCenterStore();
   const { play } = useSound();
 
   useEffect(() => {
     const handleInviteReceived = (data: IncomingInvite) => {
       addIncoming(data);
       play('notification');
-
+      pushNotif({
+        type: 'challenge',
+        icon: '⚔️',
+        title: `Challenge from ${data.fromName}`,
+        body: `${data.fromName} challenged you to a game`,
+      });
       // Auto-dismiss after 30s
       setTimeout(() => dismissIncoming(data.inviteId), 30_000);
     };
