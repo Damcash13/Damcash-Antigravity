@@ -114,6 +114,8 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
       } else if (msg.toLowerCase().includes('user already registered')) {
         setError(t('auth.emailExists'));
         setTab('login');
+      } else if (msg.toLowerCase().includes('database error saving new user')) {
+        setError('Registration failed due to a server configuration issue. Please contact support or try again later.');
       } else {
         setError(msg || t('auth.somethingWentWrong'));
       }
