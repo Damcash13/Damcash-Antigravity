@@ -23,9 +23,11 @@ function timeLeft(t: Tournament): string {
   return `${m}m left`;
 }
 
-const FORMAT_LABELS: Record<string, string> = {
-  arena: 'Arena', swiss: 'Swiss', roundrobin: 'Round Robin',
-};
+  const FORMAT_LABELS: Record<string, string> = {
+    arena: t('tournament.arena'), 
+    swiss: t('tournament.swiss'), 
+    roundrobin: t('tournament.roundRobin'),
+  };
 
 const STATUS_COLORS: Record<TournamentStatus, string> = {
   upcoming: '#3b82f6',
@@ -46,8 +48,33 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
   useEffect(() => { fetchTournaments(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = tournaments
-    .filter(t => t.universe === universe)
-    .filter(t => filter === 'all' || t.status === filter);
+    .filter(tObj => tObj.universe === universe)
+    .filter(tObj => filter === 'all' || tObj.status === filter);
+
+  const FORMAT_LABELS: Record<string, string> = {
+    arena: t('tournament.arena'),
+    swiss: t('tournament.swiss'),
+    roundrobin: t('tournament.roundRobin'),
+  };
+
+  const timeUntilStr = (ts: number): string => {
+    const diff = ts - Date.now();
+    if (diff <= 0) return t('tournament.running');
+    const h = Math.floor(diff / 3_600_000);
+    const m = Math.floor((diff % 3_600_000) / 60_000);
+    if (h > 0) return `${t('tournament.startsIn')} ${h}h ${m}m`;
+    return `${t('tournament.startsIn')} ${m}m`;
+  };
+
+  const timeLeftStr = (tObj: Tournament): string => {
+    const end = tObj.startsAt + tObj.durationMs;
+    const diff = end - Date.now();
+    if (diff <= 0) return t('tournament.finished');
+    const h = Math.floor(diff / 3_600_000);
+    const m = Math.floor((diff % 3_600_000) / 60_000);
+    if (h > 0) return `${h}h ${m}m ${t('tournament.timeRemaining').toLowerCase()}`;
+    return `${m}m ${t('tournament.timeRemaining').toLowerCase()}`;
+  };
 
   return (
     <div className="tl-container">
@@ -117,7 +144,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
               <span className="tl-tag">{FORMAT_LABELS[tourn.format]}</span>
               <span className="tl-tag">{tourn.timeControl}</span>
               {tourn.rated && <span className="tl-tag rated">★ {t('tournament.rated')}</span>}
-              {tourn.betEntry > 0 && <span className="tl-tag bet">💰 ${tourn.betEntry} entry</span>}
+              {tourn.betEntry > 0 && <span className="tl-tag bet">💰 ${tourn.betEntry} {t('tournament.entry').toLowerCase()}</span>}
               {tourn.prizePool > 0 && <span className="tl-tag prize">🎁 ${tourn.prizePool}</span>}
             </div>
 
@@ -128,9 +155,9 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
                 <span>·</span>
                 <span>
                   {tourn.status === 'running'
-                    ? timeLeft(tourn)
+                    ? timeLeftStr(tourn)
                     : tourn.status === 'upcoming'
-                    ? timeUntil(tourn.startsAt)
+                    ? timeUntilStr(tourn.startsAt)
                     : t('tournament.finished')}
                 </span>
               </div>

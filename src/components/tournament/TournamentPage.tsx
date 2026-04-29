@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useUserStore, useNotificationStore } from '../../stores';
 import { useTournamentStore } from '../../stores/tournamentStore';
 import { TournamentList } from './TournamentList';
@@ -24,9 +25,11 @@ function timeAgo(ts: number): string {
   return `${Math.floor(m / 60)}h ago`;
 }
 
-const FORMAT_LABEL: Record<string, string> = {
-  arena: '🎪 Arena', swiss: '🔀 Swiss', roundrobin: '🔄 Round Robin',
-};
+  const FORMAT_LABEL: Record<string, string> = {
+    arena: `🎪 ${t('tournament.arena')}`, 
+    swiss: `🔀 ${t('tournament.swiss')}`, 
+    roundrobin: `🔄 ${t('tournament.roundRobin')}`,
+  };
 
 // ── Medal helper ──────────────────────────────────────────────────────────────
 function medal(rank: number) {
@@ -45,6 +48,7 @@ export const TournamentPage: React.FC = () => {
   const { addNotification } = useNotificationStore();
   const { tournaments, fetchOne, joinTournament, leaveTournament, loading } = useTournamentStore();
 
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'standings' | 'pairings' | 'games' | 'info'>('standings');
   const [, forceUpdate] = useState(0);
   const [joining, setJoining] = useState(false);
@@ -81,9 +85,10 @@ export const TournamentPage: React.FC = () => {
     return (
       <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-3)' }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
-        <h2 style={{ color: 'var(--text-1)' }}>Tournament not found</h2>
+        <h2 style={{ color: 'var(--text-1)' }}>{t('common.error')}</h2>
+        <p>{t('tournament.noTournaments')}</p>
         <button className="btn btn-secondary" onClick={() => navigate(`/${universe}`)}>
-          ← Back to Lobby
+          ← {t('tournament.backToLobby')}
         </button>
       </div>
     );
@@ -103,13 +108,13 @@ export const TournamentPage: React.FC = () => {
     try {
       if (hasJoined) {
         await leaveTournament(tournament.id);
-        addNotification('You withdrew from the tournament.', 'info');
+        addNotification(t('profile.profileSaved'), 'info');
       } else {
         await joinTournament(tournament.id);
-        addNotification(`You joined ${tournament.name}!`, 'success');
+        addNotification(t('game.gameStarted'), 'success');
       }
     } catch (e: any) {
-      addNotification(e?.message || 'Failed to update registration', 'error');
+      addNotification(e?.message || t('common.error'), 'error');
     } finally {
       setJoining(false);
     }
@@ -127,7 +132,7 @@ export const TournamentPage: React.FC = () => {
     <div className="tp-page">
       {/* ── Back ── */}
       <button className="tp-back" onClick={() => navigate(`/${universe}`)}>
-        ← Back to Lobby
+        ← {t('tournament.backToLobby')}
       </button>
 
       {/* ── Hero header ── */}
@@ -140,9 +145,9 @@ export const TournamentPage: React.FC = () => {
               <span>{FORMAT_LABEL[tournament.format]}</span>
               <span>·</span>
               <span>⏱ {tournament.timeControl}</span>
-              {tournament.rated && <><span>·</span><span>★ Rated</span></>}
-              {tournament.betEntry > 0 && <><span>·</span><span>💰 ${tournament.betEntry} entry</span></>}
-              {tournament.prizePool > 0 && <><span>·</span><span className="tp-prize">🎁 ${tournament.prizePool} prize</span></>}
+              {tournament.rated && <><span>·</span><span>★ {t('tournament.rated')}</span></>}
+              {tournament.betEntry > 0 && <><span>·</span><span>💰 ${tournament.betEntry} {t('tournament.entry').toLowerCase()}</span></>}
+              {tournament.prizePool > 0 && <><span>·</span><span className="tp-prize">🎁 ${tournament.prizePool} {t('tournament.prize').toLowerCase()}</span></>}
             </div>
           </div>
         </div>
@@ -151,13 +156,13 @@ export const TournamentPage: React.FC = () => {
           {/* Countdown */}
           {isRunning && (
             <div className="tp-countdown-wrap">
-              <div className="tp-countdown-label">Time remaining</div>
+              <div className="tp-countdown-label">{t('tournament.timeRemaining')}</div>
               <div className="tp-countdown">{formatCountdown(timeLeftMs)}</div>
             </div>
           )}
           {isUpcoming && (
             <div className="tp-countdown-wrap">
-              <div className="tp-countdown-label">Starts in</div>
+              <div className="tp-countdown-label">{t('tournament.startsIn')}</div>
               <div className="tp-countdown">{formatCountdown(startsIn)}</div>
             </div>
           )}
@@ -170,8 +175,8 @@ export const TournamentPage: React.FC = () => {
               disabled={joining}
             >
               {joining ? '…' : hasJoined
-                ? isRunning ? '🏳 Withdraw' : '✕ Cancel'
-                : isRunning ? '▶ Join Now' : '✓ Register'}
+                ? isRunning ? `🏳 ${t('tournament.withdraw')}` : `✕ ${t('common.cancel')}`
+                : isRunning ? `▶ ${t('tournament.join')}` : `✓ ${t('tournament.registerNow')}`}
             </button>
           )}
         </div>
@@ -181,23 +186,23 @@ export const TournamentPage: React.FC = () => {
       <div className="tp-stats-bar">
         <div className="tp-stat">
           <span className="tp-stat-val">{tournament.players.length}</span>
-          <span className="tp-stat-label">Players</span>
+          <span className="tp-stat-label">{t('tournament.players')}</span>
         </div>
         <div className="tp-stat">
           <span className="tp-stat-val">{tournament.games.length}</span>
-          <span className="tp-stat-label">Games played</span>
+          <span className="tp-stat-label">{t('tournament.played')}</span>
         </div>
         {tournament.format !== 'arena' && (
           <div className="tp-stat">
             <span className="tp-stat-val">{tournament.currentRound}/{tournament.totalRounds}</span>
-            <span className="tp-stat-label">Rounds</span>
+            <span className="tp-stat-label">{t('tournament.rounds')}</span>
           </div>
         )}
         <div className="tp-stat">
           <span className="tp-stat-val">
-            {isRunning ? '🔴 LIVE' : isUpcoming ? '⏰' : '✅ Ended'}
+            {isRunning ? `🔴 ${t('tournament.running')}` : isUpcoming ? '⏰' : `✅ ${t('tournament.finished')}`}
           </span>
-          <span className="tp-stat-label">Status</span>
+          <span className="tp-stat-label">{t('tournament.standing')}</span>
         </div>
       </div>
 
@@ -209,10 +214,10 @@ export const TournamentPage: React.FC = () => {
             className={`tp-tab ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'standings' ? '📊 Standings'
-           : tab === 'pairings'  ? '⚔️ Pairings'
-           : tab === 'games'     ? '🎮 Games'
-           :                       'ℹ️ Info'}
+            {tab === 'standings' ? `📊 ${t('tournament.standing')}`
+           : tab === 'pairings'  ? `⚔️ ${t('tournament.pairingsTBD').split(' ')[0]}`
+           : tab === 'games'     ? `🎮 ${t('common.games')}`
+           :                       `ℹ️ ${t('profile.overview')}`}
           </button>
         ))}
       </div>
@@ -224,11 +229,11 @@ export const TournamentPage: React.FC = () => {
             <div className="tp-empty">
               <div style={{ fontSize: 40 }}>👥</div>
               <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 8 }}>
-                {isUpcoming ? 'No registrations yet — be the first!' : 'No players yet'}
+                {isUpcoming ? t('tournament.noRegistrations') : t('tournament.noTournaments')}
               </div>
               {isUpcoming && !hasJoined && (
                 <button className="btn tp-btn-join" style={{ marginTop: 16 }} onClick={handleJoin}>
-                  ✓ Register Now
+                  ✓ {t('tournament.registerNow')}
                 </button>
               )}
             </div>
@@ -236,11 +241,11 @@ export const TournamentPage: React.FC = () => {
             <AppErrorBoundary key={tournament.id}>
               <div className="tp-table-head">
                 <span>#</span>
-                <span>Player</span>
-                <span className="tp-col-center">Score</span>
-                <span className="tp-col-center">Games</span>
+                <span>{t('leaderboard.player')}</span>
+                <span className="tp-col-center">{t('tournament.score')}</span>
+                <span className="tp-col-center">{t('common.games')}</span>
                 <span className="tp-col-center">W / D / L</span>
-                <span className="tp-col-center">Perf.</span>
+                <span className="tp-col-center">{t('tournament.standing')}</span>
               </div>
               {standings.map((player, idx) => {
                 const rank = idx + 1;
@@ -254,8 +259,8 @@ export const TournamentPage: React.FC = () => {
                       </div>
                       <div>
                         <div className="tp-player-name">
-                          {player.name || 'Unknown'}
-                          {isMe && <span className="tp-you-badge">you</span>}
+                          {player.name || t('common.unknown')}
+                          {isMe && <span className="tp-you-badge">{t('lobby.you')}</span>}
                           {player.fire && <span title="On a streak">🔥</span>}
                         </div>
                         <div className="tp-player-rating">{player.rating ?? '—'}</div>
@@ -284,7 +289,7 @@ export const TournamentPage: React.FC = () => {
             <div className="tp-empty">
               <div style={{ fontSize: 40 }}>⚔️</div>
               <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 8 }}>
-                {isUpcoming ? 'Pairings will be drawn when the tournament starts' : 'No pairings yet'}
+                {t('tournament.pairingsTBD')}
               </div>
             </div>
           ) : (
@@ -292,10 +297,10 @@ export const TournamentPage: React.FC = () => {
               {/* Current / Next round header */}
               <div className="tp-round-header">
                 {isRunning
-                  ? `Round ${tournament.currentRound} — Live Pairings`
+                  ? `${t('tournament.round')} ${tournament.currentRound} — ${t('tournament.livePairings')}`
                   : isUpcoming
-                  ? 'Registered players (pairings TBD)'
-                  : `Final pairings — ${tournament.totalRounds || tournament.games.length} rounds`}
+                  ? t('tournament.registeredPlayers')
+                  : `${t('tournament.finalPairings')} — ${tournament.totalRounds || tournament.games.length} ${t('tournament.rounds').toLowerCase()}`}
               </div>
 
               {/* Arena: show all current games as pairings */}
@@ -368,7 +373,7 @@ export const TournamentPage: React.FC = () => {
                         <div className="tp-player-avatar" style={{ background: p.name === myName ? 'var(--accent)' : undefined }}>
                           {p.name[0]?.toUpperCase()}
                         </div>
-                        <span>{p.name}{p.name === myName && <span className="tp-you-badge">you</span>}</span>
+                        <span>{p.name}{p.name === myName && <span className="tp-you-badge">{t('lobby.you')}</span>}</span>
                       </span>
                       <span className="tp-col-center tp-dim">{p.rating}</span>
                     </div>
@@ -387,7 +392,7 @@ export const TournamentPage: React.FC = () => {
             <div className="tp-empty">
               <div style={{ fontSize: 40 }}>🎮</div>
               <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 8 }}>
-                No games played yet
+                {t('tournament.gamesPlayedYet')}
               </div>
             </div>
           ) : (
@@ -405,7 +410,7 @@ export const TournamentPage: React.FC = () => {
                   <span className="tp-gp black">{game.black}</span>
                 </div>
                 <div className="tp-game-meta">
-                  <span>{game.moves} moves</span>
+                  <span>{game.moves} {t('game.moves').toLowerCase()}</span>
                   <span>·</span>
                   <span>{game.duration}</span>
                   <span>·</span>
@@ -422,49 +427,49 @@ export const TournamentPage: React.FC = () => {
         <div className="tp-info-panel">
           <div className="tp-info-grid">
             <div className="tp-info-card">
-              <div className="tp-info-label">Format</div>
+              <div className="tp-info-label">{t('tournament.format')}</div>
               <div className="tp-info-val">{FORMAT_LABEL[tournament.format]}</div>
             </div>
             <div className="tp-info-card">
-              <div className="tp-info-label">Time Control</div>
+              <div className="tp-info-label">{t('tournament.timeControl')}</div>
               <div className="tp-info-val">⏱ {tournament.timeControl}</div>
             </div>
             <div className="tp-info-card">
-              <div className="tp-info-label">Rating</div>
-              <div className="tp-info-val">{tournament.rated ? '★ Rated' : '☆ Casual'}</div>
+              <div className="tp-info-label">{t('common.rating')}</div>
+              <div className="tp-info-val">{tournament.rated ? `★ ${t('tournament.rated')}` : `☆ ${t('tournament.unrated')}`}</div>
             </div>
             {tournament.betEntry > 0 && (
               <div className="tp-info-card">
-                <div className="tp-info-label">Entry Fee</div>
+                <div className="tp-info-label">{t('tournament.entry')}</div>
                 <div className="tp-info-val">💰 ${tournament.betEntry}</div>
               </div>
             )}
             {tournament.prizePool > 0 && (
               <div className="tp-info-card">
-                <div className="tp-info-label">Prize Pool</div>
+                <div className="tp-info-label">{t('tournament.prizePool')}</div>
                 <div className="tp-info-val prize">🎁 ${tournament.prizePool}</div>
               </div>
             )}
             <div className="tp-info-card">
-              <div className="tp-info-label">Max Players</div>
+              <div className="tp-info-label">{t('tournament.maxPlayers')}</div>
               <div className="tp-info-val">{tournament.maxPlayers}</div>
             </div>
             {tournament.totalRounds > 0 && (
               <div className="tp-info-card">
-                <div className="tp-info-label">Rounds</div>
+                <div className="tp-info-label">{t('tournament.rounds')}</div>
                 <div className="tp-info-val">{tournament.totalRounds}</div>
               </div>
             )}
           </div>
 
           <div className="tp-desc-box">
-            <div className="tp-desc-title">About this tournament</div>
+            <div className="tp-desc-title">{t('tournament.aboutTournament')}</div>
             <p className="tp-desc-text">{tournament.description}</p>
           </div>
 
           {tournament.format === 'arena' && (
             <div className="tp-rules-box">
-              <div className="tp-desc-title">Arena Rules</div>
+              <div className="tp-desc-title">{t('tournament.arenaRules')}</div>
               <ul className="tp-rules">
                 <li>Players can join and leave at any time during the tournament.</li>
                 <li>Games are paired automatically against available opponents.</li>
@@ -477,7 +482,7 @@ export const TournamentPage: React.FC = () => {
 
           {tournament.format === 'swiss' && (
             <div className="tp-rules-box">
-              <div className="tp-desc-title">Swiss Rules</div>
+              <div className="tp-desc-title">{t('tournament.swissRules')}</div>
               <ul className="tp-rules">
                 <li>All players play {tournament.totalRounds} rounds.</li>
                 <li>Players with similar scores are paired each round.</li>

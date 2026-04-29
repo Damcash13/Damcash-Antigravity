@@ -181,7 +181,7 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
                       {isWin ? '+' : ''}{pnl !== 0 ? `$${Math.abs(pnl).toFixed(2)}` : '$0.00'}
                     </div>
                     <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', background: isWin ? 'rgba(34,197,94,0.15)' : isLoss ? 'rgba(239,68,68,0.15)' : 'var(--bg-3)', color: isWin ? '#22c55e' : isLoss ? '#ef4444' : 'var(--text-3)', padding: '2px 6px', borderRadius: 4 }}>
-                      {bet.status}
+                      {t(`betting.${bet.status}`)}
                     </div>
                   </div>
                 </div>
