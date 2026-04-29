@@ -10,6 +10,7 @@
  * which is signed with your App Certificate — never exposed to the client.
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { api } from '../lib/api';
 
 // Agora Web SDK v4 — loaded via npm (agora-rtc-sdk-ng)
 // We lazy-import so SSR / non-game pages don't bundle the full SDK.
@@ -80,14 +81,8 @@ export function useAgora() {
     setState(s => ({ ...s, isConnecting: true, error: null }));
 
     try {
-      // 1. Get token from backend
-      const res = await fetch('/api/agora/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelName, uid: 0 }),
-      });
-      if (!res.ok) throw new Error('Failed to get Agora token');
-      const { token, uid } = await res.json();
+      // 1. Get token from backend (uses authenticated request helper)
+      const { token, uid } = await api.agora.token(channelName, 0);
 
       // 2. Create Agora client
       const RTC = await getAgoraRTC();

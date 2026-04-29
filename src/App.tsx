@@ -198,6 +198,8 @@ const App: React.FC = () => {
       roomId: string; white: string; black: string;
       config?: { universe?: string; timeControl?: string; betAmount?: number };
       timeControl?: string;
+      whitePlayer?: { name: string; rating: any; country: string };
+      blackPlayer?: { name: string; rating: any; country: string };
     }) => {
       const myColor = data.white === socket.id ? 'w' : 'b';
       const univ    = data.config?.universe || universe;
@@ -205,7 +207,10 @@ const App: React.FC = () => {
       const bet     = data.config?.betAmount || 0;
       setSearching(null);
       closeConfig();
-      navigate(`/${univ}/game/${data.roomId}?color=${myColor}&tc=${tc}&bet=${bet}`);
+      navigate(
+        `/${univ}/game/${data.roomId}?color=${myColor}&tc=${tc}&bet=${bet}`,
+        { state: { whitePlayer: data.whitePlayer, blackPlayer: data.blackPlayer } },
+      );
     };
 
     // Error joining a room

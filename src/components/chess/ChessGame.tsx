@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Chess, Square, PieceSymbol } from 'chess.js';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { socket } from '../../lib/socket';
 import { ChessBoard } from './ChessBoard';
 import { Clock } from '../common/Clock';
@@ -41,6 +41,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const navigate = useNavigate();
   const { mode, tc, id } = useParams<{ mode?: string; tc?: string; id?: string }>();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { user } = useUserStore();
   const { addNotification } = useNotificationStore();
   const { settleBet, activeBet } = useBettingStore();
@@ -85,7 +86,14 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const computerMovePending = useRef(false);
   const computerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [opponentInfo, setOpponentInfo] = useState<{ name: string; rating: number; country: string }>({ name: 'Opponent', rating: 1500, country: '' });
+  const [opponentInfo, setOpponentInfo] = useState<{ name: string; rating: number; country: string }>(() => {
+    const nav = (location.state as any);
+    if (nav?.whitePlayer && nav?.blackPlayer) {
+      const opp = myColor === 'w' ? nav.blackPlayer : nav.whitePlayer;
+      return { name: opp?.name || 'Opponent', rating: opp?.rating?.chess ?? opp?.rating ?? 1500, country: opp?.country || '' };
+    }
+    return { name: 'Opponent', rating: 1500, country: '' };
+  });
   const opponent = isVsComputer ? COMPUTER_OPPONENT : { id: 'p2', name: opponentInfo.name, rating: opponentInfo.rating };
 
   const currentTurn = game.turn();

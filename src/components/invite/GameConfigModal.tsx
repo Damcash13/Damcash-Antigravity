@@ -74,17 +74,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
     return () => socket.off('room:created', handleRoomCreated);
   }, [config, setMyRoom]);
 
-  // Listen for game-start (both players in room)
-  useEffect(() => {
-    const handleStart = (data: { roomId: string; white: string; black: string; config: GameConfig }) => {
-      const myColor = data.white === socket.id ? 'w' : 'b';
-      const cfg = data.config || config;
-      navigate(`/${cfg.universe}/game/${data.roomId}?color=${myColor}&tc=${cfg.timeControl}&bet=${cfg.betAmount}`);
-      onClose();
-    };
-    socket.on('game-start', handleStart);
-    return () => socket.off('game-start', handleStart);
-  }, [config, navigate, onClose]);
+
 
   if (!open) return null;
 

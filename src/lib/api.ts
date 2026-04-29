@@ -58,6 +58,14 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  agora: {
+    token: (channelName: string, uid = 0) =>
+      request<{ token: string | null; appId?: string; uid: number }>(
+        '/api/agora/token',
+        { method: 'POST', body: JSON.stringify({ channelName, uid }) },
+      ),
+  },
+
   auth: {
     // NOTE: register and login are handled client-side via Supabase Auth.
     // The backend only provides /api/auth/me for profile sync after Supabase login.

@@ -207,17 +207,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
     };
   }, [user]);
 
-  // Socket: game-start (matchmaking resolved)
-  useEffect(() => {
-    const h = (data: { roomId: string; white: string; black: string }) => {
-      const myColor = data.white === socket.id ? 'w' : 'b';
-      onMatchFound(data.roomId, myColor);
-    };
-    socket.on('game-start', h);
-    return () => {
-      socket.off('game-start', h);
-    };
-  }, [onMatchFound]);
+
 
   // Socket: seek expired after 120s
   useEffect(() => {
@@ -482,8 +472,23 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
               // Check if this player has an open seek
               const theirSeek = seeks.find(s => s.socketId === player.socketId && s.universe === universe);
 
+              const canChallenge = !isMe && !theirSeek;
+              const handleChallenge = () => {
+                if (!canChallenge) return;
+                socket.emit('invite:send', {
+                  targetSocketId: player.socketId,
+                  config: { universe, timeControl: '5+0', betAmount: 0, colorPref: 'random', rated: true },
+                  fromName: user?.name || 'Guest',
+                  fromRating: myRating,
+                });
+              };
+
               return (
-                <div key={player.socketId} className={`lobby-player-card ${isMe ? 'me' : ''}`}>
+                <div
+                  key={player.socketId}
+                  className={`lobby-player-card ${isMe ? 'me' : ''} ${canChallenge ? 'challengeable' : ''}`}
+                  onClick={handleChallenge}
+                >
                   <div className="lobby-player-avatar" style={{ background: isMe ? 'var(--accent)' : undefined }}>
                     {player.name[0]?.toUpperCase()}
                   </div>
@@ -503,21 +508,13 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <StatusDot status={theirSeek ? 'seeking' : player.status} />
-                    {!isMe && !theirSeek && (
-                      <button
-                        className="lobby-challenge-btn"
-                        onClick={() => socket.emit('invite:send', {
-                          targetSocketId: player.socketId,
-                          config: { universe, timeControl: '5+0', betAmount: 0, colorPref: 'random', rated: true },
-                          fromName: user?.name || 'Guest',
-                          fromRating: myRating,
-                        })}
-                      >
+                    {canChallenge && (
+                      <span className="lobby-challenge-btn" aria-label={`Challenge ${player.name}`}>
                         ⚔
-                      </button>
+                      </span>
                     )}
                     {theirSeek && (
-                      <button className="lobby-join-btn" onClick={() => handleAccept(theirSeek)}>
+                      <button className="lobby-join-btn" onClick={(e) => { e.stopPropagation(); handleAccept(theirSeek); }}>
                         {t('tournament.join')}
                       </button>
                     )}

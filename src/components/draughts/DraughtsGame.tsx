@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { socket } from '../../lib/socket';
 import { DraughtsBoard as Board } from './DraughtsBoard';
 import { Clock } from '../common/Clock';
@@ -37,6 +37,7 @@ export const DraughtsGame: React.FC = () => {
   const navigate = useNavigate();
   const { mode, tc, id } = useParams<{ mode?: string; tc?: string; id?: string }>();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { user } = useUserStore();
   const { addNotification } = useNotificationStore();
   const { settleBet, activeBet } = useBettingStore();
@@ -84,7 +85,14 @@ export const DraughtsGame: React.FC = () => {
   const computerMovePending = useRef(false);
   const computerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [opponentInfo, setOpponentInfo] = useState<{ name: string; rating: number; country: string }>({ name: 'Opponent', rating: 1500, country: '' });
+  const [opponentInfo, setOpponentInfo] = useState<{ name: string; rating: number; country: string }>(() => {
+    const nav = (location.state as any);
+    if (nav?.whitePlayer && nav?.blackPlayer) {
+      const opp = playerColor === 'white' ? nav.blackPlayer : nav.whitePlayer;
+      return { name: opp?.name || 'Opponent', rating: opp?.rating?.checkers ?? opp?.rating ?? 1450, country: opp?.country || '' };
+    }
+    return { name: 'Opponent', rating: 1450, country: '' };
+  });
   const opponent = isVsComputer ? COMPUTER_OPPONENT : { id: 'p2', name: opponentInfo.name, rating: opponentInfo.rating };
 
   // ── Register this game in the live games store ──────────────────────────────
