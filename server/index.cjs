@@ -1354,6 +1354,11 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
       // Create local profile from Supabase user metadata
       let username = req.user.user_metadata?.username || `user_${req.user.id.slice(0, 8)}`;
 
+      // Strip email addresses — some browsers autofill the username field with the email
+      if (username.includes('@')) username = username.split('@')[0];
+      // Ensure username isn't empty after stripping
+      if (!username) username = `user_${req.user.id.slice(0, 8)}`;
+
       // Ensure username is unique — append random suffix on collision
       const existing = await prisma.user.findUnique({ where: { username } });
       if (existing) {
