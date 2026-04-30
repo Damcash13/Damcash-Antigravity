@@ -14,7 +14,7 @@ export function useRatingUpdates() {
 
   // Register player info when logged in (so server knows their rating + games played)
   useEffect(() => {
-    if (!isLoggedIn || !user) return;
+    if (!user) return;
     socket.emit('player:register', {
       name:        user.name,
       rating:      user.rating,
@@ -23,7 +23,7 @@ export function useRatingUpdates() {
       country:     user.country || '',
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn, user?.name, user?.country, gamesPlayed.chess, gamesPlayed.checkers]);
+  }, [user?.name, user?.country, gamesPlayed.chess, gamesPlayed.checkers, socket.id]);
 
   // Listen for ELO updates
   useEffect(() => {

@@ -111,9 +111,9 @@ export default function App() {
       setSearching(null);
       navigate(`/${uv}/game/${roomId}`);
     };
-    const handleGameStart = ({ roomId, config }: { roomId: string; config: { universe: string } }) => {
+    const handleGameStart = (data: any) => {
       setSearching(null);
-      navigate(`/${config.universe}/game/${roomId}`);
+      navigate(`/${data.config.universe}/game/${data.roomId}`, { state: data });
     };
 
     socket.on('players:online', handlePlayersOnline);
@@ -239,8 +239,8 @@ function JoinByCodeRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
     if (!code) return;
-    const handleGameStart = ({ roomId, config }: { roomId: string; config: { universe: string } }) => {
-      navigate(`/${config.universe}/game/${roomId}`);
+    const handleGameStart = (data: any) => {
+      navigate(`/${data.config.universe}/game/${data.roomId}`, { state: data });
     };
     const handleError = () => navigate('/');
     socket.on('game-start', handleGameStart);

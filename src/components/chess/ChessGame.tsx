@@ -511,7 +511,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
 
     const handleRoomPlayers = (data: any) => {
       const opp = myColor === 'w' ? data.blackPlayer : data.whitePlayer;
-      if (opp?.name && opp.name !== 'White' && opp.name !== 'Black') {
+      if (opp?.name && (opponentInfo.name === 'Opponent' || (opp.name !== 'White' && opp.name !== 'Black'))) {
         setOpponentInfo({ name: opp.name, rating: Number(opp.rating?.chess ?? opp.rating) || 1500, country: opp.country || '' });
       }
     };
