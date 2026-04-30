@@ -2419,7 +2419,7 @@ const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
 let AgoraAccessToken = null;
 try { AgoraAccessToken = require('agora-access-token'); } catch { /* not installed yet */ }
 
-app.post('/api/agora/token', requireAuth, async (req, res) => {
+app.post('/api/agora/token', async (req, res) => {
   if (!AGORA_APP_ID) {
     return res.status(503).json({ error: 'Agora not configured (AGORA_APP_ID missing)' });
   }

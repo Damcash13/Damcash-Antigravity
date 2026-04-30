@@ -439,8 +439,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     };
 
     const handleGameStart = (data: any) => {
-      const myName = userRef.current?.name || '';
-      const isWhite = data.whitePlayer?.name === myName || myColor === 'w';
+      const isWhite = data.white === socket.id;
       const opp = isWhite ? data.blackPlayer : data.whitePlayer;
       if (opp) setOpponentInfo({ name: opp.name, rating: opp.rating?.chess ?? opp.rating ?? 1500, country: opp.country || '' });
     };
