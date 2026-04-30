@@ -583,6 +583,26 @@ io.on('connection', (socket) => {
     if (!room) return;
     const wp = players.get(room.players.white);
     const bp = players.get(room.players.black);
+
+    // Defensive: join the room if not already joined (handles reloads/reconnects)
+    // If socket.id doesn't match but we are the same logged-in user, update the socket ID in the room.
+    const myUserId = socketToUserId.get(socket.id);
+    if (myUserId) {
+      const whiteUserId = socketToUserId.get(room.players.white);
+      const blackUserId = socketToUserId.get(room.players.black);
+      if (whiteUserId === myUserId) {
+        room.players.white = socket.id;
+        log.info(`[ROOM] Updated white player socket to ${socket.id} for user ${myUserId}`);
+      } else if (blackUserId === myUserId) {
+        room.players.black = socket.id;
+        log.info(`[ROOM] Updated black player socket to ${socket.id} for user ${myUserId}`);
+      }
+    }
+
+    if (room.players.white === socket.id || room.players.black === socket.id) {
+      socket.join(roomId);
+    }
+
     socket.emit('room:players', {
       whitePlayer: { name: wp?.name || 'White', rating: wp?.rating || { chess: 1500, checkers: 1450 }, country: wp?.country || '' },
       blackPlayer: { name: bp?.name || 'Black', rating: bp?.rating || { chess: 1500, checkers: 1450 }, country: bp?.country || '' },

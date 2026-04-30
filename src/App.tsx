@@ -113,7 +113,12 @@ export default function App() {
     };
     const handleGameStart = (data: any) => {
       setSearching(null);
-      const color = data.white === socket.id ? 'w' : 'b';
+      let color = 'w';
+      if (data.black === socket.id || (data.blackPlayer?.name === user?.name && user?.name)) {
+        color = 'b';
+      } else if (data.white === socket.id || (data.whitePlayer?.name === user?.name && user?.name)) {
+        color = 'w';
+      }
       navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
     };
 
@@ -241,7 +246,12 @@ function JoinByCodeRedirect() {
   useEffect(() => {
     if (!code) return;
     const handleGameStart = (data: any) => {
-      const color = data.white === socket.id ? 'w' : 'b';
+      let color = 'w';
+      if (data.black === socket.id || (data.blackPlayer?.name === user?.name && user?.name)) {
+        color = 'b';
+      } else if (data.white === socket.id || (data.whitePlayer?.name === user?.name && user?.name)) {
+        color = 'w';
+      }
       navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
     };
     const handleError = () => navigate('/');
