@@ -42,11 +42,15 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const { mode, tc, id } = useParams<{ mode?: string; tc?: string; id?: string }>();
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const { user } = useUserStore();
-  const { addNotification } = useNotificationStore();
-  const { settleBet, activeBet } = useBettingStore();
-  const { registerGame, updateGame, removeGame } = useLiveGamesStore();
-  const { saveGame, setCurrentGame } = useAnalysisStore();
+  const user           = useUserStore(s => s.user);
+  const addNotification = useNotificationStore(s => s.addNotification);
+  const activeBet      = useBettingStore(s => s.activeBet);
+  const settleBet      = useBettingStore(s => s.settleBet);
+  const registerGame   = useLiveGamesStore(s => s.registerGame);
+  const updateGame     = useLiveGamesStore(s => s.updateGame);
+  const removeGame     = useLiveGamesStore(s => s.removeGame);
+  const saveGame       = useAnalysisStore(s => s.saveGame);
+  const setCurrentGame = useAnalysisStore(s => s.setCurrentGame);
   const { play } = useSound();
 
   const urlTc = tc || searchParams.get('tc') || '5+0';
@@ -73,6 +77,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [showBetting, setShowBetting] = useState(false);
   const [showVideo, setShowVideo] = useState(true);
+  const [isOpponentDisconnected, setIsOpponentDisconnected] = useState(false);
   const [activeTab, setActiveTab] = useState<'moves' | 'chat'>('moves');
   const [drawOffered, setDrawOffered] = useState(false);
   const [incomingDraw, setIncomingDraw] = useState(false);
@@ -483,8 +488,25 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     const handleTakebackExpired  = () => { setTakebackSent(false); addNotification(t('game.takebackExpired', 'Takeback request expired'), 'warning'); };
 
     const handleRoomCancelled = () => {
-      addNotification(t('game.roomCancelled', 'Opponent left the room before starting'), 'info');
+      addNotification(t('game.roomCancelled'), 'info');
       navigate('/');
+    };
+
+    const handlePlayerDisconnected = (data: { socketId: string }) => {
+      addNotification(t('game.opponentDisconnected'), 'warning');
+      setIsOpponentDisconnected(true);
+      // If no moves were made, just go back. Otherwise, the game is likely aborted or ended.
+      if (moveHistory.length === 0) {
+        navigate('/');
+      } else {
+        setGameStatus('ended');
+        setResult(t('game.opponentLeft'));
+      }
+    };
+
+    const handlePlayerReconnected = (data: { socketId: string; color: string }) => {
+      addNotification(t('game.opponentReconnected'), 'success');
+      setIsOpponentDisconnected(false);
     };
 
     const handleRoomPlayers = (data: any) => {
@@ -512,6 +534,8 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     socket.on('room:cancelled', handleRoomCancelled);
     socket.on('room:players', handleRoomPlayers);
     socket.on('rating:update', handleRatingUpdate);
+    socket.on('player-disconnected', handlePlayerDisconnected);
+    socket.on('player-reconnected',  handlePlayerReconnected);
 
     // Attempt rejoin if this socket is new but we have a stored token for this room
     const stored = sessionStorage.getItem('damcash_rejoin_chess');
@@ -544,6 +568,8 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       socket.off('room:cancelled', handleRoomCancelled);
       socket.off('room:players', handleRoomPlayers);
       socket.off('rating:update', handleRatingUpdate);
+      socket.off('player-disconnected', handlePlayerDisconnected);
+      socket.off('player-reconnected',  handlePlayerReconnected);
     };
   }, [isOnline, playerColor, play, timeControl.increment]);
 
@@ -586,6 +612,11 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                   </span>
                 )}
                 <strong>{opponent.name}</strong>
+                {isOpponentDisconnected && (
+                  <span style={{ color: '#ef4444', fontSize: 11, fontWeight: 700, marginLeft: 6 }}>
+                    ● {t('game.disconnected', 'OFFLINE')}
+                  </span>
+                )}
               </div>
             </PlayerPopover>
             <div className="player-rating">({opponent.rating})</div>
@@ -717,7 +748,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
               >
                 {drawOffered ? '½ Offered…' : '½ Draw'}
               </button>
-              {(moveHistory.length > 0 || game.fen() !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') ? (
+              {(moveHistory.length > 0 || game.history().length > 0) ? (
                 <button
                   className="btn btn-danger btn-sm"
                   style={{ flex: 1 }}

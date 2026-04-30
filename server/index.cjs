@@ -228,12 +228,14 @@ function removeSeekBySocket(socketId) {
       if (tid) { clearTimeout(tid); seekTimeouts.delete(seekId); }
     }
   }
+  broadcastSeeks();
 }
 
 function removeSeekById(seekId) {
   const tid = seekTimeouts.get(seekId);
   if (tid) { clearTimeout(tid); seekTimeouts.delete(seekId); }
   seeks.delete(seekId);
+  broadcastSeeks();
 }
 
 async function startRoom(roomId, creatorId, joinerId, config) {
@@ -568,6 +570,7 @@ io.on('connection', (socket) => {
       whitePlayer: players.get(room.players.white),
       blackPlayer: players.get(room.players.black),
     });
+    socket.to(roomId).emit('player-reconnected', { socketId: socket.id, color });
 
     log.info(`[rejoin] ${socket.id} rejoined ${roomId} as ${color}`);
   });

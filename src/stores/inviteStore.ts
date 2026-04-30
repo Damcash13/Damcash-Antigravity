@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { Universe } from '../types';
 import { supabase } from '../lib/supabase';
+import { socket } from '../lib/socket';
+import { useUniverseStore } from './index';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -99,7 +101,7 @@ export const useInviteStore = create<InviteStore>((set) => ({
   closeConfig: () => set({ configOpen: false, configTarget: null }),
 
   initPresence: (username, rating) => {
-    if (!supabase) return;
+    if (!supabase || !socket) return;
 
     // Avoid multiple subscriptions
     if ((window as any).__presenceChannel) return;
@@ -133,10 +135,13 @@ export const useInviteStore = create<InviteStore>((set) => ({
       })
       .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
+          // Wait a tiny bit for socket ID to be ready if needed
+          const sId = socket.id;
           await channel.track({
             online_at: new Date().toISOString(),
             rating,
-            socketId: username, // Use username as unique key for now
+            socketId: sId, 
+            universe: useUniverseStore.getState().universe,
           });
         }
       });

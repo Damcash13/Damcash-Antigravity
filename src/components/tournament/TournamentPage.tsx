@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore, useNotificationStore } from '../../stores';
@@ -25,8 +25,6 @@ function timeAgo(ts: number): string {
   return `${Math.floor(m / 60)}h ago`;
 }
 
-
-
 // ── Medal helper ──────────────────────────────────────────────────────────────
 function medal(rank: number) {
   if (rank === 1) return '🥇';
@@ -35,18 +33,42 @@ function medal(rank: number) {
   return String(rank);
 }
 
+// ── Countdown — isolated so only this subtree re-renders every second ─────────
+const TournamentCountdown: React.FC<{ targetTs: number; label: string }> = React.memo(({ targetTs, label }) => {
+  const [ms, setMs] = useState(targetTs - Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const remaining = targetTs - Date.now();
+      setMs(remaining);
+      if (remaining <= 0) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [targetTs]);
+
+  return (
+    <div className="tp-countdown-wrap">
+      <div className="tp-countdown-label">{label}</div>
+      <div className="tp-countdown">{formatCountdown(ms)}</div>
+    </div>
+  );
+});
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export const TournamentPage: React.FC = () => {
   const { universe, id } = useParams<{ universe: string; id: string }>();
   const navigate = useNavigate();
-  const { user } = useUserStore();
-  const { addNotification } = useNotificationStore();
-  const { tournaments, fetchOne, joinTournament, leaveTournament, loading } = useTournamentStore();
+  const user = useUserStore(s => s.user);
+  const addNotification = useNotificationStore(s => s.addNotification);
+  const tournaments = useTournamentStore(s => s.tournaments);
+  const fetchOne = useTournamentStore(s => s.fetchOne);
+  const joinTournament = useTournamentStore(s => s.joinTournament);
+  const leaveTournament = useTournamentStore(s => s.leaveTournament);
+  const loading = useTournamentStore(s => s.loading);
 
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'standings' | 'pairings' | 'games' | 'info'>('standings');
-  const [, forceUpdate] = useState(0);
   const [joining, setJoining] = useState(false);
 
   const FORMAT_LABEL: Record<string, string> = {
@@ -54,12 +76,6 @@ export const TournamentPage: React.FC = () => {
     swiss: `🔀 ${t('tournament.swiss')}`,
     roundrobin: `🔄 ${t('tournament.roundRobin')}`,
   };
-
-  // Countdown re-render
-  useEffect(() => {
-    const timer = setInterval(() => forceUpdate(n => n + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Fetch this tournament from API on mount
   useEffect(() => {
@@ -100,9 +116,7 @@ export const TournamentPage: React.FC = () => {
   const hasJoined = !!myName && tournament.players.some(p => p.name === myName);
 
   const now        = Date.now();
-  const startsIn   = tournament.startsAt - now;
   const endsAt     = tournament.startsAt + tournament.durationMs;
-  const timeLeftMs = endsAt - now;
 
   const handleJoin = async () => {
     if (!user) { addNotification('Sign in to join tournaments', 'error'); return; }
@@ -123,9 +137,11 @@ export const TournamentPage: React.FC = () => {
   };
 
   // Sorted standings
-  const standings = [...tournament.players].sort((a, b) =>
-    b.score !== a.score ? b.score - a.score : b.performance - a.performance
-  );
+  const standings = useMemo(() => {
+    return [...tournament.players].sort((a, b) =>
+      b.score !== a.score ? b.score - a.score : b.performance - a.performance
+    );
+  }, [tournament.players]);
 
   const isRunning  = tournament.status === 'running';
   const isUpcoming = tournament.status === 'upcoming';
@@ -157,16 +173,10 @@ export const TournamentPage: React.FC = () => {
         <div className="tp-hero-right">
           {/* Countdown */}
           {isRunning && (
-            <div className="tp-countdown-wrap">
-              <div className="tp-countdown-label">{t('tournament.timeRemaining')}</div>
-              <div className="tp-countdown">{formatCountdown(timeLeftMs)}</div>
-            </div>
+            <TournamentCountdown targetTs={endsAt} label={t('tournament.timeRemaining')} />
           )}
           {isUpcoming && (
-            <div className="tp-countdown-wrap">
-              <div className="tp-countdown-label">{t('tournament.startsIn')}</div>
-              <div className="tp-countdown">{formatCountdown(startsIn)}</div>
-            </div>
+            <TournamentCountdown targetTs={tournament.startsAt} label={t('tournament.startsIn')} />
           )}
 
           {/* CTA */}

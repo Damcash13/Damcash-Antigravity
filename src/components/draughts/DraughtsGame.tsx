@@ -38,10 +38,13 @@ export const DraughtsGame: React.FC = () => {
   const { mode, tc, id } = useParams<{ mode?: string; tc?: string; id?: string }>();
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const { user } = useUserStore();
-  const { addNotification } = useNotificationStore();
-  const { settleBet, activeBet } = useBettingStore();
-  const { registerGame, updateGame, removeGame } = useLiveGamesStore();
+  const user            = useUserStore(s => s.user);
+  const addNotification = useNotificationStore(s => s.addNotification);
+  const activeBet       = useBettingStore(s => s.activeBet);
+  const settleBet       = useBettingStore(s => s.settleBet);
+  const registerGame    = useLiveGamesStore(s => s.registerGame);
+  const updateGame      = useLiveGamesStore(s => s.updateGame);
+  const removeGame      = useLiveGamesStore(s => s.removeGame);
   const { play } = useSound();
 
   const urlTc = tc || searchParams.get('tc') || '5+0';

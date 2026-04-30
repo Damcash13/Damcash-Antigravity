@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Chess, Square, PieceSymbol, Color as ChessColor } from 'chess.js';
 import { useSound } from '../../hooks/useSound';
 import { ChessPiece } from './ChessPieces';
@@ -15,6 +15,64 @@ interface Props {
   inCheck: boolean;
 }
 
+interface CellProps {
+  sq: Square;
+  light: boolean;
+  isSelected: boolean;
+  isLegal: boolean;
+  isLastFrom: boolean;
+  isLastTo: boolean;
+  isKingCheck: boolean;
+  pieceObj: { type: PieceSymbol; color: ChessColor } | null;
+  file: string;
+  rank: string;
+  showFileCoord: boolean;
+  showRankCoord: boolean;
+  onClick: (sq: Square) => void;
+}
+
+const ChessCell: React.FC<CellProps> = React.memo(({
+  sq, light, isSelected, isLegal, isLastFrom, isLastTo, isKingCheck, pieceObj,
+  file, rank, showFileCoord, showRankCoord, onClick
+}) => {
+  const hasPiece = !!pieceObj;
+  let cellClass = `chess-cell ${light ? 'light' : 'dark'}`;
+  if (isSelected) cellClass += ' selected';
+  if (isLegal && hasPiece) cellClass += ' legal-capture';
+  else if (isLegal) cellClass += ' legal-move';
+  if (isLastFrom || isLastTo) cellClass += ' last-move-from';
+  if (isKingCheck) cellClass += ' in-check';
+
+  return (
+    <div
+      className={cellClass}
+      onClick={() => onClick(sq)}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        const fromSq = e.dataTransfer.getData('from') as Square;
+        if (fromSq && fromSq !== sq) onClick(sq);
+      }}
+    >
+      {pieceObj && (
+        <div
+          className="chess-piece-el-container"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('from', sq);
+            onClick(sq);
+          }}
+          style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
+        >
+          <ChessPiece type={pieceObj.type} color={pieceObj.color} />
+        </div>
+      )}
+      {showFileCoord && <span className="board-coords board-coord-file">{file}</span>}
+      {showRankCoord && <span className="board-coords board-coord-rank">{rank}</span>}
+    </div>
+  );
+});
+
 export const ChessBoard: React.FC<Props> = ({
   game, flipped, playerColor, onMove, lastMove, inCheck,
 }) => {
@@ -23,12 +81,16 @@ export const ChessBoard: React.FC<Props> = ({
   const [promotionPending, setPromotionPending] = useState<{ from: Square; to: Square } | null>(null);
   const { play } = useSound();
 
+  // Refs keep the latest values without changing handler identity
+  const gameRef = useRef(game);
+  const selectedRef = useRef(selected);
+  const legalMovesRef = useRef(legalMoves);
+  gameRef.current = game;
+  selectedRef.current = selected;
+  legalMovesRef.current = legalMoves;
+
   const ranks = flipped ? [...RANKS].reverse() : RANKS;
   const files = flipped ? [...FILES].reverse() : FILES;
-
-  const getSquare = (rankIdx: number, fileIdx: number): Square => {
-    return `${files[fileIdx]}${ranks[rankIdx]}` as Square;
-  };
 
   const isLight = (rankIdx: number, fileIdx: number): boolean => {
     const file = FILES.indexOf(files[fileIdx]);
@@ -37,59 +99,33 @@ export const ChessBoard: React.FC<Props> = ({
   };
 
   const handleSquareClick = useCallback((sq: Square) => {
-    const piece = game.get(sq);
-
-    // If clicking own piece, select it
+    const g = gameRef.current;
+    const sel = selectedRef.current;
+    const legal = legalMovesRef.current;
+    const piece = g.get(sq);
     if (piece && piece.color === playerColor) {
       setSelected(sq);
-      const moves = game.moves({ square: sq, verbose: true }).map(m => m.to as Square);
-      setLegalMoves(moves);
+      setLegalMoves(g.moves({ square: sq, verbose: true }).map(m => m.to as Square));
       return;
     }
-
-    // If we have a selection and click a legal target
-    if (selected && legalMoves.includes(sq)) {
-      // Check if this is a pawn promotion move
-      const piece2 = game.get(selected);
-      const isPromotion =
-        piece2?.type === 'p' &&
-        ((piece2.color === 'w' && sq[1] === '8') || (piece2.color === 'b' && sq[1] === '1'));
-
-      if (isPromotion) {
-        setPromotionPending({ from: selected, to: sq });
-      } else {
-        onMove(selected, sq);
-        const moveResult = game.get(sq);
-        if (moveResult) play('move');
-      }
-      setSelected(null);
-      setLegalMoves([]);
-      return;
+    if (sel && legal.includes(sq)) {
+      const piece2 = g.get(sel);
+      const isPromotion = piece2?.type === 'p' && ((piece2.color === 'w' && sq[1] === '8') || (piece2.color === 'b' && sq[1] === '1'));
+      if (isPromotion) setPromotionPending({ from: sel, to: sq });
+      else { onMove(sel, sq); if (g.get(sq)) play('move'); }
+      setSelected(null); setLegalMoves([]); return;
     }
-
-    // Deselect
-    setSelected(null);
-    setLegalMoves([]);
-  }, [game, playerColor, selected, legalMoves, onMove, play]);
+    setSelected(null); setLegalMoves([]);
+  }, [playerColor, onMove, play]);
 
   const handlePromotion = (piece: PieceSymbol) => {
-    if (promotionPending) {
-      onMove(promotionPending.from, promotionPending.to, piece);
-      setPromotionPending(null);
-    }
+    if (promotionPending) { onMove(promotionPending.from, promotionPending.to, piece); setPromotionPending(null); }
   };
 
-  // Find king in check position
   const getKingSquare = (): Square | null => {
     if (!inCheck) return null;
     const turn = game.turn();
-    for (let f of FILES) {
-      for (let r of RANKS) {
-        const sq = `${f}${r}` as Square;
-        const p = game.get(sq);
-        if (p && p.type === 'k' && p.color === turn) return sq;
-      }
-    }
+    for (let f of FILES) { for (let r of RANKS) { const sq = `${f}${r}` as Square; const p = game.get(sq); if (p && p.type === 'k' && p.color === turn) return sq; } }
     return null;
   };
 
@@ -101,61 +137,23 @@ export const ChessBoard: React.FC<Props> = ({
         {ranks.map((rank, ri) =>
           files.map((file, fi) => {
             const sq = `${file}${rank}` as Square;
-            const light = isLight(ri, fi);
-            const isSelected = selected === sq;
-            const isLegal = legalMoves.includes(sq);
-            const isLastFrom = lastMove?.from === sq;
-            const isLastTo = lastMove?.to === sq;
-            const isKingCheck = kingInCheckSq === sq;
-            const pieceObj = game.get(sq);
-            const hasPiece = !!pieceObj;
-
-            let cellClass = `chess-cell ${light ? 'light' : 'dark'}`;
-            if (isSelected) cellClass += ' selected';
-            if (isLegal && hasPiece) cellClass += ' legal-capture';
-            else if (isLegal) cellClass += ' legal-move';
-            if (isLastFrom || isLastTo) cellClass += ' last-move-from';
-            if (isKingCheck) cellClass += ' in-check';
-
-            const showFileCoord = ri === 7;
-            const showRankCoord = fi === 7;
-
             return (
-              <div
+              <ChessCell
                 key={sq}
-                className={cellClass}
-                onClick={() => handleSquareClick(sq)}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const fromSq = e.dataTransfer.getData('from') as Square;
-                  if (fromSq && fromSq !== sq) {
-                    handleSquareClick(sq);
-                  }
-                }}
-              >
-                {pieceObj && (
-                  <div
-                    className="chess-piece-el-container"
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('from', sq);
-                      handleSquareClick(sq);
-                    }}
-                    style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
-                  >
-                    <ChessPiece type={pieceObj.type} color={pieceObj.color} />
-                  </div>
-                )}
-                {showFileCoord && (
-                  <span className="board-coords board-coord-file">{file}</span>
-                )}
-                {showRankCoord && (
-                  <span className="board-coords board-coord-rank">{rank}</span>
-                )}
-              </div>
+                sq={sq}
+                light={isLight(ri, fi)}
+                isSelected={selected === sq}
+                isLegal={legalMoves.includes(sq)}
+                isLastFrom={lastMove?.from === sq}
+                isLastTo={lastMove?.to === sq}
+                isKingCheck={kingInCheckSq === sq}
+                pieceObj={game.get(sq) ?? null}
+                file={file}
+                rank={rank}
+                showFileCoord={ri === 7}
+                showRankCoord={fi === 7}
+                onClick={handleSquareClick}
+              />
             );
           })
         )}

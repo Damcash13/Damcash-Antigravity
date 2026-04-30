@@ -63,9 +63,10 @@ interface Props {
 export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { universe } = useUniverseStore();
-  const { games, registerGame } = useLiveGamesStore();
-  const { addNotification } = useNotificationStore();
+  const universe = useUniverseStore(s => s.universe);
+  const games = useLiveGamesStore(s => s.games);
+  const registerGame = useLiveGamesStore(s => s.registerGame);
+  const addNotification = useNotificationStore(s => s.addNotification);
   const [activeTab, setActiveTab] = useState<'quick' | 'lobby' | 'correspondence'>('quick');
   const [showCustom, setShowCustom] = useState(false);
   const [leaderboard, setLeaderboard] = useState<{
