@@ -160,6 +160,7 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({}),
       }),
+    games: (id: string) => request<any[]>(`/api/tournaments/${id}/games`),
   },
 
   friends: {

@@ -747,6 +747,14 @@ io.on('connection', (socket) => {
     socket.leave(roomId);
   });
 
+  // ── Tournament Events ────────────────────────────────────────────────────
+  socket.on('tournament:subscribe', ({ id }) => {
+    socket.join(`tournament:${id}`);
+  });
+  socket.on('tournament:unsubscribe', ({ id }) => {
+    socket.leave(`tournament:${id}`);
+  });
+
   // ── Friend events ────────────────────────────────────────────────────────
   socket.on('friend:request', ({ targetSocketId }) => {
     const sender = players.get(socket.id);
@@ -790,6 +798,7 @@ io.on('connection', (socket) => {
     rooms.delete(roomId);
     reconnectTokens.delete(roomId);
     broadcastPlayerList();
+    io.emit('tournament:global_update'); // notify any active tournament pages that a game ended
     log.info(`[GAME] Server-detected game over: ${reason} in room ${roomId}`);
   }
 
@@ -1711,6 +1720,7 @@ app.post('/api/tournaments', requireAuth, requireAdmin, async (req, res) => {
 app.post('/api/tournaments/:id/join', requireAuth, async (req, res) => {
   try {
     await prisma.tournamentPlayer.create({ data: { tournamentId: req.params.id, userId: req.user.id } });
+    io.to(`tournament:${req.params.id}`).emit('tournament:updated', { id: req.params.id });
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: 'Failed' }); }
 });
@@ -1746,8 +1756,74 @@ app.post('/api/tournaments/:id/leave', requireAuth, async (req, res) => {
     await prisma.tournamentPlayer.deleteMany({
       where: { tournamentId: req.params.id, userId: req.user.id },
     });
+    io.to(`tournament:${req.params.id}`).emit('tournament:updated', { id: req.params.id });
     res.json({ ok: true });
   } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/tournaments/:id/games', async (req, res) => {
+  try {
+    const t = await prisma.tournament.findUnique({
+      where: { id: req.params.id },
+      include: { players: true }
+    });
+    if (!t) return res.status(404).json({ error: 'Not found' });
+
+    const playerUserIds = t.players.map(p => p.userId);
+    if (playerUserIds.length < 2) return res.json([]);
+
+    const startsAt = t.startsAt;
+    const endsAt = new Date(t.startsAt.getTime() + t.durationMs);
+
+    const matches = await prisma.match.findMany({
+      where: {
+        createdAt: { gte: startsAt, lte: endsAt },
+        universe: t.universe,
+        whiteId: { in: playerUserIds },
+        blackId: { in: playerUserIds },
+      },
+      include: {
+        white: { select: { username: true } },
+        black: { select: { username: true } },
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const games = matches.map(m => {
+      let result = '*';
+      if (m.result === 'white') result = '1-0';
+      else if (m.result === 'black') result = '0-1';
+      else if (m.result === 'draw') result = '½-½';
+
+      let moves = 0;
+      if (m.pgn) {
+        moves = (m.pgn.match(/\d+\./g) || []).length;
+      }
+
+      let duration = '0:00';
+      if (m.endedAt) {
+        const ms = m.endedAt.getTime() - m.createdAt.getTime();
+        const mnt = Math.floor(ms / 60000);
+        const sec = Math.floor((ms % 60000) / 1000);
+        duration = `${mnt}:${sec.toString().padStart(2, '0')}`;
+      }
+
+      return {
+        id: m.id,
+        white: m.white.username,
+        black: m.black.username,
+        result,
+        moves,
+        duration,
+        playedAt: m.createdAt.getTime()
+      };
+    });
+
+    res.json(games);
+  } catch (err) {
+    console.error('[Tournament] Games error:', err);
+    res.status(500).json({ error: 'Failed' });
+  }
 });
 
 // ── REST: Users ──────────────────────────────────────────────────────────────

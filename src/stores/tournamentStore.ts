@@ -124,8 +124,12 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
   fetchOne: async (id) => {
     try {
-      const data = await api.tournaments.get(id);
+      const [data, games] = await Promise.all([
+        api.tournaments.get(id),
+        api.tournaments.games(id).catch(() => [])
+      ]);
       const mapped = mapApiTournament(data);
+      mapped.games = games;
       set(s => ({
         tournaments: s.tournaments.some(t => t.id === id)
           ? s.tournaments.map(t => t.id === id ? mapped : t)

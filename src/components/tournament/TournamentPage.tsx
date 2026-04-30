@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useUserStore, useNotificationStore } from '../../stores';
 import { useTournamentStore } from '../../stores/tournamentStore';
 import { TournamentList } from './TournamentList';
+import { socket } from '../../lib/socket';
 import { AppErrorBoundary } from '../common/AppErrorBoundary';
 import '../../styles/tournaments.css';
 
@@ -79,8 +80,26 @@ export const TournamentPage: React.FC = () => {
 
   // Fetch this tournament from API on mount
   useEffect(() => {
-    if (id) fetchOne(id);
-  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (id) {
+      fetchOne(id);
+      socket.emit('tournament:subscribe', { id });
+
+      const handleUpdate = (data: { id?: string } = {}) => {
+        if (!data.id || data.id === id) {
+          fetchOne(id);
+        }
+      };
+
+      socket.on('tournament:updated', handleUpdate);
+      socket.on('tournament:global_update', handleUpdate);
+
+      return () => {
+        socket.emit('tournament:unsubscribe', { id });
+        socket.off('tournament:updated', handleUpdate);
+        socket.off('tournament:global_update', handleUpdate);
+      };
+    }
+  }, [id, fetchOne]);
 
   // If no id, show the list
   if (!id) {
@@ -124,10 +143,10 @@ export const TournamentPage: React.FC = () => {
     try {
       if (hasJoined) {
         await leaveTournament(tournament.id);
-        addNotification(t('profile.profileSaved'), 'info');
+        addNotification(t('tournament.leftSuccessfully') || 'Left tournament', 'info');
       } else {
         await joinTournament(tournament.id);
-        addNotification(t('game.gameStarted'), 'success');
+        addNotification(t('tournament.joinedSuccessfully') || 'Successfully joined tournament', 'success');
       }
     } catch (e: any) {
       addNotification(e?.message || t('common.error'), 'error');
