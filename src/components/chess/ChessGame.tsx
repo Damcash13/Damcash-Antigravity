@@ -267,9 +267,16 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       return;
     }
     if (window.confirm(t('game.confirmResign'))) {
-      socket.emit('resign', { roomId });
+      if (isOnline) {
+        socket.emit('resign', { roomId });
+      } else {
+        // Local game resignation
+        setGameStatus('ended');
+        setResult(t('game.youResigned'));
+        play('gameEnd');
+      }
     }
-  }, [gameStatus, moveHistory.length, roomId, navigate, t]);
+  }, [gameStatus, moveHistory.length, roomId, navigate, t, isOnline, play]);
 
   const handleQuitRoom = useCallback(() => {
     socket.emit('room:cancel', { roomId });
@@ -714,7 +721,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                 <button
                   className="btn btn-danger btn-sm"
                   style={{ flex: 1 }}
-                  onClick={() => { if(window.confirm(t('game.confirmResign'))) socket.emit('resign', { roomId }); }}
+                  onClick={handleResign}
                 >
                   🏳 {t('game.resign')}
                 </button>
