@@ -243,6 +243,7 @@ export default function App() {
 function JoinByCodeRedirect() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
+  const user = useUserStore(s => s.user);
   useEffect(() => {
     if (!code) return;
     const handleGameStart = (data: any) => {

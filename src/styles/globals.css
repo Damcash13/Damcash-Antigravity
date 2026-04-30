@@ -1520,8 +1520,24 @@ html, body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin-top: 20px;
-  padding: 0 10px;
+  margin-top: 10px;
+}
+
+.video-panel-horizontal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  width: 100%;
+}
+
+.video-panel-horizontal .video-streams {
+  margin-top: 0;
+  padding: 0;
+}
+
+.video-panel-horizontal .video-stream {
+  aspect-ratio: 16/9; /* Wider for horizontal layout */
+  border-radius: 8px;
 }
 
 @media (max-width: 600px) {

@@ -733,28 +733,29 @@ export const DraughtsGame: React.FC = () => {
             </button>
           )}
         </div>
-      </div>
 
-      {/* Right sidebar */}
-      <div className="game-sidebar">
-        {/* Video Chat — always mounted to preserve WebRTC connection; only body collapsed */}
+        {/* Horizontal Video Chat right under controls */}
         {isOnline && (
-          <div className="panel">
+          <div className="panel video-panel-horizontal" style={{ marginTop: 12 }}>
             <div className="panel-header">
               <span className="panel-title">📹 {t('video.videoChat')}</span>
               <button className="btn btn-ghost btn-sm" onClick={() => setShowVideo(v => !v)}>
                 {showVideo ? '▲' : '▼'}
               </button>
             </div>
-            <div className="panel-body" style={{ display: showVideo ? 'block' : 'none' }}>
+            <div className="panel-body" style={{ display: showVideo ? 'block' : 'none', padding: '12px' }}>
               <VideoChat
-                roomId={roomId || `checkers-local-${gameIdRef.current}`}
+                roomId={roomId || `draughts-local-${gameIdRef.current}`}
                 playerName={user?.name || 'You'}
-                opponentName={opponent.name}
+                opponentName={opponentInfo.name}
               />
             </div>
           </div>
         )}
+      </div>
+
+      {/* Right sidebar */}
+      <div className="game-sidebar">
 
         <div className="panel">
           <div className="panel-header">
