@@ -14,7 +14,13 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase: any = supabaseUrl && supabaseKey
-  ? createClient(supabaseUrl, supabaseKey)
+  ? createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    })
   : null;
 
 // ── Timeout wrapper ────────────────────────────────────────────────────────────

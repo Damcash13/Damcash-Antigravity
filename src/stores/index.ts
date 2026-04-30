@@ -240,18 +240,18 @@ export const useUserStore = create<UserStore>()(
         }),
       restoreSession: async () => {
         if (!supabase) return;
-        const { data: { session } } = await withTimeout<any>(
-          supabase.auth.getSession(),
-          10_000,
-          'Session restore',
-        ).catch(() => ({ data: { session: null } }));
-
-        if (!session) {
-          set({ user: null, isLoggedIn: false });
-          return;
-        }
-
         try {
+          const { data: { session } } = await withTimeout<any>(
+            supabase.auth.getSession(),
+            10_000,
+            'Session restore',
+          );
+
+          if (!session) {
+            set({ user: null, isLoggedIn: false });
+            return;
+          }
+
           const res = await api.auth.me();
           const u = apiUserToUser(res.user);
           // Reconnect socket with restored auth token
@@ -266,12 +266,12 @@ export const useUserStore = create<UserStore>()(
           });
         } catch (err: any) {
           console.error('[restoreSession] Profile fetch failed:', err);
-          // If it's a 401, the session is truly invalid
-          if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
+          // Only clear session if we are certain it's invalid (401/Unauthorized).
+          // If it's a timeout or 500, we keep the persisted 'isLoggedIn' state
+          // to avoid kicking the user out unnecessarily.
+          if (err.message?.includes('401') || err.message?.includes('Unauthorized') || err.message?.includes('Invalid session')) {
             set({ user: null, isLoggedIn: false });
           }
-          // Otherwise, we keep the persisted state from localStorage (isLoggedIn: true)
-          // and hope the next request works.
         }
       },
       listenToAuthChanges: () => {

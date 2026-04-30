@@ -84,6 +84,7 @@ export default {
     offerDraw: 'Offer draw',
     rematch: 'Rematch',
     quit: 'Quit',
+    quitRoom: 'Quit Room',
     newGame: 'New game',
     flip: 'Flip board',
     analysis: 'Analysis',

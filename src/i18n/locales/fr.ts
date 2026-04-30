@@ -84,6 +84,7 @@ export default {
     offerDraw: 'Proposer nulle',
     rematch: 'Revanche',
     quit: 'Quitter',
+    quitRoom: 'Quitter la salle',
     newGame: 'Nouvelle partie',
     flip: 'Retourner l\'échiquier',
     analysis: 'Analyse',

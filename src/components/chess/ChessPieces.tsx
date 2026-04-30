@@ -24,7 +24,7 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color }) => {
       className="chess-piece-wrapper"
     >
       <img
-        src={`/pieces/${key}.svg`}
+        src={`/pieces/${key}.svg?v=3`}
         alt={key}
         style={{
           width: '100%',

@@ -8,10 +8,10 @@ import { DraughtsBoard as DraughtsBoardType, DraughtsMove } from '../../types';
 
 // ── Mini read-only chess board ────────────────────────────────────────────────
 const CHESS_PIECES: Record<string, string> = {
-  wk: '/pieces/wk.svg', wq: '/pieces/wq.svg', wr: '/pieces/wr.svg',
-  wb: '/pieces/wb.svg', wn: '/pieces/wn.svg', wp: '/pieces/wp.svg',
-  bk: '/pieces/bk.svg', bq: '/pieces/bq.svg', br: '/pieces/br.svg',
-  bb: '/pieces/bb.svg', bn: '/pieces/bn.svg', bp: '/pieces/bp.svg',
+  wk: '/pieces/wk.svg?v=3', wq: '/pieces/wq.svg?v=3', wr: '/pieces/wr.svg?v=3',
+  wb: '/pieces/wb.svg?v=3', wn: '/pieces/wn.svg?v=3', wp: '/pieces/wp.svg?v=3',
+  bk: '/pieces/bk.svg?v=3', bq: '/pieces/bq.svg?v=3', br: '/pieces/br.svg?v=3',
+  bb: '/pieces/bb.svg?v=3', bn: '/pieces/bn.svg?v=3', bp: '/pieces/bp.svg?v=3',
 };
 
 const CELL = 72;

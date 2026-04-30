@@ -266,7 +266,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       navigate('/');
       return;
     }
-    if (window.confirm(t('game.confirmResign'))) {
+    if (window.confirm(t('game.resignConfirm'))) {
       if (isOnline) {
         socket.emit('resign', { roomId });
       } else {
@@ -276,7 +276,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
         play('gameEnd');
       }
     }
-  }, [gameStatus, moveHistory.length, roomId, navigate, t, isOnline, play]);
+  }, [gameStatus, moveHistory.length, roomId, navigate, t, isOnline, play, game]);
 
   const handleQuitRoom = useCallback(() => {
     socket.emit('room:cancel', { roomId });
@@ -717,7 +717,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
               >
                 {drawOffered ? '½ Offered…' : '½ Draw'}
               </button>
-              {moveHistory.length > 0 ? (
+              {(moveHistory.length > 0 || game.fen() !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') ? (
                 <button
                   className="btn btn-danger btn-sm"
                   style={{ flex: 1 }}
@@ -729,7 +729,10 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                 <button
                   className="btn btn-secondary btn-sm"
                   style={{ flex: 1 }}
-                  onClick={() => { socket.emit('room:cancel', { roomId }); navigate('/'); }}
+                  onClick={() => {
+                    if (isOnline) socket.emit('room:cancel', { roomId });
+                    navigate('/');
+                  }}
                 >
                   🚪 {t('game.quitRoom')}
                 </button>
