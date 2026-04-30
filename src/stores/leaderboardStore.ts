@@ -25,6 +25,7 @@ export interface LeaderboardState {
   chess:    Record<TimeCategory, LeaderboardEntry[]>;
   checkers: Record<TimeCategory, LeaderboardEntry[]>;
   loading:  boolean;
+  error:    string | null;
   fetchLeaderboard: (universe: 'chess' | 'checkers', category?: TimeCategory) => Promise<void>;
 }
 
@@ -36,9 +37,10 @@ export const useLeaderboardStore = create<LeaderboardState>((set) => ({
   chess:    emptyCategory(),
   checkers: emptyCategory(),
   loading:  false,
+  error:    null,
 
   fetchLeaderboard: async (universe, category = 'overall') => {
-    set({ loading: true });
+    set({ loading: true, error: null });
     try {
       const { api } = await import('../lib/api');
       const data = await api.leaderboard.list({ universe, category });
@@ -70,8 +72,8 @@ export const useLeaderboardStore = create<LeaderboardState>((set) => ({
       } else {
         set({ loading: false });
       }
-    } catch {
-      set({ loading: false });
+    } catch (err: any) {
+      set({ loading: false, error: err.message || 'Failed to load leaderboard' });
     }
   },
 }));

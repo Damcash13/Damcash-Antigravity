@@ -526,6 +526,12 @@ io.on('connection', (socket) => {
 
   // ── Reconnect (page refresh mid-game) ───────────────────────────────────
   socket.on('room:rejoin', ({ roomId, token }) => {
+    // Rate-limit rejoin attempts to prevent token brute-forcing
+    if (socketRateLimit(socket.id, 10)) {  // max 10 rejoin attempts/min
+      socket.emit('room:rejoin:denied', { reason: 'Too many attempts — try again later' });
+      return;
+    }
+    if (typeof roomId !== 'string' || typeof token !== 'string') return;
     const tokens = reconnectTokens.get(roomId);
     if (!tokens) { socket.emit('room:rejoin:denied', { reason: 'Game not found' }); return; }
 

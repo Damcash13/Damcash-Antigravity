@@ -17,8 +17,18 @@ import { api } from '../lib/api';
 let AgoraRTC: any = null;
 async function getAgoraRTC() {
   if (!AgoraRTC) {
-    AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
-    AgoraRTC.setLogLevel(2); // 0=DEBUG 1=INFO 2=WARN 3=ERROR 4=NONE
+    try {
+      AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
+      AgoraRTC.setLogLevel(2); // 0=DEBUG 1=INFO 2=WARN 3=ERROR 4=NONE
+    } catch (err: any) {
+      // Vite chunk-loading failure after redeployment — old cached pages
+      // reference chunk filenames that no longer exist on the server.
+      if (err?.message?.includes('dynamically imported module') || err?.message?.includes('Failed to fetch')) {
+        console.warn('[Agora] Chunk load failed — app was updated. Prompting reload.');
+        throw new Error('APP_UPDATED');
+      }
+      throw err;
+    }
   }
   return AgoraRTC;
 }
@@ -164,6 +174,11 @@ export function useAgora() {
 
     } catch (err: any) {
       console.error('Agora join error:', err);
+      // Handle stale chunk after redeployment
+      if (err?.message === 'APP_UPDATED') {
+        setState(s => ({ ...s, isConnecting: false, error: 'App was updated — please refresh the page' }));
+        return;
+      }
       const msg = err?.message?.includes('PERMISSION_DENIED')
         ? 'Camera/microphone access denied'
         : err?.message || 'Failed to connect video';

@@ -473,14 +473,11 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
               const theirSeek = seeks.find(s => s.socketId === player.socketId && s.universe === universe);
 
               const canChallenge = !isMe && !theirSeek;
+              const { openConfig } = useInviteStore.getState();
+
               const handleChallenge = () => {
                 if (!canChallenge) return;
-                socket.emit('invite:send', {
-                  targetSocketId: player.socketId,
-                  config: { universe, timeControl: '5+0', betAmount: 0, colorPref: 'random', rated: true },
-                  fromName: user?.name || 'Guest',
-                  fromRating: myRating,
-                });
+                openConfig({ socketId: player.socketId, name: player.name });
               };
 
               return (

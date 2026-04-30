@@ -440,3 +440,26 @@
   border-color: var(--accent);
   font-weight: 800;
 }
+
+/* ── Error banner ── */
+.lb-error-banner {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-align: left;
+  animation: fadeIn 0.3s ease;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+  .lb-error-banner {
+    flex-direction: column;
+    text-align: center;
+    padding: 16px;
+  }
+}

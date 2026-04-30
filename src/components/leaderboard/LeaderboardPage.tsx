@@ -100,7 +100,7 @@ export const LeaderboardPage: React.FC = () => {
   const navigate  = useNavigate();
   const { universe } = useUniverseStore();
   const { user } = useUserStore();
-  const { chess, checkers, loading, fetchLeaderboard } = useLeaderboardStore();
+  const { chess, checkers, loading, error, fetchLeaderboard } = useLeaderboardStore();
 
   const { t } = useTranslation();
   const [tc,     setTc]     = useState<TimeCategory>('overall');
@@ -193,31 +193,44 @@ export const LeaderboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* ── Stats summary cards ── */}
-      <div className="lb-summary-row">
-        <div className="lb-summary-card">
-          <div className="lb-sc-val">{rawList.length}</div>
-          <div className="lb-sc-label">{t('leaderboard.topPlayers')}</div>
-        </div>
-        <div className="lb-summary-card">
-          <div className="lb-sc-val" style={{ color: '#22c55e' }}>
-            {rawList.filter(e => e.online).length}
+      {/* ── Summary / Error ── */}
+      {error ? (
+        <div className="lb-error-banner">
+          <div style={{ fontSize: 32 }}>⚠️</div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>{t('common.error')}</div>
+            <div style={{ fontSize: 13, opacity: 0.8 }}>{error}</div>
           </div>
-          <div className="lb-sc-label">{t('common.online')}</div>
+          <button className="btn btn-primary" onClick={() => fetchLeaderboard(leaderboardUniverse, tc)}>
+            {t('common.retry')}
+          </button>
         </div>
-        <div className="lb-summary-card">
-          <div className="lb-sc-val">{rawList[0]?.rating ?? '—'}</div>
-          <div className="lb-sc-label">{t('profile.peak')}</div>
-        </div>
-        <div className="lb-summary-card">
-          <div className="lb-sc-val">
-            {rawList.length > 0
-              ? Math.round(rawList.reduce((s, e) => s + e.rating, 0) / rawList.length)
-              : '—'}
+      ) : (
+        <div className="lb-summary-row">
+          <div className="lb-summary-card">
+            <div className="lb-sc-val">{rawList.length}</div>
+            <div className="lb-sc-label">{t('leaderboard.topPlayers')}</div>
           </div>
-          <div className="lb-sc-label">{t('common.rating')}</div>
+          <div className="lb-summary-card">
+            <div className="lb-sc-val" style={{ color: '#22c55e' }}>
+              {rawList.filter(e => e.online).length}
+            </div>
+            <div className="lb-sc-label">{t('common.online')}</div>
+          </div>
+          <div className="lb-summary-card">
+            <div className="lb-sc-val">{rawList[0]?.rating ?? '—'}</div>
+            <div className="lb-sc-label">{t('profile.peak')}</div>
+          </div>
+          <div className="lb-summary-card">
+            <div className="lb-sc-val">
+              {rawList.length > 0
+                ? Math.round(rawList.reduce((s, e) => s + e.rating, 0) / rawList.length)
+                : '—'}
+            </div>
+            <div className="lb-sc-label">{t('common.rating')}</div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Table ── */}
       <div className="lb-table-wrap">

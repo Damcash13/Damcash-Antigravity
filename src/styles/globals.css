@@ -2132,11 +2132,20 @@ html, body {
   .draughts-cell  { width: calc((100vw - 24px) / 10) !important; height: calc((100vw - 24px) / 10) !important; }
 
   /* Shrink sidebar panels so they don't push the page too tall */
-  .move-history { max-height: 140px; }
-  .chat-messages { height: 100px; }
+  .move-history { 
+    max-height: 180px; 
+    -webkit-overflow-scrolling: touch;
+  }
+  .chat-messages { 
+    height: 160px; 
+    -webkit-overflow-scrolling: touch;
+  }
   .video-stream { aspect-ratio: 16/9; }
   .video-streams { margin-top: 10px; gap: 8px; }
-  .panel-body { padding: 8px 10px; }
+  .panel-body { 
+    padding: 8px 10px; 
+    overflow-y: visible;
+  }
 
   /* Game controls: wrap buttons on small screens */
   .game-controls { flex-wrap: wrap; justify-content: center; gap: 6px; }
