@@ -108,6 +108,9 @@ const App: React.FC = () => {
 
   // Restore session from stored JWT on app startup
   useEffect(() => {
+    const { listenToAuthChanges } = useUserStore.getState();
+    listenToAuthChanges();
+
     restoreSession().then(() => {
       // Only fetch friends list if we actually have an authenticated session
       const { isLoggedIn } = useUserStore.getState();

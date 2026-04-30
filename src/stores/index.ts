@@ -245,13 +245,17 @@ export const useUserStore = create<UserStore>()(
           10_000,
           'Session restore',
         ).catch(() => ({ data: { session: null } }));
-        if (!session) return;
+
+        if (!session) {
+          set({ user: null, isLoggedIn: false });
+          return;
+        }
+
         try {
           const res = await api.auth.me();
           const u = apiUserToUser(res.user);
           // Reconnect socket with restored auth token
-          const { data: { session } } = await supabase.auth.getSession();
-          reconnectWithToken(session?.access_token || null);
+          reconnectWithToken(session.access_token);
           set({
             user: u,
             isLoggedIn: true,
@@ -260,17 +264,41 @@ export const useUserStore = create<UserStore>()(
               checkers: res.user.checkers?.games ?? 0,
             },
           });
-        } catch {
-          set({ user: null, isLoggedIn: false });
+        } catch (err: any) {
+          console.error('[restoreSession] Profile fetch failed:', err);
+          // If it's a 401, the session is truly invalid
+          if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
+            set({ user: null, isLoggedIn: false });
+          }
+          // Otherwise, we keep the persisted state from localStorage (isLoggedIn: true)
+          // and hope the next request works.
         }
       },
       listenToAuthChanges: () => {
         if (!supabase) return;
-        supabase.auth.onAuthStateChange((event: string, _session: unknown) => {
+        // Avoid multiple listeners
+        if ((window as any).__authListenerAttached) return;
+        (window as any).__authListenerAttached = true;
+
+        supabase.auth.onAuthStateChange(async (event: string, session: any) => {
           if (event === 'SIGNED_OUT') {
             set({ user: null, isLoggedIn: false });
+            reconnectWithToken(null);
           } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            // Potentially trigger a profile fetch here
+            if (session?.access_token) {
+              reconnectWithToken(session.access_token);
+              // Only fetch if we don't have a user or if it was a refresh
+              const { user } = useUserStore.getState();
+              if (!user || event === 'TOKEN_REFRESHED') {
+                try {
+                  const res = await api.auth.me();
+                  const u = apiUserToUser(res.user);
+                  set({ user: u, isLoggedIn: true });
+                } catch (err) {
+                  console.warn('[authListener] Failed to sync profile:', err);
+                }
+              }
+            }
           }
         });
       },
