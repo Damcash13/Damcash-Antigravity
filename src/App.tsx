@@ -197,8 +197,8 @@ export default function App() {
               />
             } />
 
-            <Route path="/chess/game/:roomId"    element={<ProtectedRoute><main className="main-content"><ChessGame /></main></ProtectedRoute>} />
-            <Route path="/checkers/game/:roomId" element={<ProtectedRoute><main className="main-content"><DraughtsGame /></main></ProtectedRoute>} />
+            <Route path="/chess/game/:id"    element={<ProtectedRoute><main className="main-content"><ChessGame /></main></ProtectedRoute>} />
+            <Route path="/checkers/game/:id" element={<ProtectedRoute><main className="main-content"><DraughtsGame /></main></ProtectedRoute>} />
             <Route path="/chess/play/computer/:tc"    element={<ProtectedRoute><main className="main-content"><ChessGame /></main></ProtectedRoute>} />
             <Route path="/checkers/play/computer/:tc" element={<ProtectedRoute><main className="main-content"><DraughtsGame /></main></ProtectedRoute>} />
 
