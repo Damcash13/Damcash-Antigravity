@@ -8,7 +8,7 @@ import { WalletModal } from './components/common/WalletModal';
 import { Notifications } from './components/common/Notifications';
 import { GameConfigModal } from './components/invite/GameConfigModal';
 import { IncomingInviteToast } from './components/invite/IncomingInviteToast';
-import { useUniverseStore, useUserStore } from './stores';
+import { useUniverseStore, useUserStore, useNotificationStore } from './stores';
 import { useInviteStore, OnlinePlayer } from './stores/inviteStore';
 import { useFriendsStore } from './stores/friendsStore';
 import { useRatingUpdates } from './hooks/useRatingUpdates';
@@ -113,7 +113,17 @@ export default function App() {
     };
     socket.on('players:online', handlePlayersOnline);
     socket.on('room:created', handleRoomCreated);
+
+    const handleAuthUnauthorized = () => {
+      useUserStore.getState().logout();
+      useNotificationStore.getState().addNotification('Session expired. Please log in again.', 'warning');
+      navigate('/');
+      setShowAuth(true);
+    };
+    window.addEventListener('auth:unauthorized', handleAuthUnauthorized);
+
     return () => {
+      window.removeEventListener('auth:unauthorized', handleAuthUnauthorized);
       socket.off('players:online', handlePlayersOnline);
       socket.off('room:created', handleRoomCreated);
     };
@@ -179,15 +189,15 @@ export default function App() {
               />
             } />
 
-            <Route path="/chess/game/:roomId"    element={<main className="main-content"><ChessGame /></main>} />
-            <Route path="/checkers/game/:roomId" element={<main className="main-content"><DraughtsGame /></main>} />
-            <Route path="/chess/play/computer/:tc"    element={<main className="main-content"><ChessGame /></main>} />
-            <Route path="/checkers/play/computer/:tc" element={<main className="main-content"><DraughtsGame /></main>} />
+            <Route path="/chess/game/:roomId"    element={<ProtectedRoute><main className="main-content"><ChessGame /></main></ProtectedRoute>} />
+            <Route path="/checkers/game/:roomId" element={<ProtectedRoute><main className="main-content"><DraughtsGame /></main></ProtectedRoute>} />
+            <Route path="/chess/play/computer/:tc"    element={<ProtectedRoute><main className="main-content"><ChessGame /></main></ProtectedRoute>} />
+            <Route path="/checkers/play/computer/:tc" element={<ProtectedRoute><main className="main-content"><DraughtsGame /></main></ProtectedRoute>} />
 
-            <Route path="/:universe/tournaments"     element={<main className="main-content"><TournamentPage /></main>} />
-            <Route path="/:universe/tournament/:id" element={<main className="main-content"><TournamentPage /></main>} />
+            <Route path="/:universe/tournaments"     element={<ProtectedRoute><main className="main-content"><TournamentPage /></main></ProtectedRoute>} />
+            <Route path="/:universe/tournament/:id" element={<ProtectedRoute><main className="main-content"><TournamentPage /></main></ProtectedRoute>} />
 
-            <Route path="/:universe/profile/:name" element={<main className="main-content"><ProfilePage /></main>} />
+            <Route path="/:universe/profile/:name" element={<ProtectedRoute><main className="main-content"><ProfilePage /></main></ProtectedRoute>} />
             <Route path="/:universe/leaderboard"  element={<main className="main-content"><LeaderboardPage /></main>} />
 
             <Route path="/:universe/analysis" element={<main className="main-content"><AnalysisBoard /></main>} />
@@ -239,4 +249,14 @@ function JoinByCodeRedirect() {
     };
   }, [code, navigate]);
   return <div className="spinner-overlay"><div className="spinner" /></div>;
+}
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const user = useUserStore(s => s.user);
+  const location = useLocation();
+
+  if (!user) {
+    return <Navigate to="/" state={{ from: location }} replace />;
+  }
+  return <>{children}</>;
 }

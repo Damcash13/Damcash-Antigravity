@@ -38,6 +38,9 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
     clearTimeout(timer);
 
     if (!res.ok) {
+      if (res.status === 401) {
+        window.dispatchEvent(new Event('auth:unauthorized'));
+      }
       const isJson = res.headers.get('content-type')?.includes('application/json');
       const err = isJson ? await res.json().catch(() => ({ error: res.statusText })) : { error: res.statusText };
       throw new Error(err.error || 'Request failed');

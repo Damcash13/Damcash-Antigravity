@@ -42,3 +42,29 @@ export function reconnectWithToken(token: string | null): void {
   socket.auth = { token };
   socket.disconnect().connect();
 }
+
+if (_io) {
+  socket.on('connect', () => {
+    // Attempt auto-rejoin for chess
+    const chessStored = sessionStorage.getItem('damcash_rejoin_chess');
+    if (chessStored) {
+      try {
+        const { roomId, token } = JSON.parse(chessStored);
+        if (window.location.pathname.includes(`/chess/game/${roomId}`)) {
+          socket.emit('room:rejoin', { roomId, token });
+        }
+      } catch {}
+    }
+
+    // Attempt auto-rejoin for checkers
+    const draughtsStored = sessionStorage.getItem('damcash_rejoin_draughts');
+    if (draughtsStored) {
+      try {
+        const { roomId, token } = JSON.parse(draughtsStored);
+        if (window.location.pathname.includes(`/checkers/game/${roomId}`)) {
+          socket.emit('room:rejoin', { roomId, token });
+        }
+      } catch {}
+    }
+  });
+}
