@@ -111,8 +111,14 @@ export default function App() {
       setSearching(null);
       navigate(`/${uv}/game/${roomId}`);
     };
+    const handleGameStart = ({ roomId, config }: { roomId: string; config: { universe: string } }) => {
+      setSearching(null);
+      navigate(`/${config.universe}/game/${roomId}`);
+    };
+
     socket.on('players:online', handlePlayersOnline);
     socket.on('room:created', handleRoomCreated);
+    socket.on('game-start', handleGameStart);
 
     const handleAuthUnauthorized = () => {
       useUserStore.getState().logout();
@@ -126,6 +132,7 @@ export default function App() {
       window.removeEventListener('auth:unauthorized', handleAuthUnauthorized);
       socket.off('players:online', handlePlayersOnline);
       socket.off('room:created', handleRoomCreated);
+      socket.off('game-start', handleGameStart);
     };
   }, [navigate, setOnlinePlayers, syncOnlinePlayers]);
 

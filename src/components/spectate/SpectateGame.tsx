@@ -111,8 +111,6 @@ export const SpectateGame: React.FC = () => {
 
   useEffect(() => {
     if (!id) return;
-    // Join as spectator
-    socket.emit('spectate:join', { roomId: id });
 
     const onState = (data: { fen?: string; board?: DraughtsBoardType; moves?: string[]; white: string; black: string; viewers: number }) => {
       if (data.fen)   setFen(data.fen);
@@ -142,6 +140,9 @@ export const SpectateGame: React.FC = () => {
     socket.on('game-over',         onGameOver);
     socket.on('spectate:viewers',  onViewers);
 
+    // Join as spectator AFTER listeners are attached
+    socket.emit('spectate:join', { roomId: id });
+
     return () => {
       socket.emit('spectate:leave', { roomId: id });
       socket.off('spectate:state',   onState);
@@ -151,6 +152,7 @@ export const SpectateGame: React.FC = () => {
       socket.off('spectate:viewers', onViewers);
     };
   }, [id]);
+
 
   // Move list formatted
   const movePairs: [string, string?][] = [];

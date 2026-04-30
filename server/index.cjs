@@ -483,6 +483,7 @@ io.on('connection', (socket) => {
         const pExp = players.get(socket.id);
         if (pExp) { pExp.status = 'idle'; pExp.currentTC = null; players.set(socket.id, pExp); broadcastPlayerList(); }
         socket.emit('seek:expired', { seekId });
+        socket.emit('seek:expire', { seekId });
         broadcastSeeks();
       }, 120_000);
       seekTimeouts.set(seekId, expireTimeout);
@@ -570,6 +571,7 @@ io.on('connection', (socket) => {
       whitePlayer: players.get(room.players.white),
       blackPlayer: players.get(room.players.black),
     });
+    socket.emit('room:tokens', { roomId, token, color });
     socket.to(roomId).emit('player-reconnected', { socketId: socket.id, color });
 
     log.info(`[rejoin] ${socket.id} rejoined ${roomId} as ${color}`);
