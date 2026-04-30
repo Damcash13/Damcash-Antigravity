@@ -302,7 +302,7 @@
 @media (max-width: 600px) {
   .lobby-table-head,
   .lobby-seek-row {
-    grid-template-columns: 1fr 90px 64px;
+    grid-template-columns: 1fr 110px 72px !important;
     padding: 8px 12px;
   }
   /* Hide Rating, Wager, Rated columns (2nd, 4th, 5th) */

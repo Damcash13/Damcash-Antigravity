@@ -270,6 +270,12 @@ body {
   padding: 12px 0;
 }
 
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+}
+
 .sidebar-section {
   margin-bottom: 20px;
 }
@@ -630,6 +636,11 @@ body {
 }
 
 /* ===== BUTTONS ===== */
+button,
+.btn {
+  touch-action: manipulation;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -933,6 +944,7 @@ body {
   border-radius: 4px;
   overflow: hidden;
   box-shadow: var(--shadow);
+  touch-action: none;
 }
 
 .chess-cell {
@@ -1036,6 +1048,7 @@ body {
   border-radius: 4px;
   overflow: hidden;
   box-shadow: var(--shadow);
+  touch-action: none;
 }
 
 .draughts-cell {
@@ -1509,6 +1522,12 @@ html, body {
   gap: 16px;
   margin-top: 20px;
   padding: 0 10px;
+}
+
+@media (max-width: 600px) {
+  .video-streams {
+    grid-template-columns: 1fr;
+  }
 }
 
 .video-stream {
