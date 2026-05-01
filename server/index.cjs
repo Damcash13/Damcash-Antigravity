@@ -609,6 +609,13 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('room:leave', ({ roomId }) => {
+    if (typeof roomId !== 'string') return;
+    socket.leave(roomId);
+    io.to(roomId).emit('player-disconnected', { socketId: socket.id, explicit: true });
+    log.info(`[ROOM] Player ${socket.id} explicitly left room ${roomId}`);
+  });
+
   // ── Direct invite ────────────────────────────────────────────────────────
   socket.on('invite:send', ({ targetSocketId, config, fromName, fromRating }) => {
     const inviteId = genId();
@@ -632,6 +639,10 @@ io.on('connection', (socket) => {
     const invite = invites.get(inviteId);
     if (!invite) { socket.emit('invite:expired'); return; }
     invites.delete(inviteId);
+    
+    // Notify the inviter so they can close their 'Waiting...' modal
+    io.to(fromSocketId).emit('invite:accepted', { roomId: `room-${genId()}` }); // Note: startRoom will override this roomId with the real one, but we just need the trigger
+    
     const roomId = `room-${genId()}`;
     startRoom(roomId, fromSocketId, socket.id, invite.config);
   });

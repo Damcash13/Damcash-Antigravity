@@ -113,7 +113,7 @@ export function useAgora() {
   }, []);
 
   /** Join a video channel. channelName should be the game roomId. */
-  const initiatePeerConnection = useCallback(async (channelName: string) => {
+  const initiatePeerConnection = useCallback(async (channelName: string, autoPublish = true) => {
     if (!APP_ID) {
       setState(s => ({ ...s, error: 'Agora App ID not configured (VITE_AGORA_APP_ID)' }));
       return;
@@ -126,55 +126,48 @@ export function useAgora() {
 
       // 2. Create Agora client
       const RTC = await getAgoraRTC();
-      const client = RTC.createClient({ mode: 'rtc', codec: 'vp8' });
-      clientRef.current = client;
+      if (!clientRef.current) {
+        clientRef.current = RTC.createClient({ mode: 'rtc', codec: 'vp8' });
+      }
+      const client = clientRef.current;
 
-      // 3. Listen for remote users
-      client.on('user-published', async (user: any, mediaType: 'audio' | 'video') => {
-        await client.subscribe(user, mediaType);
-        if (mediaType === 'video') {
-          if (remoteVideoElRef.current) {
-            user.videoTrack?.play(remoteVideoElRef.current);
-          } else {
-            // Element not mounted yet — store track; setRemoteVideoEl will play it
-            pendingRemoteTrackRef.current = user.videoTrack;
+      // 3. Listen for remote users (already joined? don't re-add listeners)
+      if (!joinedRef.current) {
+        client.on('user-published', async (user: any, mediaType: 'audio' | 'video') => {
+          await client.subscribe(user, mediaType);
+          if (mediaType === 'video') {
+            if (remoteVideoElRef.current) {
+              user.videoTrack?.play(remoteVideoElRef.current);
+            } else {
+              pendingRemoteTrackRef.current = user.videoTrack;
+            }
+            setState(s => ({ ...s, remoteStream: {} as any }));
           }
-          setState(s => ({ ...s, remoteStream: {} as any }));
-        }
-        if (mediaType === 'audio') {
-          user.audioTrack?.play();
-        }
-      });
+          if (mediaType === 'audio') {
+            user.audioTrack?.play();
+          }
+        });
 
-      client.on('user-unpublished', (user: any, mediaType: 'audio' | 'video') => {
-        if (mediaType === 'video') {
-          setState(s => ({ ...s, remoteStream: null }));
-        }
-      });
+        client.on('user-unpublished', (user: any, mediaType: 'audio' | 'video') => {
+          if (mediaType === 'video') {
+            setState(s => ({ ...s, remoteStream: null }));
+          }
+        });
 
-      // 4. Join channel
-      await client.join(APP_ID, channelName, token, uid);
-      joinedRef.current = true;
+        // 4. Join channel
+        await client.join(APP_ID, channelName, token, uid);
+        joinedRef.current = true;
+      }
 
-      // 5. Create and publish local tracks
-      const [audioTrack, videoTrack] = await RTC.createMicrophoneAndCameraTracks();
-      localAudioRef.current = audioTrack;
-      localVideoRef.current = videoTrack;
+      setState(s => ({ ...s, isConnecting: false, isConnected: true }));
 
-      // Publish first
-      await client.publish([audioTrack, videoTrack]);
-
-      // Set state to trigger UI video element mounting
-      setState(s => ({ ...s, isConnecting: false, isConnected: true, localStream: {} as any }));
-
-      // Play immediately if the element is already in the DOM; otherwise setLocalVideoEl will play it
-      if (localVideoElRef.current) {
-        videoTrack.play(localVideoElRef.current);
+      // 5. Optionally publish local tracks
+      if (autoPublish) {
+        await publishLocalTracks();
       }
 
     } catch (err: any) {
       console.error('Agora join error:', err);
-      // Handle stale chunk after redeployment
       if (err?.message === 'APP_UPDATED') {
         setState(s => ({ ...s, isConnecting: false, error: 'App was updated — please refresh the page' }));
         return;
@@ -183,6 +176,33 @@ export function useAgora() {
         ? 'Camera/microphone access denied'
         : err?.message || 'Failed to connect video';
       setState(s => ({ ...s, error: msg, isConnecting: false }));
+    }
+  }, []);
+
+  /** Start broadcasting local camera and microphone */
+  const publishLocalTracks = useCallback(async () => {
+    if (!clientRef.current || !joinedRef.current) return;
+    if (localVideoRef.current) return; // already publishing
+
+    try {
+      const RTC = await getAgoraRTC();
+      const [audioTrack, videoTrack] = await RTC.createMicrophoneAndCameraTracks();
+      localAudioRef.current = audioTrack;
+      localVideoRef.current = videoTrack;
+
+      await clientRef.current.publish([audioTrack, videoTrack]);
+      
+      setState(s => ({ ...s, localStream: {} as any }));
+
+      if (localVideoElRef.current) {
+        videoTrack.play(localVideoElRef.current);
+      }
+    } catch (err: any) {
+      console.error('Agora publish error:', err);
+      const msg = err?.message?.includes('PERMISSION_DENIED')
+        ? 'Camera/microphone access denied'
+        : 'Failed to start camera';
+      setState(s => ({ ...s, error: msg }));
     }
   }, []);
 
@@ -212,6 +232,7 @@ export function useAgora() {
     toggleMute,
     toggleVideo,
     initiatePeerConnection,
+    publishLocalTracks,
     setLocalVideoEl,
     setRemoteVideoEl,
   };

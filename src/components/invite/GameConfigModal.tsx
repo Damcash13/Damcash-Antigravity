@@ -70,8 +70,15 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
       setMyRoom(data.code, config);
       setStep('code');
     };
+    const handleInviteAccepted = () => {
+      onClose(); // Close the modal because we are about to be redirected to the game
+    };
     socket.on('room:created', handleRoomCreated);
-    return () => socket.off('room:created', handleRoomCreated);
+    socket.on('invite:accepted', handleInviteAccepted);
+    return () => {
+      socket.off('room:created', handleRoomCreated);
+      socket.off('invite:accepted', handleInviteAccepted);
+    };
   }, [config, setMyRoom]);
 
 

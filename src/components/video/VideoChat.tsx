@@ -23,12 +23,21 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
     toggleMute,
     toggleVideo,
     initiatePeerConnection,
+    publishLocalTracks,
     setLocalVideoEl,
     setRemoteVideoEl,
   } = useWebRTC();
 
   const localVideoContainerRef = useRef<HTMLDivElement>(null);
   const remoteVideoContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Auto-join the channel in listen-only mode on mount
+    // so we can see the opponent immediately if they are already broadcasting.
+    if (roomId) {
+      initiatePeerConnection(roomId, false);
+    }
+  }, [roomId, initiatePeerConnection]);
 
   useEffect(() => {
     if (localStream && localVideoContainerRef.current) {
@@ -43,7 +52,7 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
   }, [remoteStream, setRemoteVideoEl]);
 
   const handleStart = () => {
-    initiatePeerConnection(roomId);
+    publishLocalTracks();
   };
 
   const handleStop = () => {

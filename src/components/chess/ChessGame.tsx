@@ -491,15 +491,20 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       navigate('/');
     };
 
-    const handlePlayerDisconnected = (data: { socketId: string }) => {
-      addNotification(t('game.opponentDisconnected'), 'warning');
+    const handlePlayerDisconnected = (data: { socketId: string; explicit?: boolean }) => {
+      if (data.explicit) {
+        addNotification(t('game.opponentLeft', 'Opponent has left the room'), 'info');
+        setOpponentInfo({ name: t('game.opponentLeft', 'Opponent Left'), rating: 1500, country: '' });
+      } else {
+        addNotification(t('game.opponentDisconnected'), 'warning');
+      }
       setIsOpponentDisconnected(true);
       // If no moves were made, just go back. Otherwise, the game is likely aborted or ended.
       if (moveHistory.length === 0) {
         navigate('/');
       } else {
         setGameStatus('ended');
-        setResult(t('game.opponentLeft'));
+        setResult(data.explicit ? t('game.opponentLeft') : t('game.opponentDisconnected'));
       }
     };
 
@@ -569,6 +574,10 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       socket.off('rating:update', handleRatingUpdate);
       socket.off('player-disconnected', handlePlayerDisconnected);
       socket.off('player-reconnected',  handlePlayerReconnected);
+      // Explicitly leave the room on unmount so the other player is notified
+      if (isOnline) {
+        socket.emit('room:leave', { roomId });
+      }
     };
   }, [isOnline, playerColor, play, timeControl.increment]);
 

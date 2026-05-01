@@ -464,6 +464,27 @@ export const DraughtsGame: React.FC = () => {
       setLastMove(null);
     };
 
+    const handlePlayerDisconnected = (data: { socketId: string; explicit?: boolean }) => {
+      if (data.explicit) {
+        addNotification(t('game.opponentLeft', 'Opponent has left the room'), 'info');
+        setOpponentInfo({ name: t('game.opponentLeft', 'Opponent Left'), rating: 1450, country: '' });
+      } else {
+        addNotification(t('game.opponentDisconnected'), 'warning');
+      }
+      setIsOpponentDisconnected(true);
+      if (moveHistory.length === 0) {
+        navigate('/');
+      } else {
+        setGameStatus('ended');
+        setResult(data.explicit ? t('game.opponentLeft') : t('game.opponentDisconnected'));
+      }
+    };
+
+    const handlePlayerReconnected = () => {
+      setIsOpponentDisconnected(false);
+      addNotification(t('game.opponentReconnected'), 'success');
+    };
+
     const handleRoomCancelled = () => {
       addNotification(t('game.roomCancelled', 'Opponent left the room before starting'), 'info');
       navigate('/');
@@ -489,6 +510,8 @@ export const DraughtsGame: React.FC = () => {
     socket.on('takeback:accept',   handleTakebackAccepted);
     socket.on('takeback:declined', handleTakebackDeclined);
     socket.on('takeback:expired',  handleTakebackExpired);
+    socket.on('player-disconnected', handlePlayerDisconnected);
+    socket.on('player-reconnected', handlePlayerReconnected);
     socket.on('room:tokens', handleRoomTokens);
     socket.on('room:state',  handleRoomState);
     socket.on('room:cancelled', handleRoomCancelled);
@@ -521,11 +544,16 @@ export const DraughtsGame: React.FC = () => {
       socket.off('takeback:accept',   handleTakebackAccepted);
       socket.off('takeback:declined', handleTakebackDeclined);
       socket.off('takeback:expired',  handleTakebackExpired);
+      socket.off('player-disconnected', handlePlayerDisconnected);
+      socket.off('player-reconnected', handlePlayerReconnected);
       socket.off('room:tokens', handleRoomTokens);
       socket.off('room:state',  handleRoomState);
       socket.off('room:cancelled', handleRoomCancelled);
       socket.off('room:players', handleRoomPlayers);
       socket.off('rating:update', handleRatingUpdate);
+      if (isOnline) {
+        socket.emit('room:leave', { roomId });
+      }
     };
   }, [isOnline, playerColor, play, makeMove, handleGameEnd, timeControl.increment]);
 
