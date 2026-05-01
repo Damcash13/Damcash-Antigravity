@@ -81,6 +81,7 @@ export const DraughtsGame: React.FC = () => {
   const [incomingTakeback, setIncomingTakeback] = useState(false);
   const [spectators, setSpectators] = useState<string[]>([]);
   const [savingResult, setSavingResult] = useState(false);
+  const [isOpponentDisconnected, setIsOpponentDisconnected] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef(board);
   const turnRef = useRef(turn);
