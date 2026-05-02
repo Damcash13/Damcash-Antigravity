@@ -693,11 +693,12 @@ io.on('connection', (socket) => {
   socket.on('invite:accept', ({ inviteId, fromSocketId }) => {
     const invite = invites.get(inviteId);
     if (!invite) { socket.emit('invite:expired'); return; }
+    if (invite.toId !== socket.id) { socket.emit('invite:expired'); return; }
     invites.delete(inviteId);
-    
+
     // Notify the inviter so they can close their 'Waiting...' modal
     io.to(fromSocketId).emit('invite:accepted', { roomId: `room-${genId()}` }); // Note: startRoom will override this roomId with the real one, but we just need the trigger
-    
+
     const roomId = `room-${genId()}`;
     startRoom(roomId, fromSocketId, socket.id, invite.config);
   });
