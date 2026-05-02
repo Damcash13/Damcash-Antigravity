@@ -1505,9 +1505,6 @@ button,
 html, body {
   max-width: 100%;
   overflow-x: hidden;
-  overscroll-behavior-y: contain; /* Prevent pull-to-refresh / overscroll */
-  position: relative;
-  touch-action: manipulation; /* Faster taps, less accidental zooms */
 }
 
 .video-chat {

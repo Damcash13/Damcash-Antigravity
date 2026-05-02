@@ -182,6 +182,8 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
   useEffect(() => {
     const h = (list: PublicSeek[]) => setSeeks(list);
     socket.on('seeks:list', h);
+    // Request current list on mount so we don't have to wait for a new seek
+    socket.emit('seeks:request');
     return () => socket.off('seeks:list', h);
   }, []);
 

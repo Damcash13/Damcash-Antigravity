@@ -492,6 +492,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     };
 
     const handlePlayerDisconnected = (data: { socketId: string; explicit?: boolean }) => {
+      if (data.socketId === socket.id) return; // Ignore self-disconnect signals (e.g. from fast remounts)
       if (data.explicit) {
         addNotification(t('game.opponentLeft', 'Opponent has left the room'), 'info');
         setOpponentInfo({ name: t('game.opponentLeft', 'Opponent Left'), rating: 1500, country: '' });
@@ -574,10 +575,6 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       socket.off('rating:update', handleRatingUpdate);
       socket.off('player-disconnected', handlePlayerDisconnected);
       socket.off('player-reconnected',  handlePlayerReconnected);
-      // Explicitly leave the room on unmount so the other player is notified
-      if (isOnline) {
-        socket.emit('room:leave', { roomId });
-      }
     };
   }, [isOnline, playerColor, play, timeControl.increment]);
 

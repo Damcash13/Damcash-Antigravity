@@ -466,6 +466,7 @@ export const DraughtsGame: React.FC = () => {
     };
 
     const handlePlayerDisconnected = (data: { socketId: string; explicit?: boolean }) => {
+      if (data.socketId === socket.id) return; // Ignore self-disconnect signals
       if (data.explicit) {
         addNotification(t('game.opponentLeft', 'Opponent has left the room'), 'info');
         setOpponentInfo({ name: t('game.opponentLeft', 'Opponent Left'), rating: 1450, country: '' });
@@ -552,9 +553,6 @@ export const DraughtsGame: React.FC = () => {
       socket.off('room:cancelled', handleRoomCancelled);
       socket.off('room:players', handleRoomPlayers);
       socket.off('rating:update', handleRatingUpdate);
-      if (isOnline) {
-        socket.emit('room:leave', { roomId });
-      }
     };
   }, [isOnline, playerColor, play, makeMove, handleGameEnd, timeControl.increment]);
 

@@ -609,6 +609,11 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('seeks:request', () => {
+    const list = Array.from(seeks.values());
+    socket.emit('seeks:list', list);
+  });
+
   socket.on('room:leave', ({ roomId }) => {
     if (typeof roomId !== 'string') return;
     socket.leave(roomId);
