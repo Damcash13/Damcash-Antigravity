@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, useNavigate, Navigate, useParams, useLocation } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -57,6 +57,8 @@ const LobbyView: React.FC<{
 
 // ── App component ─────────────────────────────────────────────────────────────
 
+const lastColorRef: React.MutableRefObject<{ roomId: string; color: 'w' | 'b' } | null> = { current: null };
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -100,8 +102,6 @@ export default function App() {
       setUniverse(parts[1]);
     }
   }, [location.pathname, setUniverse]);
-
-  const lastColorRef = useRef<{ roomId: string; color: 'w' | 'b' } | null>(null);
 
   useEffect(() => {
     const handleRoomTokens = (data: { roomId: string; color: string }) => {
