@@ -2593,6 +2593,9 @@ app.post('/api/agora/token', agoraLimiter, async (req, res) => {
     // If agora-access-token is not installed or App Certificate is missing,
     // return a null token (Agora allows this in testing mode with no App Certificate set)
     if (!AgoraAccessToken || !AGORA_APP_CERTIFICATE) {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({ error: 'Video not configured' });
+      }
       console.warn('[Agora] No App Certificate — returning null token (testing only)');
       return res.json({ token: null, appId: AGORA_APP_ID, channel: channelName, uid: safeUid });
     }
