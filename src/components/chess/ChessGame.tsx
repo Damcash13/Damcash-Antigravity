@@ -98,6 +98,10 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const premoveRef = useRef(premove);
   premoveRef.current = premove;
   const computerMovePending = useRef(false);
+
+  useEffect(() => {
+    setFlipped(myColor === 'b');
+  }, [myColor]);
   const computerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [opponentInfo, setOpponentInfo] = useState<{ name: string; rating: number; country: string }>(() => {

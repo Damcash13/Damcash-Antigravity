@@ -108,8 +108,8 @@ export default function App() {
       syncOnlinePlayers(others);
     };
     const handleRoomCreated = ({ roomId, universe: uv }: { roomId: string; universe: string }) => {
-      setSearching(null);
-      navigate(`/${uv}/game/${roomId}`);
+      // Don't navigate yet! Stay in the lobby with the searching overlay until game-start
+      console.log(`[Lobby] Room created: ${roomId}, waiting for opponent...`);
     };
     const handleGameStart = (data: any) => {
       setSearching(null);
