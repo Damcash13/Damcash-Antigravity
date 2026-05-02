@@ -2519,6 +2519,7 @@ app.post('/api/agora/token', agoraLimiter, async (req, res) => {
 
   try {
     const { channelName, uid = 0, socketId } = req.body;
+    const safeUid = (Number.isInteger(uid) && uid >= 0 && uid <= 0xFFFFFFFF) ? uid : 0;
     if (!channelName || typeof channelName !== 'string') {
       return res.status(400).json({ error: 'channelName is required' });
     }
@@ -2559,7 +2560,7 @@ app.post('/api/agora/token', agoraLimiter, async (req, res) => {
     // return a null token (Agora allows this in testing mode with no App Certificate set)
     if (!AgoraAccessToken || !AGORA_APP_CERTIFICATE) {
       console.warn('[Agora] No App Certificate — returning null token (testing only)');
-      return res.json({ token: null, appId: AGORA_APP_ID, channel: channelName, uid });
+      return res.json({ token: null, appId: AGORA_APP_ID, channel: channelName, uid: safeUid });
     }
 
     const { RtcTokenBuilder, RtcRole } = AgoraAccessToken;
@@ -2571,12 +2572,12 @@ app.post('/api/agora/token', agoraLimiter, async (req, res) => {
       AGORA_APP_ID,
       AGORA_APP_CERTIFICATE,
       channelName,
-      uid,
+      safeUid,
       RtcRole.PUBLISHER,
       privilegeExpireTime
     );
 
-    res.json({ token, appId: AGORA_APP_ID, channel: channelName, uid });
+    res.json({ token, appId: AGORA_APP_ID, channel: channelName, uid: safeUid });
   } catch (err) {
     console.error('[Agora] Token generation failed:', err);
     res.status(500).json({ error: 'Failed to generate video token' });
