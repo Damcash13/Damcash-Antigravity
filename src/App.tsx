@@ -57,8 +57,6 @@ const LobbyView: React.FC<{
 
 // ── App component ─────────────────────────────────────────────────────────────
 
-const lastColorRef: React.MutableRefObject<{ roomId: string; color: 'w' | 'b' } | null> = { current: null };
-
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -104,16 +102,6 @@ export default function App() {
   }, [location.pathname, setUniverse]);
 
   useEffect(() => {
-    const handleRoomTokens = (data: { roomId: string; color: string }) => {
-      lastColorRef.current = { roomId: data.roomId, color: data.color === 'white' ? 'w' : 'b' };
-    };
-    socket.on('room:tokens', handleRoomTokens);
-    return () => {
-      socket.off('room:tokens', handleRoomTokens);
-    };
-  }, []);
-
-  useEffect(() => {
     const handlePlayersOnline = (list: OnlinePlayer[]) => {
       const others = list.filter((p) => p.socketId !== socket.id);
       setOnlinePlayers(others);
@@ -125,15 +113,8 @@ export default function App() {
     };
     const handleGameStart = (data: any) => {
       setSearching(null);
-      let color = 'w';
-      // Prioritize the explicit color assignment from the server
-      if (lastColorRef.current && lastColorRef.current.roomId === data.roomId) {
-        color = lastColorRef.current.color;
-      } else if (data.black === socket.id || (data.blackPlayer?.name === user?.name && user?.name)) {
-        color = 'b';
-      } else if (data.white === socket.id || (data.whitePlayer?.name === user?.name && user?.name)) {
-        color = 'w';
-      }
+      // Use the explicit color from the server if provided, otherwise fall back to detection
+      const color = data.color || (data.black === socket.id ? 'b' : 'w');
       navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
     };
 
@@ -262,14 +243,7 @@ function JoinByCodeRedirect() {
   useEffect(() => {
     if (!code) return;
     const handleGameStart = (data: any) => {
-      let color = 'w';
-      if (lastColorRef.current && lastColorRef.current.roomId === data.roomId) {
-        color = lastColorRef.current.color;
-      } else if (data.black === socket.id || (data.blackPlayer?.name === user?.name && user?.name)) {
-        color = 'b';
-      } else if (data.white === socket.id || (data.whitePlayer?.name === user?.name && user?.name)) {
-        color = 'w';
-      }
+      const color = data.color || (data.black === socket.id ? 'b' : 'w');
       navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
     };
     const handleError = () => navigate('/');

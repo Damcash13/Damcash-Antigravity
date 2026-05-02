@@ -321,18 +321,20 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     black: { token: blackToken, socketId: black },
   });
 
-  // Emit tokens BEFORE game-start so clients can prepare their color assignment
-  io.to(white).emit('room:tokens', { roomId, token: whiteToken, color: 'white' });
-  io.to(black).emit('room:tokens', { roomId, token: blackToken, color: 'black' });
-
   const wp = players.get(white);
   const bp = players.get(black);
-  io.to(roomId).emit('game-start', {
+  const gameData = {
     roomId, white, black, config,
     timeControl: config.timeControl,
     whitePlayer: { name: wp?.name || 'White', rating: wp?.rating || { chess: 1500, checkers: 1450 }, country: wp?.country || '' },
     blackPlayer: { name: bp?.name || 'Black', rating: bp?.rating || { chess: 1500, checkers: 1450 }, country: bp?.country || '' },
-  });
+  };
+
+  // Emit INDIVIDUALLY to guarantee they receive their correct color even if tokens are delayed
+  io.to(white).emit('game-start', { ...gameData, color: 'w' });
+  io.to(black).emit('game-start', { ...gameData, color: 'b' });
+  // Also emit to the room for spectators, but without a specific color assignment
+  socket.to(roomId).emit('game-start', gameData);
 
   [creatorId, joinerId].forEach((id) => {
     const p = players.get(id);
