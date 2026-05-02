@@ -926,7 +926,7 @@ io.on('connection', (socket) => {
   // ── Game over: compute + broadcast ELO ──────────────────────────────────
   async function settleElo(roomId, result, universe) {
     const room = rooms.get(roomId);
-    if (!room || !room.config?.rated) return;   // unrated — skip
+    if (!room || !room.config?.rated) return;
 
     const whiteId = room.players.white;
     const blackId = room.players.black;
@@ -935,14 +935,47 @@ io.on('connection', (socket) => {
     if (!wp || !bp) return;
 
     const uv = universe || room.config?.universe || 'chess';
-    const wR  = wp.rating?.[uv] || 1500;
-    const bR  = bp.rating?.[uv] || 1500;
-    const wG  = wp.gamesPlayed?.[uv] || 0;
-    const bG  = bp.gamesPlayed?.[uv] || 0;
+
+    // Resolve DB user IDs — guests have no DB record, skip ELO
+    const dbWhiteId = socketToUserId.get(whiteId);
+    const dbBlackId = socketToUserId.get(blackId);
+    if (!dbWhiteId || !dbBlackId) return;
+
+    // Fetch authoritative ratings from DB — never trust client-supplied values
+    let whiteDb, blackDb;
+    try {
+      [whiteDb, blackDb] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: dbWhiteId },
+          select: {
+            chessRating: true, checkersRating: true,
+            chessGames: true,  checkersGames: true,
+            peakChessRating: true, peakCheckersRating: true,
+          },
+        }),
+        prisma.user.findUnique({
+          where: { id: dbBlackId },
+          select: {
+            chessRating: true, checkersRating: true,
+            chessGames: true,  checkersGames: true,
+            peakChessRating: true, peakCheckersRating: true,
+          },
+        }),
+      ]);
+    } catch (e) {
+      console.error('[ELO] DB fetch failed before ELO computation:', e);
+      return;
+    }
+    if (!whiteDb || !blackDb) return;
+
+    const wR = uv === 'chess' ? whiteDb.chessRating    : whiteDb.checkersRating;
+    const bR = uv === 'chess' ? blackDb.chessRating    : blackDb.checkersRating;
+    const wG = uv === 'chess' ? whiteDb.chessGames     : whiteDb.checkersGames;
+    const bG = uv === 'chess' ? blackDb.chessGames     : blackDb.checkersGames;
 
     const elo = computeElo(wR, bR, result, wG, bG);
 
-    // Persist updates to Memory
+    // Update in-memory Map so broadcastPlayerList() shows fresh ratings
     if (!wp.rating) wp.rating = {};
     if (!bp.rating) bp.rating = {};
     wp.rating[uv] = elo.white.after;
@@ -954,88 +987,93 @@ io.on('connection', (socket) => {
     players.set(whiteId, wp);
     players.set(blackId, bp);
 
-    // Persist to Postgres DB
+    const wWinsInc   = result === 'win'  ? 1 : 0;
+    const wLossesInc = result === 'loss' ? 1 : 0;
+    const wDrawsInc  = result === 'draw' ? 1 : 0;
+    const bWinsInc   = result === 'loss' ? 1 : 0;
+    const bLossesInc = result === 'win'  ? 1 : 0;
+    const bDrawsInc  = result === 'draw' ? 1 : 0;
+
+    // Build field names dynamically based on universe
+    const ratingField = uv === 'chess' ? 'chessRating'         : 'checkersRating';
+    const peakWField  = uv === 'chess' ? 'peakChessRating'     : 'peakCheckersRating';
+    const peakBField  = uv === 'chess' ? 'peakChessRating'     : 'peakCheckersRating';
+    const gamesField  = uv === 'chess' ? 'chessGames'          : 'checkersGames';
+    const wWinsField  = uv === 'chess' ? 'chessWins'           : 'checkersWins';
+    const wLossField  = uv === 'chess' ? 'chessLosses'         : 'checkersLosses';
+    const wDrawField  = uv === 'chess' ? 'chessDraws'          : 'checkersDraws';
+
+    // Persist ELO atomically. Match update is conditional: room.dbMatchId can be
+    // null if the initial match.create() failed silently during room setup.
     try {
-      const dbWhiteId = socketToUserId.get(whiteId);
-      const dbBlackId = socketToUserId.get(blackId);
-      
-      if (dbWhiteId && dbBlackId) {
-        const whiteDb = await prisma.user.findUnique({ where: { id: dbWhiteId } });
-        const blackDb = await prisma.user.findUnique({ where: { id: dbBlackId } });
-
-        if (whiteDb && blackDb) {
-          const wWinsInc = result === 'win' ? 1 : 0;
-          const wLossesInc = result === 'loss' ? 1 : 0;
-          const wDrawsInc = result === 'draw' ? 1 : 0;
-          
-          const bWinsInc = result === 'loss' ? 1 : 0; // Black wins if white lost
-          const bLossesInc = result === 'win' ? 1 : 0;
-          const bDrawsInc = result === 'draw' ? 1 : 0;
-
-          if (uv === 'chess') {
-            await prisma.user.update({
-              where: { id: dbWhiteId },
-              data: { chessRating: elo.white.after, peakChessRating: Math.max(whiteDb.peakChessRating, elo.white.after), chessGames: { increment: 1 }, chessWins: { increment: wWinsInc }, chessLosses: { increment: wLossesInc }, chessDraws: { increment: wDrawsInc } }
-            });
-            await prisma.user.update({
-              where: { id: dbBlackId },
-              data: { chessRating: elo.black.after, peakChessRating: Math.max(blackDb.peakChessRating, elo.black.after), chessGames: { increment: 1 }, chessWins: { increment: bWinsInc }, chessLosses: { increment: bLossesInc }, chessDraws: { increment: bDrawsInc } }
-            });
-          } else {
-            await prisma.user.update({
-              where: { id: dbWhiteId },
-              data: { checkersRating: elo.white.after, peakCheckersRating: Math.max(whiteDb.peakCheckersRating, elo.white.after), checkersGames: { increment: 1 }, checkersWins: { increment: wWinsInc }, checkersLosses: { increment: wLossesInc }, checkersDraws: { increment: wDrawsInc } }
-            });
-            await prisma.user.update({
-              where: { id: dbBlackId },
-              data: { checkersRating: elo.black.after, peakCheckersRating: Math.max(blackDb.peakCheckersRating, elo.black.after), checkersGames: { increment: 1 }, checkersWins: { increment: bWinsInc }, checkersLosses: { increment: bLossesInc }, checkersDraws: { increment: bDrawsInc } }
-            });
-          }
-
-          // Save Match
-          await prisma.match.update({
-            where: { id: room.dbMatchId || roomId },
-            data: {
-              status: 'ended',
-              result: result === 'win' ? 'white' : result === 'loss' ? 'black' : 'draw',
-              pgn: room.moves.map(m => m.move || m.san).join(' '),
-              endedAt: new Date()
-            }
-          });
-        }
+      const ops = [
+        prisma.user.update({
+          where: { id: dbWhiteId },
+          data: {
+            [ratingField]: elo.white.after,
+            [peakWField]:  Math.max(whiteDb[peakWField], elo.white.after),
+            [gamesField]:  { increment: 1 },
+            [wWinsField]:  { increment: wWinsInc },
+            [wLossField]:  { increment: wLossesInc },
+            [wDrawField]:  { increment: wDrawsInc },
+          },
+        }),
+        prisma.user.update({
+          where: { id: dbBlackId },
+          data: {
+            [ratingField]: elo.black.after,
+            [peakBField]:  Math.max(blackDb[peakBField], elo.black.after),
+            [gamesField]:  { increment: 1 },
+            [wWinsField]:  { increment: bWinsInc },
+            [wLossField]:  { increment: bLossesInc },
+            [wDrawField]:  { increment: bDrawsInc },
+          },
+        }),
+      ];
+      if (room.dbMatchId) {
+        ops.push(prisma.match.update({
+          where: { id: room.dbMatchId },
+          data: {
+            status:  'ended',
+            result:  result === 'win' ? 'white' : result === 'loss' ? 'black' : 'draw',
+            pgn:     room.moves.map(m => m.move || m.san).join(' '),
+            endedAt: new Date(),
+          },
+        }));
       }
+      await prisma.$transaction(ops);
+
+      // Only emit rating changes after DB confirms the write
+      const whiteSocket = io.sockets.sockets.get(whiteId);
+      const blackSocket = io.sockets.sockets.get(blackId);
+
+      whiteSocket?.emit('rating:update', {
+        universe: uv,
+        before:   elo.white.before,
+        after:    elo.white.after,
+        delta:    elo.white.delta,
+        opponent: bp.name,
+        opponentRating: bR,
+        result,
+        playedAt: Date.now(),
+      });
+
+      blackSocket?.emit('rating:update', {
+        universe: uv,
+        before:   elo.black.before,
+        after:    elo.black.after,
+        delta:    elo.black.delta,
+        opponent: wp.name,
+        opponentRating: wR,
+        result: result === 'win' ? 'loss' : result === 'loss' ? 'win' : 'draw',
+        playedAt: Date.now(),
+      });
+
+      broadcastPlayerList();
+      console.log(`[ELO] ${uv} | ${wp.name} ${wR}→${elo.white.after} (${elo.white.delta > 0 ? '+' : ''}${elo.white.delta}) vs ${bp.name} ${bR}→${elo.black.after}`);
     } catch (e) {
-      console.error('[DB] Failed to save ELO/Match', e);
+      console.error('[DB] ELO transaction failed — ratings not saved, not emitted:', e);
     }
-
-    // Emit personalised rating update to each player
-    const whiteSocket = io.sockets.sockets.get(whiteId);
-    const blackSocket = io.sockets.sockets.get(blackId);
-
-    whiteSocket?.emit('rating:update', {
-      universe: uv,
-      before:   elo.white.before,
-      after:    elo.white.after,
-      delta:    elo.white.delta,
-      opponent: bp.name,
-      opponentRating: bR,
-      result,                    // 'win'|'draw'|'loss' from white's perspective
-      playedAt: Date.now(),
-    });
-
-    blackSocket?.emit('rating:update', {
-      universe: uv,
-      before:   elo.black.before,
-      after:    elo.black.after,
-      delta:    elo.black.delta,
-      opponent: wp.name,
-      opponentRating: wR,
-      result: result === 'win' ? 'loss' : result === 'loss' ? 'win' : 'draw',
-      playedAt: Date.now(),
-    });
-
-    broadcastPlayerList();
-    console.log(`[ELO] ${uv} | ${wp.name} ${wR}→${elo.white.after} (${elo.white.delta>0?'+':''}${elo.white.delta}) vs ${bp.name} ${bR}→${elo.black.after}`);
   }
 
   // ── Bet escrow: deduct betAmount from both wallets when game starts ──────────
