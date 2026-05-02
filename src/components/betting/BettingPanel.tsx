@@ -41,8 +41,8 @@ export const BettingPanel: React.FC = () => {
     addNotification(t('betting.refunded'), 'info');
   };
 
-  const platformFee  = amount * 0.05;
-  const potentialWin = (amount * 2) - platformFee;
+  const platformFee  = amount * 2 * 0.05;
+  const potentialWin = amount * 2 * (1 - 0.05);
 
   return (
     <div className="betting-panel">

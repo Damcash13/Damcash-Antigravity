@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "seed": "node server/seed.cjs",
     "server": "node server/index.cjs",
+    "test": "vitest run",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -48,6 +49,7 @@
     "concurrently": "^9.2.1",
     "prisma": "^5.14.0",
     "typescript": "^5.4.5",
-    "vite": "^5.2.11"
+    "vite": "^5.2.11",
+    "vitest": "^4.1.5"
   }
 }
