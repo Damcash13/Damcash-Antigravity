@@ -66,10 +66,17 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,
+  windowMs: 60_000,
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+});
+const agoraLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many video token requests.' },
 });
 app.use('/api/auth',   authLimiter);
 app.use('/api/wallet', apiLimiter);
@@ -2505,7 +2512,7 @@ const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
 let AgoraAccessToken = null;
 try { AgoraAccessToken = require('agora-access-token'); } catch { /* not installed yet */ }
 
-app.post('/api/agora/token', async (req, res) => {
+app.post('/api/agora/token', agoraLimiter, async (req, res) => {
   if (!AGORA_APP_ID) {
     return res.status(503).json({ error: 'Agora not configured (AGORA_APP_ID missing)' });
   }
