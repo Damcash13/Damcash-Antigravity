@@ -51,7 +51,7 @@ function playTone(
   oscillator.stop(ctx.currentTime + delay + duration);
 }
 
-type SoundType = 'move' | 'capture' | 'check' | 'gameEnd' | 'promote' | 'clock' | 'notification' | 'betPlaced' | 'betWon';
+type SoundType = 'move' | 'capture' | 'check' | 'gameEnd' | 'promote' | 'clock' | 'notification' | 'betPlaced' | 'betWon' | 'victory' | 'defeat' | 'premove';
 
 export function useSound() {
   const ctxRef = useRef<AudioContext | null>(null);
@@ -106,6 +106,23 @@ export function useSound() {
         [0, 0.15, 0.3, 0.45, 0.6].forEach((delay, i) => {
           playTone(ctx, 400 + i * 100, 0.2, 'sine', 0.3, delay);
         });
+        break;
+      case 'victory':
+        // Triumphant ascending fanfare: C5 E5 G5 C6
+        playTone(ctx, 523, 0.2, 'sine', 0.4);
+        playTone(ctx, 659, 0.2, 'sine', 0.4, 0.22);
+        playTone(ctx, 784, 0.2, 'sine', 0.4, 0.44);
+        playTone(ctx, 1047, 0.6, 'sine', 0.45, 0.66);
+        break;
+      case 'defeat':
+        // Sad descending: C5 A4 F4 C4
+        playTone(ctx, 523, 0.3, 'sine', 0.3);
+        playTone(ctx, 440, 0.3, 'sine', 0.3, 0.3);
+        playTone(ctx, 349, 0.3, 'sine', 0.3, 0.6);
+        playTone(ctx, 262, 0.5, 'sine', 0.28, 0.9);
+        break;
+      case 'premove':
+        playTone(ctx, 620, 0.06, 'sine', 0.12);
         break;
     }
   }, [getCtx]);

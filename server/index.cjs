@@ -648,6 +648,22 @@ io.on('connection', (socket) => {
     socket.emit('seeks:list', list);
   });
 
+  // ── Berserk ──────────────────────────────────────────────────────────────
+  socket.on('berserk:activate', ({ roomId }) => {
+    if (typeof roomId !== 'string') return;
+    const room = rooms.get(roomId);
+    if (!room) return;
+    // Validate the socket is actually in the room
+    const color = room.players.white === socket.id ? 'white' : room.players.black === socket.id ? 'black' : null;
+    if (!color) return;
+    if (!room.berserk) room.berserk = { white: false, black: false };
+    if (room.berserk[color]) return; // already activated
+    room.berserk[color] = true;
+    // Broadcast to both players so opponent sees the badge too
+    io.to(roomId).emit('room:berserk', { socketId: socket.id, color });
+    console.log(`[BERSERK] ${socket.id} (${color}) activated berserk in room ${roomId}`);
+  });
+
   socket.on('room:leave', ({ roomId }) => {
     if (typeof roomId !== 'string') return;
     socket.leave(roomId);
@@ -2863,4 +2879,114 @@ process.on('uncaughtException', (err) => {
 });
 
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, '0.0.0.0', () => log.info(`DamCash server → http://0.0.0.0:${PORT}`));
+httpServer.listen(PORT, '0.0.0.0', () => {
+  log.info(`DamCash server → http://0.0.0.0:${PORT}`);
+  startTournamentScheduler();
+});
+
+// ── Automated Tournament Scheduler ───────────────────────────────────────────
+
+const _scheduledKeys = new Set(); // prevents duplicates within the same process run
+
+async function createScheduledTournament({ name, icon, universe, timeControl, format, durationMs, description, totalRounds }) {
+  try {
+    await prisma.tournament.create({
+      data: {
+        name,
+        icon: icon || '🏆',
+        universe: universe || 'chess',
+        format: format || 'arena',
+        timeControl: timeControl || '5+0',
+        startsAt: new Date(Date.now() + 5 * 60 * 1000), // starts in 5 min
+        durationMs: Number(durationMs) || 3_600_000,
+        maxPlayers: 50,
+        betEntry: 0,
+        prizePool: 0,
+        status: 'upcoming',
+        description: description || '',
+        rated: true,
+        totalRounds: Number(totalRounds) || 0,
+      },
+    });
+    io.emit('tournament:global_update');
+    log.info(`[Scheduler] Created tournament: ${name}`);
+  } catch (e) {
+    log.error('[Scheduler] Failed to create tournament:', e.message);
+  }
+}
+
+function runSchedulerTick() {
+  const now = new Date();
+  const h   = now.getUTCHours();
+  const min = now.getUTCMinutes();
+  const dow = now.getUTCDay();   // 0 = Sunday
+  const d   = now.getUTCDate();
+  const mo  = now.getUTCMonth();
+  const yr  = now.getUTCFullYear();
+
+  if (min !== 0) return; // only act on the top of each hour
+
+  // Hourly Blitz (alternates chess / checkers each hour)
+  const hourlyKey = `hourly-${yr}-${mo}-${d}-${h}`;
+  if (!_scheduledKeys.has(hourlyKey)) {
+    _scheduledKeys.add(hourlyKey);
+    const universe = h % 2 === 0 ? 'chess' : 'checkers';
+    createScheduledTournament({
+      name: `⚡ Hourly Blitz ${String(h).padStart(2, '0')}:00 UTC`,
+      icon: '⚡',
+      universe,
+      timeControl: '5+0',
+      format: 'arena',
+      durationMs: 60 * 60 * 1000,
+      description: 'Automated hourly blitz arena. Jump in at any time!',
+      totalRounds: 0,
+    });
+  }
+
+  // Weekly Sunday Special (Sunday 14:00 UTC, 2-hour blitz arena)
+  if (dow === 0 && h === 14) {
+    const weeklyKey = `weekly-${yr}-${mo}-${d}`;
+    if (!_scheduledKeys.has(weeklyKey)) {
+      _scheduledKeys.add(weeklyKey);
+      createScheduledTournament({
+        name: '☀️ Sunday Special',
+        icon: '☀️',
+        universe: 'chess',
+        timeControl: '3+2',
+        format: 'arena',
+        durationMs: 2 * 60 * 60 * 1000,
+        description: 'The weekly Sunday Special! 2 hours of exciting blitz action.',
+        totalRounds: 0,
+      });
+    }
+  }
+
+  // Monthly Grand Slam (1st of each month, 16:00 UTC, 4-hour Swiss)
+  if (d === 1 && h === 16) {
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthlyKey = `monthly-${yr}-${mo}`;
+    if (!_scheduledKeys.has(monthlyKey)) {
+      _scheduledKeys.add(monthlyKey);
+      createScheduledTournament({
+        name: `🏆 Grand Slam — ${monthNames[mo]} ${yr}`,
+        icon: '🏆',
+        universe: 'chess',
+        timeControl: '10+5',
+        format: 'swiss',
+        durationMs: 4 * 60 * 60 * 1000,
+        description: `The monthly Grand Slam championship! The biggest tournament of ${monthNames[mo]}.`,
+        totalRounds: 7,
+      });
+    }
+  }
+}
+
+function startTournamentScheduler() {
+  // Align to the next full minute, then tick every 60s
+  const msUntilNextMinute = (60 - new Date().getUTCSeconds()) * 1000 - new Date().getUTCMilliseconds();
+  setTimeout(() => {
+    runSchedulerTick();
+    setInterval(runSchedulerTick, 60_000);
+  }, msUntilNextMinute);
+  log.info(`[Scheduler] Tournament scheduler started — first tick in ${Math.round(msUntilNextMinute / 1000)}s`);
+}

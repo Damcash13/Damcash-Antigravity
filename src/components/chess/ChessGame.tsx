@@ -86,11 +86,16 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const [incomingTakeback, setIncomingTakeback] = useState(false);
   const [spectators, setSpectators] = useState<string[]>([]);
   const [savingResult, setSavingResult] = useState(false);
+  const [premove, setPremove] = useState<{ from: Square; to: Square; promotion?: PieceSymbol } | null>(null);
+  const [isBerserk, setIsBerserk] = useState(false);
+  const [showBerserkBtn, setShowBerserkBtn] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef(game);
   gameRef.current = game;
   const userRef = useRef(user);
   userRef.current = user;
+  const premoveRef = useRef(premove);
+  premoveRef.current = premove;
   const computerMovePending = useRef(false);
   const computerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -226,7 +231,12 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
 
   const handleGameOver = (g: Chess) => {
     setGameStatus('ended');
-    play('gameEnd');
+    if (g.isCheckmate()) {
+      if (g.turn() === playerColor) play('defeat');
+      else play('victory');
+    } else {
+      play('gameEnd');
+    }
     if (isOnline) setSavingResult(true);
     let res = '';
     if (g.isCheckmate()) {
@@ -278,7 +288,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
         // Local game resignation
         setGameStatus('ended');
         setResult(t('game.youResigned'));
-        play('gameEnd');
+        play('defeat');
       }
     }
   }, [gameStatus, moveHistory.length, roomId, navigate, t, isOnline, play, game]);
@@ -385,21 +395,48 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
 
     const handleSocketMove = ({ from, to, promotion }: any) => {
       const g = gameRef.current;
-      // Only apply the opponent's move (guard against receiving our own move)
       if (g.turn() === playerColor) return;
       const newGame = new Chess(g.fen());
       const res = newGame.move({ from, to, promotion });
-      if (res) {
+      if (!res) return;
+
+      setLastMove({ from: res.from as Square, to: res.to as Square });
+      setMoveHistory(h => [...h, res.san]);
+      if (res.captured) play('capture');
+      else play('move');
+      if (newGame.isCheck()) play('check');
+      if (playerColor === 'w') setBlackTime(t => t + timeControl.increment);
+      else setWhiteTime(t => t + timeControl.increment);
+
+      if (newGame.isGameOver()) {
         setGame(newGame);
-        setLastMove({ from: res.from as Square, to: res.to as Square });
-        setMoveHistory(h => [...h, res.san]);
-        if (res.captured) play('capture');
-        else play('move');
-        if (newGame.isCheck()) play('check');
-        if (newGame.isGameOver()) handleGameOver(newGame);
-        // Add increment to the player who just moved (the opponent)
-        if (playerColor === 'w') setBlackTime(t => t + timeControl.increment);
-        else setWhiteTime(t => t + timeControl.increment);
+        handleGameOver(newGame);
+        setPremove(null);
+        return;
+      }
+
+      // Try executing queued premove
+      const pm = premoveRef.current;
+      if (pm) {
+        const pmGame = new Chess(newGame.fen());
+        const pmRes = pmGame.move({ from: pm.from, to: pm.to, promotion: pm.promotion || 'q' });
+        if (pmRes) {
+          setGame(pmGame);
+          setLastMove({ from: pm.from, to: pm.to });
+          setMoveHistory(h => [...h, pmRes.san]);
+          if (pmRes.captured) play('capture');
+          else play('move');
+          if (pmGame.isCheck()) play('check');
+          socket.emit('move', { roomId, from: pm.from, to: pm.to, promotion: pm.promotion || 'q' });
+          if (playerColor === 'w') setWhiteTime(t => t + timeControl.increment);
+          else setBlackTime(t => t + timeControl.increment);
+          if (pmGame.isGameOver()) handleGameOver(pmGame);
+        } else {
+          setGame(newGame);
+        }
+        setPremove(null);
+      } else {
+        setGame(newGame);
       }
     };
 
@@ -419,12 +456,14 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       setGameStatus('ended');
       if (data.result === 'resign') {
         setResult(t('game.opponentResigned'));
+        play('victory');
       } else if (data.result === 'draw') {
         setResult(t('game.drawAgreement'));
+        play('gameEnd');
       } else {
         setResult(t('game.gameOver'));
+        play('gameEnd');
       }
-      play('gameEnd');
     };
 
     const handleDrawOffer = () => {
@@ -586,6 +625,28 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     return () => window.removeEventListener('beforeunload', handler);
   }, [isOnline, gameStatus]);
 
+  // Show berserk button for first 30s of online game (only before first move)
+  useEffect(() => {
+    if (!isOnline) return;
+    setShowBerserkBtn(true);
+    const timer = setTimeout(() => setShowBerserkBtn(false), 30000);
+    return () => clearTimeout(timer);
+  }, [isOnline]);
+
+  useEffect(() => {
+    if (moveHistory.length > 0) setShowBerserkBtn(false);
+  }, [moveHistory.length]);
+
+  const handleBerserk = useCallback(() => {
+    if (isBerserk || !isOnline) return;
+    setIsBerserk(true);
+    setShowBerserkBtn(false);
+    if (playerColor === 'w') setWhiteTime(t => Math.ceil(t / 2));
+    else setBlackTime(t => Math.ceil(t / 2));
+    socket.emit('berserk:activate', { roomId });
+    addNotification('⚡ Berserk! Time halved — wins earn +1 bonus point', 'info');
+  }, [isBerserk, isOnline, playerColor, roomId, addNotification]);
+
   const isPlayerTurn = currentTurn === playerColor;
   const inCheck = game.isCheck();
 
@@ -666,6 +727,9 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
             onMove={handleMove}
             lastMove={lastMove}
             inCheck={inCheck}
+            premove={premove}
+            onPremove={(from, to) => setPremove({ from, to })}
+            onClearPremove={() => setPremove(null)}
           />
           {gameStatus === 'ended' && (
             <div className="game-over-overlay">
@@ -716,6 +780,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
               <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
                 {user?.country && <span style={{ fontSize: 15 }}>{countryFlag(user.country)}</span>}
                 {user?.name || 'You'}
+                {isBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
               </div>
             </PlayerPopover>
             <div className="player-rating">({user?.rating.chess || 1500})</div>
@@ -733,6 +798,15 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
           <button className="btn btn-secondary btn-sm" onClick={() => setFlipped(f => !f)} aria-label={t('game.flip')}>
             ↕ {t('game.flip')}
           </button>
+          {showBerserkBtn && !isBerserk && isOnline && moveHistory.length === 0 && (
+            <button
+              className="btn berserk-btn btn-sm"
+              onClick={handleBerserk}
+              title="Halve your time — wins earn +1 bonus point"
+            >
+              ⚡ Berserk
+            </button>
+          )}
           {gameStatus === 'playing' && (
             <>
               {isOnline && moveHistory.length > 0 && (

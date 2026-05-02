@@ -82,6 +82,8 @@ export const DraughtsGame: React.FC = () => {
   const [spectators, setSpectators] = useState<string[]>([]);
   const [savingResult, setSavingResult] = useState(false);
   const [isOpponentDisconnected, setIsOpponentDisconnected] = useState(false);
+  const [isBerserk, setIsBerserk] = useState(false);
+  const [showBerserkBtn, setShowBerserkBtn] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef(board);
   const turnRef = useRef(turn);
@@ -132,7 +134,9 @@ export const DraughtsGame: React.FC = () => {
 
   const handleGameEnd = useCallback((winner: Color | 'draw', _boardState: DraughtsBoardType) => {
     setGameStatus('ended');
-    play('gameEnd');
+    if (winner === 'draw') play('gameEnd');
+    else if (winner === playerColor) play('victory');
+    else play('defeat');
     if (isOnline) setSavingResult(true);
     let res = '';
     if (winner === 'draw') res = t('game.draw');
@@ -319,7 +323,7 @@ export const DraughtsGame: React.FC = () => {
   const handleResign = () => {
     setGameStatus('ended');
     setResult(t('game.youLost'));
-    play('gameEnd');
+    play('defeat');
     if (isOnline) {
       socket.emit('resign', { roomId });
     }
@@ -405,10 +409,9 @@ export const DraughtsGame: React.FC = () => {
 
     const handleGameOverEmit = (data: any) => {
       setGameStatus('ended');
-      if (data.result === 'resign') setResult(t('game.opponentResigned'));
-      else if (data.result === 'draw') setResult(t('game.drawAgreement'));
-      else setResult(t('game.gameOver'));
-      play('gameEnd');
+      if (data.result === 'resign') { setResult(t('game.opponentResigned')); play('victory'); }
+      else if (data.result === 'draw') { setResult(t('game.drawAgreement')); play('gameEnd'); }
+      else { setResult(t('game.gameOver')); play('gameEnd'); }
     };
 
     const handleDrawOfferEvent = () => { setIncomingDraw(true); addNotification(t('game.opponentOfferedDraw', 'Your opponent offered a draw'), 'info'); };
@@ -564,6 +567,28 @@ export const DraughtsGame: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handler);
   }, [isOnline, gameStatus]);
 
+  // Berserk button: visible for first 30s of online game before first move
+  useEffect(() => {
+    if (!isOnline) return;
+    setShowBerserkBtn(true);
+    const timer = setTimeout(() => setShowBerserkBtn(false), 30000);
+    return () => clearTimeout(timer);
+  }, [isOnline]);
+
+  useEffect(() => {
+    if (moveHistory.length > 0) setShowBerserkBtn(false);
+  }, [moveHistory.length]);
+
+  const handleBerserk = useCallback(() => {
+    if (isBerserk || !isOnline) return;
+    setIsBerserk(true);
+    setShowBerserkBtn(false);
+    if (playerColor === 'white') setWhiteTime(t => Math.ceil(t / 2));
+    else setBlackTime(t => Math.ceil(t / 2));
+    socket.emit('berserk:activate', { roomId });
+    addNotification('⚡ Berserk! Time halved — wins earn +1 bonus point', 'info');
+  }, [isBerserk, isOnline, playerColor, roomId, addNotification]);
+
   // Count pieces
   const whitePieces = board.flat().filter(p => p?.color === 'white').length;
   const blackPieces = board.flat().filter(p => p?.color === 'black').length;
@@ -696,6 +721,7 @@ export const DraughtsGame: React.FC = () => {
               <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
                 {user?.country && <span style={{ fontSize: 15 }}>{countryFlag(user.country)}</span>}
                 {user?.name || 'You'}
+                {isBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
               </div>
             </PlayerPopover>
             <div className="player-rating">
@@ -715,6 +741,15 @@ export const DraughtsGame: React.FC = () => {
           <button className="btn btn-secondary btn-sm" onClick={() => setFlipped(f => !f)}>
             ↕ {t('game.flip')}
           </button>
+          {showBerserkBtn && !isBerserk && isOnline && moveHistory.length === 0 && (
+            <button
+              className="btn berserk-btn btn-sm"
+              onClick={handleBerserk}
+              title="Halve your time — wins earn +1 bonus point"
+            >
+              ⚡ Berserk
+            </button>
+          )}
           {gameStatus === 'playing' && (
             <>
               {isOnline && moveHistory.length > 0 && (

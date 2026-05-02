@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { DraughtsBoard as Board, DraughtsMove, Position } from '../../types';
 
 interface Props {
@@ -19,11 +19,12 @@ interface CellProps {
   legalTarget: boolean;
   lastFrom: boolean;
   lastTo: boolean;
+  isDragging: boolean;
   onSquareClick: (row: number, col: number) => void;
 }
 
 const DraughtsCell: React.FC<CellProps> = React.memo(({
-  row, col, isLight, piece, selected, legalTarget, lastFrom, lastTo, onSquareClick
+  row, col, isLight, piece, selected, legalTarget, lastFrom, lastTo, isDragging, onSquareClick,
 }) => {
   let cellClass = `draughts-cell ${isLight ? 'light' : 'dark'}`;
   if (!isLight) {
@@ -33,31 +34,21 @@ const DraughtsCell: React.FC<CellProps> = React.memo(({
     else if (lastTo) cellClass += ' last-to';
   }
 
-  const handleDrop = (e: React.DragEvent) => {
-    if (isLight) return;
-    e.preventDefault();
-    const fromRow = parseInt(e.dataTransfer.getData('row'), 10);
-    const fromCol = parseInt(e.dataTransfer.getData('col'), 10);
-    if (!isNaN(fromRow) && !isNaN(fromCol) && (fromRow !== row || fromCol !== col)) {
-      onSquareClick(row, col);
-    }
-  };
-
   return (
     <div
       className={cellClass}
+      data-row={row}
+      data-col={col}
       onClick={() => !isLight && onSquareClick(row, col)}
-      onDragOver={(e) => { if (!isLight) e.preventDefault(); }}
-      onDrop={handleDrop}
     >
       {piece && (
         <div
           className={`draughts-piece ${piece.color === 'white' ? 'white-pc' : 'black-pc'} ${selected ? 'selected-piece' : ''} ${piece.type === 'king' ? 'is-king' : ''}`}
-          draggable={!isLight}
-          onDragStart={(e) => {
-            e.dataTransfer.setData('row', row.toString());
-            e.dataTransfer.setData('col', col.toString());
-            onSquareClick(row, col);
+          style={{
+            opacity: isDragging ? 0.25 : 1,
+            touchAction: 'none',
+            userSelect: 'none',
+            pointerEvents: 'none',
           }}
         >
           {piece.type === 'king' && <div className="draughts-piece-bottom" />}
@@ -72,48 +63,145 @@ const DraughtsCell: React.FC<CellProps> = React.memo(({
   );
 });
 
+interface DragStateType {
+  row: number;
+  col: number;
+  piece: { color: 'white' | 'black'; type: 'man' | 'king' };
+  x: number;
+  y: number;
+  size: number;
+}
+
 export const DraughtsBoard: React.FC<Props> = ({
   board, selectedSquare, legalMoves, lastMove, flipped, onSquareClick,
 }) => {
-  const rows = flipped ? Array.from({ length: 10 }, (_, i) => 9 - i) : Array.from({ length: 10 }, (_, i) => i);
-  const cols = flipped ? Array.from({ length: 10 }, (_, i) => 9 - i) : Array.from({ length: 10 }, (_, i) => i);
+  const rows = flipped
+    ? Array.from({ length: 10 }, (_, i) => 9 - i)
+    : Array.from({ length: 10 }, (_, i) => i);
+  const cols = flipped
+    ? Array.from({ length: 10 }, (_, i) => 9 - i)
+    : Array.from({ length: 10 }, (_, i) => i);
 
-  // Stable callback so DraughtsCell memo can work — latest handler always in ref
   const onSquareClickRef = useRef(onSquareClick);
   onSquareClickRef.current = onSquareClick;
   const stableClick = useCallback((row: number, col: number) => {
     onSquareClickRef.current(row, col);
   }, []);
 
-  const isLegalTarget = (row: number, col: number): boolean =>
+  const [dragState, setDragState] = useState<DragStateType | null>(null);
+  const dragRef = useRef(dragState);
+  dragRef.current = dragState;
+  const boardRef = useRef<HTMLDivElement>(null);
+
+  const isLegalTarget = (row: number, col: number) =>
     legalMoves.some(m => m.to.row === row && m.to.col === col);
-
-  const isSelected = (row: number, col: number): boolean =>
+  const isSelected = (row: number, col: number) =>
     selectedSquare?.row === row && selectedSquare?.col === col;
-
-  const isLastFrom = (row: number, col: number): boolean =>
+  const isLastFrom = (row: number, col: number) =>
     lastMove?.from.row === row && lastMove?.from.col === col;
-
-  const isLastTo = (row: number, col: number): boolean =>
+  const isLastTo = (row: number, col: number) =>
     lastMove?.to.row === row && lastMove?.to.col === col;
 
+  // ── Pointer-based drag & drop (mouse + touch) ─────────────────────────────
+  const handleBoardPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const cellEl = (e.target as HTMLElement).closest('[data-row]') as HTMLElement | null;
+    if (!cellEl) return;
+    const row = parseInt(cellEl.getAttribute('data-row') || '', 10);
+    const col = parseInt(cellEl.getAttribute('data-col') || '', 10);
+    if (isNaN(row) || isNaN(col)) return;
+    // Only dark squares have pieces
+    if ((row + col) % 2 === 0) return;
+    const piece = board[row]?.[col];
+    if (!piece) return;
+
+    e.preventDefault();
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const size = rect.width / 10;
+    setDragState({ row, col, piece, x: e.clientX, y: e.clientY, size });
+    stableClick(row, col);
+  }, [board, stableClick]);
+
+  const handleBoardPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    setDragState(d => d ? { ...d, x: e.clientX, y: e.clientY } : null);
+  }, []);
+
+  const handleBoardPointerUp = useCallback((e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const els = document.elementsFromPoint(e.clientX, e.clientY);
+    const cellEl = els.find(el => el.hasAttribute('data-row') && el.hasAttribute('data-col'));
+    if (cellEl) {
+      const targetRow = parseInt(cellEl.getAttribute('data-row') || '', 10);
+      const targetCol = parseInt(cellEl.getAttribute('data-col') || '', 10);
+      if (!isNaN(targetRow) && !isNaN(targetCol) &&
+          (targetRow !== drag.row || targetCol !== drag.col)) {
+        stableClick(targetRow, targetCol);
+      }
+    }
+    setDragState(null);
+  }, [stableClick]);
+
   return (
-    <div className="draughts-board">
-      {rows.map(row =>
-        cols.map(col => (
-          <DraughtsCell
-            key={`${row}-${col}`}
-            row={row}
-            col={col}
-            isLight={(row + col) % 2 === 0}
-            piece={board[row][col]}
-            selected={isSelected(row, col)}
-            legalTarget={isLegalTarget(row, col)}
-            lastFrom={isLastFrom(row, col)}
-            lastTo={isLastTo(row, col)}
-            onSquareClick={stableClick}
-          />
-        ))
+    <div style={{ position: 'relative' }}>
+      <div
+        className="draughts-board"
+        ref={boardRef}
+        onPointerDown={handleBoardPointerDown}
+        onPointerMove={handleBoardPointerMove}
+        onPointerUp={handleBoardPointerUp}
+        style={{ touchAction: 'none', userSelect: 'none' }}
+      >
+        {rows.map(row =>
+          cols.map(col => (
+            <DraughtsCell
+              key={`${row}-${col}`}
+              row={row}
+              col={col}
+              isLight={(row + col) % 2 === 0}
+              piece={board[row][col]}
+              selected={isSelected(row, col)}
+              legalTarget={isLegalTarget(row, col)}
+              lastFrom={isLastFrom(row, col)}
+              lastTo={isLastTo(row, col)}
+              isDragging={dragState?.row === row && dragState?.col === col}
+              onSquareClick={stableClick}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Floating ghost piece during drag */}
+      {dragState && (
+        <div
+          style={{
+            position: 'fixed',
+            left: dragState.x - dragState.size / 2,
+            top: dragState.y - dragState.size / 2,
+            width: dragState.size,
+            height: dragState.size,
+            pointerEvents: 'none',
+            zIndex: 9999,
+            opacity: 0.88,
+            transform: 'scale(1.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            className={`draughts-piece ${dragState.piece.color === 'white' ? 'white-pc' : 'black-pc'} ${dragState.piece.type === 'king' ? 'is-king' : ''}`}
+            style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))' }}
+          >
+            {dragState.piece.type === 'king' && <div className="draughts-piece-bottom" />}
+            {dragState.piece.type === 'king' && (
+              <span className="draughts-king-crown">
+                {dragState.piece.color === 'white' ? '♛' : '♕'}
+              </span>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

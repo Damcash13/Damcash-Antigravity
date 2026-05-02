@@ -993,6 +993,10 @@ button,
   background: rgba(255, 0, 0, 0.45) !important;
 }
 
+.chess-cell.premove {
+  background: rgba(128, 0, 255, 0.42) !important;
+}
+
 .chess-cell:hover { filter: brightness(1.1); }
 
 .chess-piece-el {
@@ -2279,6 +2283,28 @@ html, body {
   0% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.97; transform: scale(0.97); }
   100% { opacity: 1; transform: scale(1); }
+}
+
+/* ===== BERSERK BUTTON ===== */
+.berserk-btn {
+  background: linear-gradient(135deg, #7f1d1d, #991b1b) !important;
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+  animation: berserk-pulse 0.9s ease-in-out infinite alternate;
+}
+.berserk-btn:hover {
+  background: linear-gradient(135deg, #991b1b, #b91c1c) !important;
+}
+@keyframes berserk-pulse {
+  from { box-shadow: 0 0 4px #ef4444; }
+  to   { box-shadow: 0 0 16px #ef4444, 0 0 4px #ff0000; }
+}
+.berserk-badge {
+  font-size: 10px;
+  font-weight: 900;
+  color: #ef4444;
+  letter-spacing: 0.05em;
+  animation: berserk-pulse 0.9s ease-in-out infinite alternate;
 }
 
 /* ===== LOBBY BOTTOM SECTION ===== */

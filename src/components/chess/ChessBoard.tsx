@@ -13,6 +13,9 @@ interface Props {
   onMove: (from: Square, to: Square, promotion?: PieceSymbol) => void;
   lastMove: { from: Square; to: Square } | null;
   inCheck: boolean;
+  premove?: { from: Square; to: Square } | null;
+  onPremove?: (from: Square, to: Square) => void;
+  onClearPremove?: () => void;
 }
 
 interface CellProps {
@@ -23,6 +26,8 @@ interface CellProps {
   isLastFrom: boolean;
   isLastTo: boolean;
   isKingCheck: boolean;
+  isPremove: boolean;
+  isDragging: boolean;
   pieceObj: { type: PieceSymbol; color: ChessColor } | null;
   file: string;
   rank: string;
@@ -32,8 +37,9 @@ interface CellProps {
 }
 
 const ChessCell: React.FC<CellProps> = React.memo(({
-  sq, light, isSelected, isLegal, isLastFrom, isLastTo, isKingCheck, pieceObj,
-  file, rank, showFileCoord, showRankCoord, onClick
+  sq, light, isSelected, isLegal, isLastFrom, isLastTo, isKingCheck,
+  isPremove, isDragging, pieceObj,
+  file, rank, showFileCoord, showRankCoord, onClick,
 }) => {
   const hasPiece = !!pieceObj;
   let cellClass = `chess-cell ${light ? 'light' : 'dark'}`;
@@ -42,27 +48,26 @@ const ChessCell: React.FC<CellProps> = React.memo(({
   else if (isLegal) cellClass += ' legal-move';
   if (isLastFrom || isLastTo) cellClass += ' last-move-from';
   if (isKingCheck) cellClass += ' in-check';
+  if (isPremove) cellClass += ' premove';
 
   return (
     <div
       className={cellClass}
+      data-sq={sq}
       onClick={() => onClick(sq)}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        const fromSq = e.dataTransfer.getData('from') as Square;
-        if (fromSq && fromSq !== sq) onClick(sq);
-      }}
     >
       {pieceObj && (
         <div
           className="chess-piece-el-container"
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('from', sq);
-            onClick(sq);
+          style={{
+            width: '100%', height: '100%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1,
+            opacity: isDragging ? 0.25 : 1,
+            touchAction: 'none',
+            userSelect: 'none',
+            pointerEvents: 'none',
           }}
-          style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
         >
           <ChessPiece type={pieceObj.type} color={pieceObj.color} />
         </div>
@@ -73,21 +78,37 @@ const ChessCell: React.FC<CellProps> = React.memo(({
   );
 });
 
+interface DragStateType {
+  sq: Square;
+  piece: { type: PieceSymbol; color: ChessColor };
+  x: number;
+  y: number;
+  size: number;
+}
+
 export const ChessBoard: React.FC<Props> = ({
   game, flipped, playerColor, onMove, lastMove, inCheck,
+  premove, onPremove, onClearPremove,
 }) => {
   const [selected, setSelected] = useState<Square | null>(null);
   const [legalMoves, setLegalMoves] = useState<Square[]>([]);
   const [promotionPending, setPromotionPending] = useState<{ from: Square; to: Square } | null>(null);
+  const [premoveFrom, setPremoveFrom] = useState<Square | null>(null);
+  const [dragState, setDragState] = useState<DragStateType | null>(null);
   const { play } = useSound();
 
-  // Refs keep the latest values without changing handler identity
   const gameRef = useRef(game);
   const selectedRef = useRef(selected);
   const legalMovesRef = useRef(legalMoves);
+  const dragRef = useRef(dragState);
+  const premoveFromRef = useRef(premoveFrom);
   gameRef.current = game;
   selectedRef.current = selected;
   legalMovesRef.current = legalMoves;
+  dragRef.current = dragState;
+  premoveFromRef.current = premoveFrom;
+
+  const boardRef = useRef<HTMLDivElement>(null);
 
   const ranks = flipped ? [...RANKS].reverse() : RANKS;
   const files = flipped ? [...FILES].reverse() : FILES;
@@ -103,6 +124,32 @@ export const ChessBoard: React.FC<Props> = ({
     const sel = selectedRef.current;
     const legal = legalMovesRef.current;
     const piece = g.get(sq);
+
+    // ── Opponent's turn: premove mode ────────────────────────────────────────
+    if (g.turn() !== playerColor) {
+      if (piece && piece.color === playerColor) {
+        setSelected(sq);
+        setPremoveFrom(sq);
+        play('premove');
+        return;
+      }
+      const pmFrom = premoveFromRef.current;
+      if (pmFrom && g.get(pmFrom)?.color === playerColor) {
+        onPremove?.(pmFrom, sq);
+        setPremoveFrom(null);
+        setSelected(null);
+        play('premove');
+        return;
+      }
+      setSelected(null);
+      setPremoveFrom(null);
+      return;
+    }
+
+    // ── Player's turn: normal move ────────────────────────────────────────────
+    onClearPremove?.();
+    setPremoveFrom(null);
+
     if (piece && piece.color === playerColor) {
       setSelected(sq);
       setLegalMoves(g.moves({ square: sq, verbose: true }).map(m => m.to as Square));
@@ -110,13 +157,14 @@ export const ChessBoard: React.FC<Props> = ({
     }
     if (sel && legal.includes(sq)) {
       const piece2 = g.get(sel);
-      const isPromotion = piece2?.type === 'p' && ((piece2.color === 'w' && sq[1] === '8') || (piece2.color === 'b' && sq[1] === '1'));
+      const isPromotion = piece2?.type === 'p' &&
+        ((piece2.color === 'w' && sq[1] === '8') || (piece2.color === 'b' && sq[1] === '1'));
       if (isPromotion) setPromotionPending({ from: sel, to: sq });
-      else { onMove(sel, sq); if (g.get(sq)) play('move'); }
+      else { onMove(sel, sq); }
       setSelected(null); setLegalMoves([]); return;
     }
     setSelected(null); setLegalMoves([]);
-  }, [playerColor, onMove, play]);
+  }, [playerColor, onMove, play, onPremove, onClearPremove]);
 
   const handlePromotion = (piece: PieceSymbol) => {
     if (promotionPending) { onMove(promotionPending.from, promotionPending.to, piece); setPromotionPending(null); }
@@ -125,15 +173,72 @@ export const ChessBoard: React.FC<Props> = ({
   const getKingSquare = (): Square | null => {
     if (!inCheck) return null;
     const turn = game.turn();
-    for (let f of FILES) { for (let r of RANKS) { const sq = `${f}${r}` as Square; const p = game.get(sq); if (p && p.type === 'k' && p.color === turn) return sq; } }
+    for (const f of FILES) {
+      for (const r of RANKS) {
+        const sq = `${f}${r}` as Square;
+        const p = game.get(sq);
+        if (p && p.type === 'k' && p.color === turn) return sq;
+      }
+    }
     return null;
   };
 
   const kingInCheckSq = getKingSquare();
 
+  // ── Pointer-based drag & drop (works on mouse + touch) ───────────────────────
+  const handleBoardPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Find if the pointer is on a piece cell
+    const cellEl = (e.target as HTMLElement).closest('[data-sq]') as HTMLElement | null;
+    if (!cellEl) return;
+    const sq = cellEl.getAttribute('data-sq') as Square;
+    if (!sq) return;
+    const g = gameRef.current;
+    const piece = g.get(sq);
+    // Only drag player's own pieces (or premove pieces on opponent's turn)
+    if (!piece || piece.color !== playerColor) return;
+
+    e.preventDefault();
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const size = rect.width / 8;
+    setDragState({ sq, piece, x: e.clientX, y: e.clientY, size });
+    handleSquareClick(sq);
+  }, [playerColor, handleSquareClick]);
+
+  const handleBoardPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    setDragState(d => d ? { ...d, x: e.clientX, y: e.clientY } : null);
+  }, []);
+
+  const handleBoardPointerUp = useCallback((e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    // Find the target cell under the pointer (elementsFromPoint ignores pointer capture)
+    const els = document.elementsFromPoint(e.clientX, e.clientY);
+    const cellEl = els.find(el => el.hasAttribute('data-sq'));
+    if (cellEl) {
+      const targetSq = cellEl.getAttribute('data-sq') as Square;
+      if (targetSq && targetSq !== drag.sq) {
+        handleSquareClick(targetSq);
+      }
+    }
+    setDragState(null);
+  }, [handleSquareClick]);
+
+  const isPremoveSquare = (sq: Square) =>
+    premove?.from === sq || premove?.to === sq ||
+    (premoveFrom === sq);
+
   return (
     <div style={{ position: 'relative' }}>
-      <div className="chess-board">
+      <div
+        className="chess-board"
+        ref={boardRef}
+        onPointerDown={handleBoardPointerDown}
+        onPointerMove={handleBoardPointerMove}
+        onPointerUp={handleBoardPointerUp}
+        style={{ touchAction: 'none', userSelect: 'none' }}
+      >
         {ranks.map((rank, ri) =>
           files.map((file, fi) => {
             const sq = `${file}${rank}` as Square;
@@ -147,6 +252,8 @@ export const ChessBoard: React.FC<Props> = ({
                 isLastFrom={lastMove?.from === sq}
                 isLastTo={lastMove?.to === sq}
                 isKingCheck={kingInCheckSq === sq}
+                isPremove={isPremoveSquare(sq)}
+                isDragging={dragState?.sq === sq}
                 pieceObj={game.get(sq) ?? null}
                 file={file}
                 rank={rank}
@@ -159,25 +266,45 @@ export const ChessBoard: React.FC<Props> = ({
         )}
       </div>
 
+      {/* Floating ghost piece during drag */}
+      {dragState && (
+        <div
+          style={{
+            position: 'fixed',
+            left: dragState.x - dragState.size / 2,
+            top: dragState.y - dragState.size / 2,
+            width: dragState.size,
+            height: dragState.size,
+            pointerEvents: 'none',
+            zIndex: 9999,
+            opacity: 0.88,
+            transform: 'scale(1.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))',
+          }}
+        >
+          <ChessPiece type={dragState.piece.type} color={dragState.piece.color} />
+        </div>
+      )}
+
       {/* Promotion modal */}
       {promotionPending && (
         <div className="modal-overlay" onClick={() => setPromotionPending(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">Promote pawn</div>
             <div className="promotion-pieces">
-              {(['q', 'r', 'b', 'n'] as PieceSymbol[]).map((p) => {
-                const color = playerColor;
-                return (
-                  <div
-                    key={p}
-                    className="promotion-piece"
-                    onClick={() => handlePromotion(p)}
-                    style={{ width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <ChessPiece type={p} color={color} />
-                  </div>
-                );
-              })}
+              {(['q', 'r', 'b', 'n'] as PieceSymbol[]).map((p) => (
+                <div
+                  key={p}
+                  className="promotion-piece"
+                  onClick={() => handlePromotion(p)}
+                  style={{ width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <ChessPiece type={p} color={playerColor} />
+                </div>
+              ))}
             </div>
           </div>
         </div>
