@@ -749,7 +749,7 @@ export const DraughtsGame: React.FC = () => {
           <button className="btn btn-secondary btn-sm" onClick={() => setFlipped(f => !f)}>
             ↕ {t('game.flip')}
           </button>
-          {showBerserkBtn && !isBerserk && isOnline && moveHistory.length === 0 && config?.isTournament && (
+          {showBerserkBtn && !isBerserk && isOnline && moveHistory.length === 0 && (location.state as any)?.config?.isTournament && (
             <button
               className="btn berserk-btn btn-sm"
               onClick={handleBerserk}
