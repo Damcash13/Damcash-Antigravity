@@ -101,6 +101,18 @@ export default function App() {
     }
   }, [location.pathname, setUniverse]);
 
+  const lastColorRef = useRef<{ roomId: string; color: 'w' | 'b' } | null>(null);
+
+  useEffect(() => {
+    const handleRoomTokens = (data: { roomId: string; color: string }) => {
+      lastColorRef.current = { roomId: data.roomId, color: data.color === 'white' ? 'w' : 'b' };
+    };
+    socket.on('room:tokens', handleRoomTokens);
+    return () => {
+      socket.off('room:tokens', handleRoomTokens);
+    };
+  }, []);
+
   useEffect(() => {
     const handlePlayersOnline = (list: OnlinePlayer[]) => {
       const others = list.filter((p) => p.socketId !== socket.id);
@@ -114,7 +126,10 @@ export default function App() {
     const handleGameStart = (data: any) => {
       setSearching(null);
       let color = 'w';
-      if (data.black === socket.id || (data.blackPlayer?.name === user?.name && user?.name)) {
+      // Prioritize the explicit color assignment from the server
+      if (lastColorRef.current && lastColorRef.current.roomId === data.roomId) {
+        color = lastColorRef.current.color;
+      } else if (data.black === socket.id || (data.blackPlayer?.name === user?.name && user?.name)) {
         color = 'b';
       } else if (data.white === socket.id || (data.whitePlayer?.name === user?.name && user?.name)) {
         color = 'w';
@@ -248,7 +263,9 @@ function JoinByCodeRedirect() {
     if (!code) return;
     const handleGameStart = (data: any) => {
       let color = 'w';
-      if (data.black === socket.id || (data.blackPlayer?.name === user?.name && user?.name)) {
+      if (lastColorRef.current && lastColorRef.current.roomId === data.roomId) {
+        color = lastColorRef.current.color;
+      } else if (data.black === socket.id || (data.blackPlayer?.name === user?.name && user?.name)) {
         color = 'b';
       } else if (data.white === socket.id || (data.whitePlayer?.name === user?.name && user?.name)) {
         color = 'w';

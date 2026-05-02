@@ -806,7 +806,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
           <button className="btn btn-secondary btn-sm" onClick={() => setFlipped(f => !f)} aria-label={t('game.flip')}>
             ↕ {t('game.flip')}
           </button>
-          {showBerserkBtn && !isBerserk && isOnline && moveHistory.length === 0 && (
+          {showBerserkBtn && !isBerserk && isOnline && moveHistory.length === 0 && config?.isTournament && (
             <button
               className="btn berserk-btn btn-sm"
               onClick={handleBerserk}

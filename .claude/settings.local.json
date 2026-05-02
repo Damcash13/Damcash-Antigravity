@@ -6,7 +6,9 @@
       "Read(//tmp/**)",
       "Bash(curl -s http://localhost:5173/api/auth/me)",
       "Bash(curl -s http://localhost:3002/api/auth/me)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(npm test *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

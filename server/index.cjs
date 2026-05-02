@@ -313,6 +313,18 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     }
   }
 
+  // Generate reconnect tokens so players can rejoin on page refresh
+  const whiteToken = genId();
+  const blackToken = genId();
+  reconnectTokens.set(roomId, {
+    white: { token: whiteToken, socketId: white },
+    black: { token: blackToken, socketId: black },
+  });
+
+  // Emit tokens BEFORE game-start so clients can prepare their color assignment
+  io.to(white).emit('room:tokens', { roomId, token: whiteToken, color: 'white' });
+  io.to(black).emit('room:tokens', { roomId, token: blackToken, color: 'black' });
+
   const wp = players.get(white);
   const bp = players.get(black);
   io.to(roomId).emit('game-start', {
@@ -321,16 +333,6 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     whitePlayer: { name: wp?.name || 'White', rating: wp?.rating || { chess: 1500, checkers: 1450 }, country: wp?.country || '' },
     blackPlayer: { name: bp?.name || 'Black', rating: bp?.rating || { chess: 1500, checkers: 1450 }, country: bp?.country || '' },
   });
-
-  // Generate reconnect tokens so players can rejoin on page refresh
-  const whiteToken = genId();
-  const blackToken = genId();
-  reconnectTokens.set(roomId, {
-    white: { token: whiteToken, socketId: white },
-    black: { token: blackToken, socketId: black },
-  });
-  io.to(white).emit('room:tokens', { roomId, token: whiteToken, color: 'white' });
-  io.to(black).emit('room:tokens', { roomId, token: blackToken, color: 'black' });
 
   [creatorId, joinerId].forEach((id) => {
     const p = players.get(id);
