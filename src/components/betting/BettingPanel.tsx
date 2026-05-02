@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useBettingStore, useUserStore, useNotificationStore } from '../../stores';
 import { useSound } from '../../hooks/useSound';
+import { calculateBetPayout } from '../../lib/betting';
 
 const QUICK_AMOUNTS = [5, 10, 25, 50];
 
@@ -41,8 +42,7 @@ export const BettingPanel: React.FC = () => {
     addNotification(t('betting.refunded'), 'info');
   };
 
-  const platformFee  = amount * 2 * 0.05;
-  const potentialWin = amount * 2 * (1 - 0.05);
+  const { platformFee, potentialWin } = calculateBetPayout(amount);
 
   return (
     <div className="betting-panel">

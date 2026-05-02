@@ -1,31 +1,27 @@
 import { describe, it, expect } from 'vitest';
+import { calculateBetPayout, HOUSE_CUT } from '../lib/betting';
 
-// Mirror the payout logic from BettingPanel.tsx
-function clientPayout(amount: number) {
-  const platformFee  = amount * 2 * 0.05;
-  const potentialWin = amount * 2 * (1 - 0.05);
-  return { platformFee, potentialWin };
-}
+// Server formula (mirrors server/index.cjs:1148)
+const serverPayout = (amount: number) => amount * 2 * (1 - HOUSE_CUT);
 
-// Mirror the server formula from server/index.cjs:1148
-function serverPayout(amount: number) {
-  const HOUSE_CUT = 0.05;
-  return amount * 2 * (1 - HOUSE_CUT);
-}
-
-describe('payout formula', () => {
-  it('client potentialWin matches server payout for $100 bet', () => {
-    const { potentialWin } = clientPayout(100);
-    expect(potentialWin).toBe(serverPayout(100)); // both should be 190
+describe('calculateBetPayout — payout formula regression', () => {
+  it('potentialWin matches server payout on $100 bet', () => {
+    expect(calculateBetPayout(100).potentialWin).toBe(serverPayout(100)); // 190
   });
 
-  it('client potentialWin matches server payout for $50 bet', () => {
-    const { potentialWin } = clientPayout(50);
-    expect(potentialWin).toBe(serverPayout(50)); // both should be 95
+  it('potentialWin matches server payout on $50 bet', () => {
+    expect(calculateBetPayout(50).potentialWin).toBe(serverPayout(50)); // 95
   });
 
-  it('platform fee is 5% of total pot', () => {
-    const { platformFee } = clientPayout(100);
-    expect(platformFee).toBe(10); // 5% of $200 pot
+  it('platform fee is 5% of total pot, not 5% of stake', () => {
+    // Old (broken) formula: amount * 0.05 = $5 on $100 bet
+    // Correct formula: amount * 2 * 0.05 = $10 on $100 bet
+    expect(calculateBetPayout(100).platformFee).toBe(10);
+  });
+
+  it('potentialWin + platformFee equals total pot', () => {
+    const amount = 75;
+    const { platformFee, potentialWin } = calculateBetPayout(amount);
+    expect(platformFee + potentialWin).toBeCloseTo(amount * 2);
   });
 });
