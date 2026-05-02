@@ -83,6 +83,7 @@ export const DraughtsGame: React.FC = () => {
   const [savingResult, setSavingResult] = useState(false);
   const [isOpponentDisconnected, setIsOpponentDisconnected] = useState(false);
   const [isBerserk, setIsBerserk] = useState(false);
+  const [opponentBerserk, setOpponentBerserk] = useState(false);
   const [showBerserkBtn, setShowBerserkBtn] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef(board);
@@ -504,6 +505,10 @@ export const DraughtsGame: React.FC = () => {
 
     const handleRatingUpdate = () => setSavingResult(false);
 
+    const handleBerserkEvent = (data: { socketId: string; color: 'white' | 'black' }) => {
+      if (data.socketId !== socket.id) setOpponentBerserk(true);
+    };
+
     socket.on('game-start', handleGameStart);
     socket.on('spectate:list', handleSpectateList);
     socket.on('move', handleSocketMove);
@@ -522,6 +527,7 @@ export const DraughtsGame: React.FC = () => {
     socket.on('room:cancelled', handleRoomCancelled);
     socket.on('room:players', handleRoomPlayers);
     socket.on('rating:update', handleRatingUpdate);
+    socket.on('room:berserk', handleBerserkEvent);
 
     // Attempt rejoin if this socket is new but we have a stored token for this room
     const stored = sessionStorage.getItem('damcash_rejoin_draughts');
@@ -556,6 +562,7 @@ export const DraughtsGame: React.FC = () => {
       socket.off('room:cancelled', handleRoomCancelled);
       socket.off('room:players', handleRoomPlayers);
       socket.off('rating:update', handleRatingUpdate);
+      socket.off('room:berserk', handleBerserkEvent);
     };
   }, [isOnline, playerColor, play, makeMove, handleGameEnd, timeControl.increment]);
 
@@ -614,6 +621,7 @@ export const DraughtsGame: React.FC = () => {
                   </span>
                 )}
                 <strong>{opponent.name}</strong>
+                {opponentBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
               </div>
             </PlayerPopover>
             <div className="player-rating">({opponent.rating})</div>

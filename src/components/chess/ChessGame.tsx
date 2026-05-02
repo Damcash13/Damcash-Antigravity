@@ -88,6 +88,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const [savingResult, setSavingResult] = useState(false);
   const [premove, setPremove] = useState<{ from: Square; to: Square; promotion?: PieceSymbol } | null>(null);
   const [isBerserk, setIsBerserk] = useState(false);
+  const [opponentBerserk, setOpponentBerserk] = useState(false);
   const [showBerserkBtn, setShowBerserkBtn] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef(game);
@@ -562,6 +563,10 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
 
     const handleRatingUpdate = () => setSavingResult(false);
 
+    const handleBerserkEvent = (data: { socketId: string; color: 'white' | 'black' }) => {
+      if (data.socketId !== socket.id) setOpponentBerserk(true);
+    };
+
     socket.on('game-start', handleGameStart);
     socket.on('spectate:list', handleSpectateList);
     socket.on('move', handleSocketMove);
@@ -580,6 +585,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     socket.on('rating:update', handleRatingUpdate);
     socket.on('player-disconnected', handlePlayerDisconnected);
     socket.on('player-reconnected',  handlePlayerReconnected);
+    socket.on('room:berserk', handleBerserkEvent);
 
     // Attempt rejoin if this socket is new but we have a stored token for this room
     const stored = sessionStorage.getItem('damcash_rejoin_chess');
@@ -614,6 +620,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       socket.off('rating:update', handleRatingUpdate);
       socket.off('player-disconnected', handlePlayerDisconnected);
       socket.off('player-reconnected',  handlePlayerReconnected);
+      socket.off('room:berserk', handleBerserkEvent);
     };
   }, [isOnline, playerColor, play, timeControl.increment]);
 
@@ -678,6 +685,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                   </span>
                 )}
                 <strong>{opponent.name}</strong>
+                {opponentBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
                 {isOpponentDisconnected && (
                   <span style={{ color: '#ef4444', fontSize: 11, fontWeight: 700, marginLeft: 6 }}>
                     ● {t('game.disconnected', 'OFFLINE')}
