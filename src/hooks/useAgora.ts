@@ -11,6 +11,7 @@
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { api } from '../lib/api';
+import { socket } from '../lib/socket';
 
 // Agora Web SDK v4 — loaded via npm (agora-rtc-sdk-ng)
 // We lazy-import so SSR / non-game pages don't bundle the full SDK.
@@ -122,7 +123,7 @@ export function useAgora() {
 
     try {
       // 1. Get token from backend
-      const { token, uid } = await api.agora.token(channelName, 0);
+      const { token, uid } = await api.agora.token(channelName, 0, socket.id);
 
       // 2. Create Agora client
       const RTC = await getAgoraRTC();

@@ -62,10 +62,10 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
 
 export const api = {
   agora: {
-    token: (channelName: string, uid = 0) =>
+    token: (channelName: string, uid = 0, socketId?: string) =>
       request<{ token: string | null; appId?: string; uid: number }>(
         '/api/agora/token',
-        { method: 'POST', body: JSON.stringify({ channelName, uid }) },
+        { method: 'POST', body: JSON.stringify({ channelName, uid, ...(socketId ? { socketId } : {}) }) },
       ),
   },
 

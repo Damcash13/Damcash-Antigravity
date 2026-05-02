@@ -622,7 +622,7 @@ io.on('connection', (socket) => {
   });
 
   // ── Direct invite ────────────────────────────────────────────────────────
-  socket.on('invite:send', ({ targetSocketId, config, fromName, fromRating }) => {
+  socket.on('invite:send', ({ targetSocketId, config }) => {
     const inviteId = genId();
     const expiresAt = Date.now() + 30_000;
     invites.set(inviteId, { fromId: socket.id, toId: targetSocketId, config, expiresAt });
@@ -630,8 +630,8 @@ io.on('connection', (socket) => {
     io.to(targetSocketId).emit('invite:received', {
       inviteId,
       fromSocketId: socket.id,
-      fromName: fromName || players.get(socket.id)?.name || 'Unknown',
-      fromRating: fromRating || players.get(socket.id)?.rating?.chess || 1500,
+      fromName:   players.get(socket.id)?.name          || 'Unknown',
+      fromRating: players.get(socket.id)?.rating?.chess || 1500,
       config,
       expiresAt,
     });
@@ -698,11 +698,11 @@ io.on('connection', (socket) => {
   });
 
   // ── Legacy invite broadcast ──────────────────────────────────────────────
-  socket.on('invite', ({ targetId, universe, timeControl, username }) => {
+  socket.on('invite', ({ targetId, universe, timeControl }) => {
     const payload = {
       inviteId: genId(),
       fromSocketId: socket.id,
-      fromName: username || players.get(socket.id)?.name || 'Unknown',
+      fromName:   players.get(socket.id)?.name          || 'Unknown',
       fromRating: players.get(socket.id)?.rating?.chess || 1500,
       config: { universe, timeControl, betAmount: 0, colorPref: 'random', rated: true },
       expiresAt: Date.now() + 30_000,
@@ -2501,9 +2501,41 @@ app.post('/api/agora/token', async (req, res) => {
   }
 
   try {
-    const { channelName, uid = 0 } = req.body;
+    const { channelName, uid = 0, socketId } = req.body;
     if (!channelName || typeof channelName !== 'string') {
       return res.status(400).json({ error: 'channelName is required' });
+    }
+
+    // ── Room membership gate (covers audit #2 and #13) ───────────────────────
+    const room = rooms.get(channelName);
+    if (!room) return res.status(403).json({ error: 'Forbidden' });
+
+    const bearerToken = req.headers.authorization?.split(' ')[1];
+    if (bearerToken) {
+      // Path A — authenticated user: verify via Supabase JWT → DB user ID
+      let userId = null;
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser(bearerToken);
+        if (error || !user) return res.status(401).json({ error: 'Unauthorized' });
+        userId = user.id;
+      } catch {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      const isInRoom =
+        socketToUserId.get(room.players.white) === userId ||
+        socketToUserId.get(room.players.black) === userId;
+      if (!isInRoom) return res.status(403).json({ error: 'Forbidden' });
+    } else {
+      // Path B — guest: verify via live socket ID + room membership
+      if (!socketId || typeof socketId !== 'string') {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      if (!io.sockets.sockets.has(socketId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      if (room.players.white !== socketId && room.players.black !== socketId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
     }
 
     // If agora-access-token is not installed or App Certificate is missing,
