@@ -360,14 +360,31 @@ io.on('connection', (socket) => {
   console.log(`[+] ${socket.id}`);
 
   // ── Register player ──────────────────────────────────────────────────────
-  socket.on('player:register', ({ name, rating, universe, gamesPlayed, country }) => {
+  socket.on('player:register', async ({ name, rating, universe, gamesPlayed, country }) => {
     if (socket.user) {
       socketToUserId.set(socket.id, socket.user.id);
     }
+
+    let authProfile = null;
+    if (socket.user) {
+      try {
+        authProfile = await prisma.user.findUnique({
+          where: { id: socket.user.id },
+          select: { username: true, chessRating: true, checkersRating: true, chessGames: true, checkersGames: true },
+        });
+      } catch (_) {
+        // DB outage — fall back to client payload
+      }
+    }
+
     players.set(socket.id, {
-      name: name || `Guest_${socket.id.slice(0, 4)}`,
-      rating: rating || { chess: 1500, checkers: 1450 },
-      gamesPlayed: gamesPlayed || { chess: 0, checkers: 0 },
+      name: authProfile ? authProfile.username : (name || `Guest_${socket.id.slice(0, 4)}`),
+      rating: authProfile
+        ? { chess: authProfile.chessRating, checkers: authProfile.checkersRating }
+        : (rating || { chess: 1500, checkers: 1450 }),
+      gamesPlayed: authProfile
+        ? { chess: authProfile.chessGames, checkers: authProfile.checkersGames }
+        : (gamesPlayed || { chess: 0, checkers: 0 }),
       status: 'idle',
       universe: universe || 'chess',
       country: country || '',
