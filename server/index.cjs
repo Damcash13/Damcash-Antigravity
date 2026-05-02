@@ -579,23 +579,33 @@ io.on('connection', (socket) => {
 
   // ── Request player info for a room (called on game component mount) ──────
   socket.on('room:request-players', ({ roomId }) => {
+    if (socketRateLimit(socket.id, 10)) return;
+
     const room = rooms.get(roomId);
     if (!room) return;
     const wp = players.get(room.players.white);
     const bp = players.get(room.players.black);
 
-    // Defensive: join the room if not already joined (handles reloads/reconnects)
-    // If socket.id doesn't match but we are the same logged-in user, update the socket ID in the room.
+    // Shortcut reconnect for mobile users who lost sessionStorage (can't use room:rejoin).
+    // Guard: only update the slot when the original socket is confirmed dead.
+    // If the original socket is still alive, the second tab gets read-only player info only.
     const myUserId = socketToUserId.get(socket.id);
     if (myUserId) {
       const whiteUserId = socketToUserId.get(room.players.white);
       const blackUserId = socketToUserId.get(room.players.black);
+
       if (whiteUserId === myUserId) {
-        room.players.white = socket.id;
-        log.info(`[ROOM] Updated white player socket to ${socket.id} for user ${myUserId}`);
+        const oldSocketId = room.players.white;
+        if (!io.sockets.sockets.has(oldSocketId)) {
+          room.players.white = socket.id;
+          log.warn(`[SHORTCUT-REJOIN] userId=${myUserId} roomId=${roomId} newSocket=${socket.id} replacedSocket=${oldSocketId} ts=${Date.now()}`);
+        }
       } else if (blackUserId === myUserId) {
-        room.players.black = socket.id;
-        log.info(`[ROOM] Updated black player socket to ${socket.id} for user ${myUserId}`);
+        const oldSocketId = room.players.black;
+        if (!io.sockets.sockets.has(oldSocketId)) {
+          room.players.black = socket.id;
+          log.warn(`[SHORTCUT-REJOIN] userId=${myUserId} roomId=${roomId} newSocket=${socket.id} replacedSocket=${oldSocketId} ts=${Date.now()}`);
+        }
       }
     }
 
