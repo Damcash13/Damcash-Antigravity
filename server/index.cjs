@@ -1271,6 +1271,8 @@ io.on('connection', (socket) => {
   socket.on('resign', ({ roomId }) => {
     const room = rooms.get(roomId);
     if (!room) return;
+    if (room.settling) return;
+    room.settling = true;
     // Determine result from white's perspective
     const isWhite = room.players.white === socket.id;
     const result  = isWhite ? 'loss' : 'win';
