@@ -7,6 +7,12 @@ import { useInviteStore, OnlinePlayer } from '../../stores/inviteStore';
 import { supabase } from '../../lib/supabase';
 import { countryFlag } from '../../lib/countries';
 
+const MAX_CHAT_LEN = 300;
+function sanitizeChat(str: unknown, maxLen = MAX_CHAT_LEN): string {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[<>"'`]/g, '').trim().slice(0, maxLen);
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 export interface PublicSeek {
   seekId: string;
@@ -198,7 +204,16 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
 
     channel
       .on('broadcast', { event: 'chat' }, ({ payload }: { payload: any }) => {
-        setChatMessages(prev => [...prev.slice(-49), payload]);
+        const safe: LobbyChatMessage = {
+          id: sanitizeChat(payload?.id, 20) || Math.random().toString(36).substring(7),
+          senderId: sanitizeChat(payload?.senderId, 50),
+          senderName: sanitizeChat(payload?.senderName, 30),
+          universe: payload?.universe === 'checkers' ? 'checkers' : 'chess',
+          text: sanitizeChat(payload?.text),
+          timestamp: typeof payload?.timestamp === 'number' ? payload.timestamp : Date.now(),
+        };
+        if (!safe.text) return;
+        setChatMessages(prev => [...prev.slice(-49), safe]);
       })
       .subscribe();
 
@@ -231,12 +246,14 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
 
   const handleSendChat = () => {
     if (!chatInput.trim() || !lobbyChannel || !user) return;
+    const safeText = sanitizeChat(chatInput);
+    if (!safeText) return;
     const msg: LobbyChatMessage = {
       id: Math.random().toString(36).substring(7),
       senderId: user.id,
-      senderName: user.name,
+      senderName: sanitizeChat(user.name, 30),
       universe,
-      text: chatInput,
+      text: safeText,
       timestamp: Date.now(),
     };
     lobbyChannel.send({
