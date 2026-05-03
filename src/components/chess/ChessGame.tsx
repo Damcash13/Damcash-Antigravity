@@ -398,11 +398,26 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   useEffect(() => {
     if (!isOnline) return;
 
-    const handleSocketMove = ({ from, to, promotion }: any) => {
+    const handleSocketMove = (payload: any) => {
+      const { from, to, promotion, fen, san } = payload;
       const g = gameRef.current;
+      // Skip if it's already our turn (echo of our own move)
       if (g.turn() === playerColor) return;
+
       const newGame = new Chess(g.fen());
-      const res = newGame.move({ from, to, promotion });
+      const res = newGame.move({ from, to, promotion: promotion || 'q' });
+
+      if (!res && fen) {
+        // If the move failed locally (e.g. state out of sync), force-sync with server FEN
+        console.warn('[Game] Chess state out of sync. Force-syncing with server FEN.');
+        const syncGame = new Chess(fen);
+        setGame(syncGame);
+        setMoveHistory(syncGame.history());
+        const lastM = syncGame.history({ verbose: true }).pop();
+        if (lastM) setLastMove({ from: lastM.from, to: lastM.to });
+        return;
+      }
+
       if (!res) return;
 
       setLastMove({ from: res.from as Square, to: res.to as Square });
@@ -410,8 +425,10 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       if (res.captured) play('capture');
       else play('move');
       if (newGame.isCheck()) play('check');
-      if (playerColor === 'w') setBlackTime(t => t + timeControl.increment);
-      else setWhiteTime(t => t + timeControl.increment);
+      
+      // Update clocks from authoritative server time
+      if (payload.whiteTime !== undefined) setWhiteTime(payload.whiteTime);
+      if (payload.blackTime !== undefined) setBlackTime(payload.blackTime);
 
       if (newGame.isGameOver()) {
         setGame(newGame);

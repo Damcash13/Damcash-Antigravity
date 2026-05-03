@@ -260,13 +260,16 @@ async function startRoom(roomId, creatorId, joinerId, config) {
 
   const { white, black } = resolveColor(config.colorPref, creatorId, joinerId);
   // For chess games, create a server-side Chess instance for move validation
-  const chessEngine = (config.universe === 'chess') ? new Chess() : null;
+  const tc = parseTimeControl(config.timeControl || '5+0');
   rooms.set(roomId, {
     players: { white, black }, config,
     moves: [], bets: {}, spectators: new Set(),
     spectatorNames: new Map(), // socketId -> displayName
     escrowed: false, createdAt: Date.now(),
     chessEngine,  // null for draughts, Chess instance for chess
+    whiteTime: tc.initial,
+    blackTime: tc.initial,
+    lastMoveTime: Date.now(),
   });
 
   // Create DB Match record for rated games
@@ -598,6 +601,8 @@ io.on('connection', (socket) => {
       black: room.players.black,
       whitePlayer: players.get(room.players.white),
       blackPlayer: players.get(room.players.black),
+      whiteTime: room.whiteTime,
+      blackTime: room.blackTime,
     });
     socket.emit('room:tokens', { roomId, token, color });
     socket.to(roomId).emit('player-reconnected', { socketId: socket.id, color });
@@ -909,6 +914,22 @@ io.on('connection', (socket) => {
     const senderIsWhite = room.players.white === socket.id;
     if (senderIsWhite !== expectedWhite) return; // out of turn — reject silently
 
+    // ── Update authoritative clocks ──────────────────────────────────────
+    const now = Date.now();
+    const elapsed = now - room.lastMoveTime;
+    const tc = parseTimeControl(room.config?.timeControl || '5+0');
+    
+    if (senderIsWhite) {
+      room.whiteTime = Math.max(0, room.whiteTime - elapsed + tc.increment);
+    } else {
+      room.blackTime = Math.max(0, room.blackTime - elapsed + tc.increment);
+    }
+    room.lastMoveTime = now;
+    
+    // Attach times to payload for client synchronization
+    payload.whiteTime = room.whiteTime;
+    payload.blackTime = room.blackTime;
+
     // ── Chess: server-side move validation via chess.js ──────────────────
     if (room.chessEngine) {
       const moveResult = room.chessEngine.move({
@@ -934,6 +955,8 @@ io.on('connection', (socket) => {
       move:         payload.move || payload.san,
       board:        payload.board,
       draughtsMove: payload.draughtsMove,
+      whiteTime:    room.whiteTime,
+      blackTime:    room.blackTime,
     });
 
     // ── Chess: server-side game-over detection ──────────────────────────

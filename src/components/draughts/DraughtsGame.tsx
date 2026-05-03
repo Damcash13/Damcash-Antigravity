@@ -389,8 +389,9 @@ export const DraughtsGame: React.FC = () => {
           if (payload.move?.promotesToKing) play('promote');
           const nextTurn: Color = oppColor === 'white' ? 'black' : 'white';
           setTurn(nextTurn);
-          if (oppColor === 'white') setWhiteTime(t => t + timeControl.increment);
-          else setBlackTime(t => t + timeControl.increment);
+          // Sync authoritative clocks
+          if (payload.whiteTime !== undefined) setWhiteTime(payload.whiteTime);
+          if (payload.blackTime !== undefined) setBlackTime(payload.blackTime);
           const { over, winner } = isGameOver(syncedBoard, nextTurn);
           if (over) handleGameEnd(winner || 'draw', syncedBoard);
           return;
