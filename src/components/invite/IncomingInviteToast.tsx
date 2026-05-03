@@ -142,11 +142,19 @@ export const IncomingInviteToast: React.FC = () => {
       dismissIncoming(inviteId);
     };
 
+    const handleInviteStarted = (data: any) => {
+      // Navigate immediately
+      const color = data.color || (data.black === socket.id ? 'b' : 'w');
+      navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
+    };
+
     socket.on('invite:received', handleInviteReceived);
     socket.on('invite:cancelled', handleInviteCancelled);
+    socket.on('invite:started', handleInviteStarted);
     return () => {
       socket.off('invite:received', handleInviteReceived);
       socket.off('invite:cancelled', handleInviteCancelled);
+      socket.off('invite:started', handleInviteStarted);
     };
   }, [addIncoming, dismissIncoming, play]);
 

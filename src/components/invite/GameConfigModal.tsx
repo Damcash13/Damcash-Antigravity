@@ -70,8 +70,11 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
       setMyRoom(data.code, config);
       setStep('code');
     };
-    const handleInviteAccepted = () => {
-      onClose(); // Close the modal because we are about to be redirected to the game
+    const handleInviteAccepted = (data: any) => {
+      onClose();
+      // Navigate immediately using the data from the accept event
+      const color = data.color || (data.black === socket.id ? 'b' : 'w');
+      navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
     };
     socket.on('room:created', handleRoomCreated);
     socket.on('invite:accepted', handleInviteAccepted);

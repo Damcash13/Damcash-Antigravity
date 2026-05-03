@@ -701,10 +701,23 @@ io.on('connection', (socket) => {
     if (invite.toId !== socket.id) { socket.emit('invite:expired'); return; }
     invites.delete(inviteId);
 
-    // Notify the inviter so they can close their 'Waiting...' modal
-    io.to(invite.fromId).emit('invite:accepted', { roomId: `room-${genId()}` }); // Note: startRoom will override this roomId with the real one, but we just need the trigger
-
     const roomId = `room-${genId()}`;
+    // Notify the inviter so they can navigate immediately
+    const wp = players.get(invite.fromId);
+    const bp = players.get(socket.id);
+    const gameData = {
+      roomId,
+      white: invite.fromId, // temporary mapping, startRoom will resolve correctly
+      black: socket.id,
+      config: invite.config,
+      whitePlayer: { name: wp?.name || 'White', rating: wp?.rating || { chess: 1500, checkers: 1450 }, country: wp?.country || '' },
+      blackPlayer: { name: bp?.name || 'Black', rating: bp?.rating || { chess: 1500, checkers: 1450 }, country: bp?.country || '' },
+    };
+
+    io.to(invite.fromId).emit('invite:accepted', gameData);
+    // Notify the joiner as well
+    socket.emit('invite:started', gameData);
+
     startRoom(roomId, invite.fromId, socket.id, invite.config);
   });
 
