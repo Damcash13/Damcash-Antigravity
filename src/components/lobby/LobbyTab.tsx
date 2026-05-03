@@ -62,7 +62,7 @@ const PostSeekForm: React.FC<{ onPost: () => void; onCancel: () => void }> = ({ 
     socket.emit('seek', {
       timeControl: tc,
       universe,
-      betAmount: customBet ? parseFloat(customBet) : bet,
+      betAmount: customBet ? Math.max(0, parseFloat(customBet) || 0) : bet,
       rated,
     });
     onPost();
@@ -110,7 +110,7 @@ const PostSeekForm: React.FC<{ onPost: () => void; onCancel: () => void }> = ({ 
         <input
           type="number" min="0" placeholder="$?"
           value={customBet}
-          onChange={e => setCustomBet(e.target.value)}
+          onChange={e => { const v = e.target.value; if (v === '' || parseFloat(v) >= 0) setCustomBet(v); }}
           className="lpf-custom-input"
         />
       </div>
