@@ -118,9 +118,14 @@ export default function App() {
       navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
     };
 
+    const handleRoomError = (data: any) => {
+      useNotificationStore.getState().addNotification(data.message || 'Room error', 'error');
+    };
+
     socket.on('players:online', handlePlayersOnline);
     socket.on('room:created', handleRoomCreated);
     socket.on('game-start', handleGameStart);
+    socket.on('room:error', handleRoomError);
 
     const handleAuthUnauthorized = () => {
       useUserStore.getState().logout();
@@ -135,6 +140,7 @@ export default function App() {
       socket.off('players:online', handlePlayersOnline);
       socket.off('room:created', handleRoomCreated);
       socket.off('game-start', handleGameStart);
+      socket.off('room:error', handleRoomError);
     };
   }, [navigate, setOnlinePlayers, syncOnlinePlayers]);
 

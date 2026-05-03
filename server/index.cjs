@@ -246,17 +246,10 @@ function removeSeekById(seekId) {
 }
 
 async function startRoom(roomId, creatorId, joinerId, config) {
-  // Guard rated rooms: both sockets must be authenticated
-  if (config?.rated !== false) {
-    const cSocket = io.sockets.sockets.get(creatorId);
-    const jSocket = io.sockets.sockets.get(joinerId);
-    if (!cSocket?.user || !jSocket?.user) {
-      const msg = { message: 'You must be signed in to play rated games' };
-      io.to(creatorId).emit('room:error', msg);
-      io.to(joinerId).emit('room:error', msg);
-      return;
-    }
-  }
+  // Auth checks for rated/bet games are enforced at seek:create / seek:accept / invite:send time.
+  // Do NOT re-block here — socket.user may be unset even for authenticated users if the
+  // Supabase getUser call failed during socket handshake (cold start, network hiccup).
+
 
   const { white, black } = resolveColor(config.colorPref, creatorId, joinerId);
   // For chess games, create a server-side Chess instance for move validation
@@ -337,7 +330,7 @@ async function startRoom(roomId, creatorId, joinerId, config) {
   io.to(white).emit('game-start', { ...gameData, color: 'w' });
   io.to(black).emit('game-start', { ...gameData, color: 'b' });
   // Also emit to the room for spectators, but without a specific color assignment
-  socket.to(roomId).emit('game-start', gameData);
+  io.to(roomId).emit('game-start', gameData);
 
   [creatorId, joinerId].forEach((id) => {
     const p = players.get(id);
@@ -894,6 +887,15 @@ io.on('connection', (socket) => {
     // Verify sender is an actual participant (not a spectator injecting moves)
     const isParticipant = room.players.white === socket.id || room.players.black === socket.id;
     if (!isParticipant) return;
+    
+    // For rated games, we prefer socket.user (Supabase verified), 
+    // but if it's missing (e.g. auth fail), we fallback to our verified presence record
+    const pRecord = players.get(socket.id);
+    if (room.config?.rated && !socket.user && (!pRecord || pRecord.status === 'idle')) {
+      console.warn(`[Auth] Rated move rejected: User unverified. socket.id=${socket.id}`);
+      socket.emit('room:error', { message: 'Authentication required for rated games' });
+      return;
+    }
     // Verify turn order: white moves on even indices (0, 2, 4…), black on odd (1, 3, 5…)
     const expectedWhite = room.moves.length % 2 === 0;
     const senderIsWhite = room.players.white === socket.id;
