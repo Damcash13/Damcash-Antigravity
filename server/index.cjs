@@ -266,7 +266,7 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     moves: [], bets: {}, spectators: new Set(),
     spectatorNames: new Map(), // socketId -> displayName
     escrowed: false, createdAt: Date.now(),
-    chessEngine,  // null for draughts, Chess instance for chess
+    chessEngine: config?.universe === 'chess' ? new Chess() : null,
     whiteTime: tc.initial,
     blackTime: tc.initial,
     lastMoveTime: Date.now(),
