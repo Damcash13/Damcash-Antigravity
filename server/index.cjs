@@ -197,6 +197,7 @@ const takebackRequests = new Map(); // roomId   -> { fromId, timeoutId }
 const seekTimeouts     = new Map(); // seekId   -> timeoutId (120s auto-expiry)
 const reconnectTokens  = new Map(); // roomId   -> { white: {token,socketId}, black: {token,socketId} }
 const socketToUserId = new Map(); // socketId -> db user id
+const userIdToSocketId = new Map(); // db user id -> socketId
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function genCode() {
@@ -317,22 +318,28 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     black: { token: blackToken, socketId: black },
   });
 
-  const wp = players.get(white);
-  const bp = players.get(black);
+  // Resolve the latest socket IDs for these users in case they blipped and reconnected
+  const whiteUser = socketToUserId.get(white);
+  const blackUser = socketToUserId.get(black);
+  const currentWhite = whiteUser ? (userIdToSocketId.get(whiteUser) || white) : white;
+  const currentBlack = blackUser ? (userIdToSocketId.get(blackUser) || black) : black;
+
+  const wp = players.get(currentWhite);
+  const bp = players.get(currentBlack);
   const gameData = {
-    roomId, white, black, config,
+    roomId, white: currentWhite, black: currentBlack, config,
     timeControl: config.timeControl,
     whitePlayer: { name: wp?.name || 'White', rating: wp?.rating || { chess: 1500, checkers: 1450 }, country: wp?.country || '' },
     blackPlayer: { name: bp?.name || 'Black', rating: bp?.rating || { chess: 1500, checkers: 1450 }, country: bp?.country || '' },
   };
 
   // Emit INDIVIDUALLY to guarantee they receive their correct color even if tokens are delayed
-  io.to(white).emit('game-start', { ...gameData, color: 'w' });
-  io.to(black).emit('game-start', { ...gameData, color: 'b' });
+  io.to(currentWhite).emit('game-start', { ...gameData, color: 'w' });
+  io.to(currentBlack).emit('game-start', { ...gameData, color: 'b' });
   // Also emit to the room for spectators, but without a specific color assignment
   io.to(roomId).emit('game-start', gameData);
 
-  [creatorId, joinerId].forEach((id) => {
+  [currentWhite, currentBlack].forEach((id) => {
     const p = players.get(id);
     if (p) { p.status = 'playing'; p.currentTC = config?.timeControl || null; players.set(id, p); }
   });
@@ -363,6 +370,7 @@ io.on('connection', (socket) => {
   socket.on('player:register', async ({ name, rating, universe, gamesPlayed, country }) => {
     if (socket.user) {
       socketToUserId.set(socket.id, socket.user.id);
+      userIdToSocketId.set(socket.user.id, socket.id);
     }
 
     let authProfile = null;
@@ -1516,6 +1524,8 @@ io.on('connection', (socket) => {
       spectators.delete(socket.id);
     }
 
+    const uid = socketToUserId.get(socket.id);
+    if (uid) userIdToSocketId.delete(uid);
     socketToUserId.delete(socket.id);
 
     // Notify rooms
