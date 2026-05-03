@@ -1859,11 +1859,53 @@ app.post('/api/tournaments', requireAuth, requireAdmin, async (req, res) => {
 });
 
 app.post('/api/tournaments/:id/join', requireAuth, async (req, res) => {
+  const tournamentId = req.params.id;
+  const userId = req.user.id;
   try {
-    await prisma.tournamentPlayer.create({ data: { tournamentId: req.params.id, userId: req.user.id } });
-    io.to(`tournament:${req.params.id}`).emit('tournament:updated', { id: req.params.id });
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: { _count: { select: { players: true } } },
+    });
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+    if (tournament.status !== 'upcoming') return res.status(400).json({ error: 'Tournament is not open for registration' });
+    if (tournament._count.players >= tournament.maxPlayers) return res.status(400).json({ error: 'Tournament is full' });
+
+    const alreadyJoined = await prisma.tournamentPlayer.findFirst({ where: { tournamentId, userId } });
+    if (alreadyJoined) return res.status(400).json({ error: 'Already registered' });
+
+    const entryFee = Number(tournament.betEntry) || 0;
+
+    if (entryFee > 0) {
+      await prisma.$transaction(async (tx) => {
+        const wallet = await tx.wallet.findUnique({ where: { userId } });
+        if (!wallet || Number(wallet.balance) < entryFee) {
+          throw new Error('Insufficient balance');
+        }
+        await tx.wallet.update({ where: { userId }, data: { balance: { decrement: entryFee } } });
+        await tx.transaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: -entryFee,
+            type: 'TOURNAMENT_ENTRY',
+            status: 'COMPLETED',
+          },
+        });
+        await tx.tournament.update({ where: { id: tournamentId }, data: { prizePool: { increment: entryFee } } });
+        await tx.tournamentPlayer.create({ data: { tournamentId, userId } });
+      });
+      const updated = await prisma.wallet.findUnique({ where: { userId } });
+      const sock = [...io.sockets.sockets.values()].find(s => s.user?.id === userId);
+      sock?.emit('wallet:update', { balance: Number(updated?.balance ?? 0) });
+    } else {
+      await prisma.tournamentPlayer.create({ data: { tournamentId, userId } });
+    }
+
+    io.to(`tournament:${tournamentId}`).emit('tournament:updated', { id: tournamentId });
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: 'Failed' }); }
+  } catch (err) {
+    if (err.message === 'Insufficient balance') return res.status(402).json({ error: 'Insufficient balance to pay entry fee' });
+    res.status(500).json({ error: 'Failed' });
+  }
 });
 
 // ── REST: Tournaments (additional) ──────────────────────────────────────────
