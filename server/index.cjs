@@ -757,25 +757,6 @@ io.on('connection', (socket) => {
     startRoom(room.roomId, room.creatorId, socket.id, room.config);
   });
 
-  // ── Legacy invite broadcast ──────────────────────────────────────────────
-  socket.on('invite', ({ targetId, universe, timeControl }) => {
-    const payload = {
-      inviteId: genId(),
-      fromSocketId: socket.id,
-      fromName:   players.get(socket.id)?.name          || 'Unknown',
-      fromRating: players.get(socket.id)?.rating?.chess || 1500,
-      config: { universe, timeControl, betAmount: 0, colorPref: 'random', rated: true },
-      expiresAt: Date.now() + 30_000,
-    };
-    if (targetId) io.to(targetId).emit('invite:received', payload);
-    else socket.broadcast.emit('invite:received', payload);
-  });
-
-  socket.on('accept-invite', ({ inviteId, timeControl }) => {
-    const roomId = `room-${genId()}`;
-    const config = { universe: 'chess', timeControl: timeControl || '5+0', betAmount: 0, colorPref: 'random', rated: true };
-    startRoom(roomId, inviteId, socket.id, config);
-  });
 
   // ── Spectate events ──────────────────────────────────────────────────────
   socket.on('spectate:join', ({ roomId, username }) => {
