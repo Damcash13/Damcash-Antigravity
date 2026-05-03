@@ -53,7 +53,7 @@ export const useLeaderboardStore = create<LeaderboardState>((set) => ({
           const losses = universe === 'chess' ? d.chessLosses : d.checkersLosses;
           const draws  = universe === 'chess' ? d.chessDraws  : d.checkersDraws;
           return {
-            rank: i + 1,
+            rank: d.rank ?? (i + 1),
             id:   d.id,
             name: d.username,
             country: '🏴',
