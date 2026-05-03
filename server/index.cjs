@@ -141,6 +141,24 @@ function computeElo(wRating, bRating, result, wGames, bGames) {
   };
 }
 
+/**
+ * Parse time control string (e.g., "5+0", "3+2", "10+5")
+ * Returns { initial: ms, increment: ms }
+ */
+function parseTimeControl(tcString) {
+  const match = (tcString || '5+0').match(/^(\d+)\+(\d+)$/);
+  if (!match) {
+    console.warn(`[parseTimeControl] Invalid format: ${tcString}, defaulting to 5+0`);
+    return { initial: 5 * 60 * 1000, increment: 0 };
+  }
+  const minutes = parseInt(match[1], 10);
+  const seconds = parseInt(match[2], 10);
+  return {
+    initial: minutes * 60 * 1000,
+    increment: seconds * 1000,
+  };
+}
+
 let io;
 const { Server } = require('socket.io');
 const { createClient } = require('redis');
