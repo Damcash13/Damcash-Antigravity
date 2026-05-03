@@ -247,18 +247,19 @@ function removeSeekById(seekId) {
 }
 
 async function startRoom(roomId, creatorId, joinerId, config) {
-  // Auth checks for rated/bet games are enforced at seek:create / seek:accept / invite:send time.
-  // Do NOT re-block here — socket.user may be unset even for authenticated users if the
-  // Supabase getUser call failed during socket handshake (cold start, network hiccup).
+  // Resolve the latest socket IDs for these users in case they blipped and reconnected
+  const creatorUser = socketToUserId.get(creatorId);
+  const joinerUser  = socketToUserId.get(joinerId);
+  const currentCreatorId = creatorUser ? (userIdToSocketId.get(creatorUser) || creatorId) : creatorId;
+  const currentJoinerId  = joinerUser  ? (userIdToSocketId.get(joinerUser)  || joinerId)  : joinerId;
 
-
-  const { white, black } = resolveColor(config.colorPref, creatorId, joinerId);
-  // For chess games, create a server-side Chess instance for move validation
+  const { white, black } = resolveColor(config.colorPref, currentCreatorId, currentJoinerId);
   const tc = parseTimeControl(config.timeControl || '5+0');
+
   rooms.set(roomId, {
     players: { white, black }, config,
     moves: [], bets: {}, spectators: new Set(),
-    spectatorNames: new Map(), // socketId -> displayName
+    spectatorNames: new Map(),
     escrowed: false, createdAt: Date.now(),
     chessEngine: config?.universe === 'chess' ? new Chess() : null,
     whiteTime: tc.initial,
@@ -291,26 +292,23 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     }
   }
 
-  removeSeekBySocket(creatorId);
-  removeSeekBySocket(joinerId);
+  removeSeekBySocket(currentCreatorId);
+  removeSeekBySocket(currentJoinerId);
 
-  const creatorSocket = io.sockets.sockets.get(creatorId);
-  const joinerSocket  = io.sockets.sockets.get(joinerId);
-  creatorSocket?.join(roomId);
-  joinerSocket?.join(roomId);
+  const whiteSocket = io.sockets.sockets.get(white);
+  const blackSocket = io.sockets.sockets.get(black);
+  whiteSocket?.join(roomId);
+  blackSocket?.join(roomId);
 
-  // Escrow BEFORE emitting game-start so clients never see a game with unconfirmed funds
   const betAmount = config?.betAmount || 0;
   if (betAmount > 0) {
     const ok = await escrowBet(roomId);
     if (!ok) {
-      // escrowBet already emitted room:error to both players
       rooms.delete(roomId);
       return;
     }
   }
 
-  // Generate reconnect tokens so players can rejoin on page refresh
   const whiteToken = genId();
   const blackToken = genId();
   reconnectTokens.set(roomId, {
@@ -318,28 +316,20 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     black: { token: blackToken, socketId: black },
   });
 
-  // Resolve the latest socket IDs for these users in case they blipped and reconnected
-  const whiteUser = socketToUserId.get(white);
-  const blackUser = socketToUserId.get(black);
-  const currentWhite = whiteUser ? (userIdToSocketId.get(whiteUser) || white) : white;
-  const currentBlack = blackUser ? (userIdToSocketId.get(blackUser) || black) : black;
-
-  const wp = players.get(currentWhite);
-  const bp = players.get(currentBlack);
+  const wp = players.get(white);
+  const bp = players.get(black);
   const gameData = {
-    roomId, white: currentWhite, black: currentBlack, config,
+    roomId, white, black, config,
     timeControl: config.timeControl,
     whitePlayer: { name: wp?.name || 'White', rating: wp?.rating || { chess: 1500, checkers: 1450 }, country: wp?.country || '' },
     blackPlayer: { name: bp?.name || 'Black', rating: bp?.rating || { chess: 1500, checkers: 1450 }, country: bp?.country || '' },
   };
 
-  // Emit INDIVIDUALLY to guarantee they receive their correct color even if tokens are delayed
-  io.to(currentWhite).emit('game-start', { ...gameData, color: 'w' });
-  io.to(currentBlack).emit('game-start', { ...gameData, color: 'b' });
-  // Also emit to the room for spectators, but without a specific color assignment
+  io.to(white).emit('game-start', { ...gameData, color: 'w' });
+  io.to(black).emit('game-start', { ...gameData, color: 'b' });
   io.to(roomId).emit('game-start', gameData);
 
-  [currentWhite, currentBlack].forEach((id) => {
+  [white, black].forEach((id) => {
     const p = players.get(id);
     if (p) { p.status = 'playing'; p.currentTC = config?.timeControl || null; players.set(id, p); }
   });
