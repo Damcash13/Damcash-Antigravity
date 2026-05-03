@@ -138,8 +138,16 @@ export const IncomingInviteToast: React.FC = () => {
       setTimeout(() => dismissIncoming(data.inviteId), 30_000);
     };
 
+    const handleInviteCancelled = ({ inviteId }: { inviteId: string }) => {
+      dismissIncoming(inviteId);
+    };
+
     socket.on('invite:received', handleInviteReceived);
-    return () => socket.off('invite:received', handleInviteReceived);
+    socket.on('invite:cancelled', handleInviteCancelled);
+    return () => {
+      socket.off('invite:received', handleInviteReceived);
+      socket.off('invite:cancelled', handleInviteCancelled);
+    };
   }, [addIncoming, dismissIncoming, play]);
 
   if (incoming.length === 0) return null;

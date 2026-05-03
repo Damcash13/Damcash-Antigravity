@@ -720,7 +720,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('invite:cancel', () => {
-    // Sender cancelled a pending invite — nothing to do server-side unless we track it
+    for (const [inviteId, invite] of invites.entries()) {
+      if (invite.fromId !== socket.id) continue;
+      invites.delete(inviteId);
+      io.to(invite.toId).emit('invite:cancelled', { inviteId });
+    }
   });
 
   // ── Room code flow ───────────────────────────────────────────────────────
