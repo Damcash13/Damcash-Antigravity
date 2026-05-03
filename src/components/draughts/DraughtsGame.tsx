@@ -95,8 +95,8 @@ export const DraughtsGame: React.FC = () => {
   const computerMovePending = useRef(false);
 
   useEffect(() => {
-    setFlipped(myColor === 'b');
-  }, [myColor]);
+    setFlipped(playerColor === 'black');
+  }, [playerColor]);
   const computerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [opponentInfo, setOpponentInfo] = useState<{ name: string; rating: number; country: string }>(() => {
