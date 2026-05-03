@@ -56,9 +56,13 @@ export interface Tournament {
 
 function mapApiTournament(t: ApiTournament): Tournament {
   const players: TournamentPlayer[] = (t.players ?? []).map(p => {
-    const games = p.wins + p.draws + p.losses;
-    const score = p.wins * 2 + p.draws;             // arena scoring
-    const perf  = p.rating + Math.round((score / Math.max(games, 1) - 0.5) * 400);
+    const games    = p.wins + p.draws + p.losses;
+    const score    = p.wins * 2 + p.draws;           // arena scoring (for standings display)
+    // Performance uses standard scoring (1/0.5/0) with 5 virtual draws for
+    // Bayesian dampening — prevents wild swings on small sample sizes.
+    const DAMPEN   = 5;
+    const adjPct   = (p.wins + p.draws * 0.5 + DAMPEN * 0.5) / (games + DAMPEN);
+    const perf     = Math.round(p.rating + 800 * (adjPct - 0.5));
     return {
       id:          p.id,
       userId:      p.userId,
