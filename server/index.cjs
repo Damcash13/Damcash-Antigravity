@@ -968,16 +968,17 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('chat', ({ roomId, message, username }) => {
+  socket.on('chat', ({ roomId, message }) => {
     if (socketRateLimit(socket.id, 20)) return; // 20 chat msgs/min
     if (typeof roomId !== 'string') return;
     const safe = sanitizeText(message);
     if (!safe) return;
     const room = rooms.get(roomId);
-    // Use the registered spectator name if available, otherwise fall back to provided username
+    // Resolve name from server-authoritative sources only — never trust client-provided username.
+    // Spectator name (set at spectate:join) takes precedence over the player registry.
     const specName = room?.spectatorNames?.get(socket.id);
     const isSpectator = !!specName;
-    const safeName = sanitizeText(specName || username || 'Player', 30);
+    const safeName = sanitizeText(specName || players.get(socket.id)?.name || 'Player', 30);
     io.to(roomId).emit('chat', { message: safe, username: safeName, isSpectator, timestamp: Date.now() });
   });
 
