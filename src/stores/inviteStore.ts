@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Universe } from '../types';
 import { supabase } from '../lib/supabase';
 import { socket } from '../lib/socket';
-import { useUniverseStore } from './index';
+import { useUniverseStore, useUserStore } from './index';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -106,26 +106,32 @@ export const useInviteStore = create<InviteStore>((set) => ({
     // Avoid multiple subscriptions
     if ((window as any).__presenceChannel) return;
 
+    // Use the authenticated user's stable DB id as the presence key so two
+    // accounts with the same display name don't collide. Fall back to the
+    // current socket id for unauthenticated guests.
+    const userId = useUserStore.getState().user?.id;
+    const presenceKey: string = userId ?? socket.id ?? username;
+
     const channel = supabase.channel('lobby', {
       config: {
         presence: {
-          key: username,
+          key: presenceKey,
         },
       },
     });
-    
+
     (window as any).__presenceChannel = channel;
 
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         const players: OnlinePlayer[] = [];
-        
+
         for (const key in state) {
           const p = (state[key] as any)[0];
           players.push({
             socketId: p.socketId || key,
-            name: key,
+            name: p.username || key,
             rating: p.rating || { chess: 1500, checkers: 1450 },
             status: p.status || 'idle',
             universe: p.universe || 'chess',
@@ -135,12 +141,12 @@ export const useInviteStore = create<InviteStore>((set) => ({
       })
       .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
-          // Wait a tiny bit for socket ID to be ready if needed
           const sId = socket.id;
           await channel.track({
             online_at: new Date().toISOString(),
+            username,
             rating,
-            socketId: sId, 
+            socketId: sId,
             universe: useUniverseStore.getState().universe,
           });
         }
