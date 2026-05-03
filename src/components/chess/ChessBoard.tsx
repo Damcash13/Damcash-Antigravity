@@ -257,8 +257,8 @@ export const ChessBoard: React.FC<Props> = ({
                 pieceObj={game.get(sq) ?? null}
                 file={file}
                 rank={rank}
-                showFileCoord={ri === 7}
-                showRankCoord={fi === 7}
+                showFileCoord={ri === ranks.length - 1}
+                showRankCoord={fi === 0}
                 onClick={handleSquareClick}
               />
             );

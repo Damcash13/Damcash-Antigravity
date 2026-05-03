@@ -653,7 +653,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('seeks:request', () => {
-    const list = Array.from(seeks.values());
+    const list = Array.from(seeks.entries()).map(([seekId, s]) => ({ seekId, ...s }));
     socket.emit('seeks:list', list);
   });
 
@@ -1813,9 +1813,9 @@ app.get('/api/tournaments', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Failed' }); }
 });
 
-app.post('/api/tournaments', requireAuth, requireAdmin, async (req, res) => {
+app.post('/api/tournaments', requireAuth, async (req, res) => {
   try {
-    const { name, universe, format, timeControl, startsAt, maxPlayers, betEntry, prizePool, durationMs, description, rated } = req.body;
+    const { name, icon, universe, format, timeControl, startsAt, maxPlayers, betEntry, prizePool, durationMs, description, rated, totalRounds } = req.body;
 
     // Schema validation
     if (!name || typeof name !== 'string' || name.trim().length < 2) {
@@ -1833,25 +1833,37 @@ app.post('/api/tournaments', requireAuth, requireAdmin, async (req, res) => {
     if (!startsAt || isNaN(Date.parse(startsAt))) {
       return res.status(400).json({ error: 'startsAt must be a valid ISO date' });
     }
-    if (new Date(startsAt) <= new Date()) {
-      return res.status(400).json({ error: 'startsAt must be in the future' });
+    // Non-admins: must start at least 5 minutes from now, max 30 days out
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    const isAdmin = adminEmails.includes(req.user.email?.toLowerCase());
+    const startDate = new Date(startsAt);
+    const minStart = new Date(Date.now() + 5 * 60 * 1000);
+    const maxStart = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    if (startDate < minStart) {
+      return res.status(400).json({ error: 'Tournament must start at least 5 minutes from now' });
+    }
+    if (!isAdmin && startDate > maxStart) {
+      return res.status(400).json({ error: 'Tournament must start within 30 days' });
     }
 
     const t = await prisma.tournament.create({
       data: {
         name: name.trim().slice(0, 100),
+        icon: typeof icon === 'string' ? icon.slice(0, 10) : '🏆',
         universe,
         format,
         timeControl,
-        startsAt: new Date(startsAt),
+        startsAt: startDate,
         maxPlayers: Math.min(Math.max(Number(maxPlayers) || 64, 2), 512),
         betEntry:   Math.max(Number(betEntry)   || 0, 0),
         prizePool:  Math.max(Number(prizePool)  || 0, 0),
-        durationMs: Math.max(Number(durationMs) || 3600000, 60000),
+        durationMs: Math.max(Math.min(Number(durationMs) || 3600000, 4 * 3600000), 600000),
         description: typeof description === 'string' ? description.slice(0, 500) : '',
         rated: rated !== false,
+        totalRounds: Number(totalRounds) || 0,
       },
     });
+    io.emit('tournament:global_update');
     res.json(t);
   } catch (err) {
     console.error('[Tournament] Create failed:', err);
@@ -2199,9 +2211,10 @@ app.get('/api/h2h', async (req, res) => {
       ],
     };
 
-    const [todayMatches, yearMatches] = await Promise.all([
+    const [todayMatches, yearMatches, allMatches] = await Promise.all([
       prisma.match.findMany({ where: { ...h2hWhere, createdAt: { gte: todayStart } } }),
       prisma.match.findMany({ where: { ...h2hWhere, createdAt: { gte: yearStart  } } }),
+      prisma.match.findMany({ where: h2hWhere }),
     ]);
 
     const tally = (matches) => {
@@ -2215,7 +2228,7 @@ app.get('/api/h2h', async (req, res) => {
       return { a: aW, b: bW, draws };
     };
 
-    res.json({ today: tally(todayMatches), year: tally(yearMatches) });
+    res.json({ today: tally(todayMatches), year: tally(yearMatches), all: tally(allMatches) });
   } catch (err) {
     log.error('H2H query failed', err);
     res.status(500).json({ error: 'Failed' });
@@ -3067,8 +3080,50 @@ function runSchedulerTick() {
   }
 }
 
+async function seedTournamentsIfEmpty() {
+  try {
+    const count = await prisma.tournament.count({ where: { status: { in: ['upcoming', 'running'] } } });
+    if (count > 0) return;
+
+    log.info('[Scheduler] No upcoming tournaments found — seeding initial batch');
+    const seeds = [
+      { name: '⚡ Daily Blitz — Chess',     icon: '⚡', universe: 'chess',    timeControl: '5+0',  format: 'arena',  durationMs: 60 * 60 * 1000,       description: 'Daily blitz arena open to all skill levels.', totalRounds: 0 },
+      { name: '🐢 Daily Rapid — Chess',     icon: '🐢', universe: 'chess',    timeControl: '10+5', format: 'arena',  durationMs: 90 * 60 * 1000,       description: 'Enjoy a slower pace in our daily rapid arena.', totalRounds: 0 },
+      { name: '⚡ Daily Blitz — Checkers',  icon: '⚡', universe: 'checkers', timeControl: '5+0',  format: 'arena',  durationMs: 60 * 60 * 1000,       description: 'Daily blitz arena for checkers players.', totalRounds: 0 },
+      { name: '🔥 Weekly Swiss — Chess',    icon: '🔥', universe: 'chess',    timeControl: '3+2',  format: 'swiss',  durationMs: 2 * 60 * 60 * 1000,   description: 'Compete in a 7-round Swiss tournament.', totalRounds: 7 },
+    ];
+    const now = Date.now();
+    for (let i = 0; i < seeds.length; i++) {
+      const s = seeds[i];
+      await prisma.tournament.create({
+        data: {
+          name:        s.name,
+          icon:        s.icon,
+          universe:    s.universe,
+          format:      s.format,
+          timeControl: s.timeControl,
+          startsAt:    new Date(now + (10 + i * 30) * 60 * 1000), // stagger: 10m, 40m, 70m, 100m from now
+          durationMs:  s.durationMs,
+          maxPlayers:  50,
+          betEntry:    0,
+          prizePool:   0,
+          status:      'upcoming',
+          description: s.description,
+          rated:       true,
+          totalRounds: s.totalRounds,
+        },
+      });
+    }
+    io.emit('tournament:global_update');
+    log.info('[Scheduler] Seeded 4 initial tournaments');
+  } catch (e) {
+    log.error('[Scheduler] Failed to seed tournaments:', e.message);
+  }
+}
+
 function startTournamentScheduler() {
-  // Align to the next full minute, then tick every 60s
+  // Seed immediately if DB is empty, then align to the next full minute for hourly ticks
+  seedTournamentsIfEmpty();
   const msUntilNextMinute = (60 - new Date().getUTCSeconds()) * 1000 - new Date().getUTCMilliseconds();
   setTimeout(() => {
     runSchedulerTick();

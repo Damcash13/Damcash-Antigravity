@@ -447,6 +447,7 @@ export interface ApiFullStats {
 export interface ApiH2H {
   today: { a: number; b: number; draws: number };
   year:  { a: number; b: number; draws: number };
+  all:   { a: number; b: number; draws: number };
 }
 
 export interface ApiMatch {

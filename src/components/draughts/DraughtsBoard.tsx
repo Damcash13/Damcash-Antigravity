@@ -10,6 +10,13 @@ interface Props {
   onSquareClick: (row: number, col: number) => void;
 }
 
+// International draughts: dark squares numbered 1–50, top-left to bottom-right
+function getDraughtsSquareNumber(row: number, col: number): number | null {
+  if ((row + col) % 2 === 0) return null; // light square
+  const darkIndex = row % 2 === 0 ? (col - 1) / 2 : col / 2;
+  return row * 5 + darkIndex + 1;
+}
+
 interface CellProps {
   row: number;
   col: number;
@@ -34,6 +41,8 @@ const DraughtsCell: React.FC<CellProps> = React.memo(({
     else if (lastTo) cellClass += ' last-to';
   }
 
+  const squareNum = getDraughtsSquareNumber(row, col);
+
   return (
     <div
       className={cellClass}
@@ -41,6 +50,16 @@ const DraughtsCell: React.FC<CellProps> = React.memo(({
       data-col={col}
       onClick={() => !isLight && onSquareClick(row, col)}
     >
+      {squareNum !== null && (
+        <span style={{
+          position: 'absolute', top: 2, left: 3,
+          fontSize: 9, fontWeight: 700, lineHeight: 1,
+          color: 'rgba(255,255,255,0.35)',
+          pointerEvents: 'none', userSelect: 'none',
+        }}>
+          {squareNum}
+        </span>
+      )}
       {piece && (
         <div
           className={`draughts-piece ${piece.color === 'white' ? 'white-pc' : 'black-pc'} ${selected ? 'selected-piece' : ''} ${piece.type === 'king' ? 'is-king' : ''}`}

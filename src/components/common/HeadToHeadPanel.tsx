@@ -70,8 +70,8 @@ export const HeadToHeadPanel: React.FC<Props> = ({ playerA, playerB, universe })
     );
   };
 
-  // Show the panel only if there is at least one game in the history
-  const hasHistory = total(h2h.year) > 0;
+  // Show the panel only if there is at least one game in the history (all-time)
+  const hasHistory = h2h.all ? total(h2h.all) > 0 : total(h2h.year) > 0;
   if (!hasHistory) return null;
 
   return (
@@ -96,10 +96,15 @@ export const HeadToHeadPanel: React.FC<Props> = ({ playerA, playerB, universe })
         </div>
       </div>
 
+      {h2h.all && total(h2h.all) > 0 && (
+        <ScoreRow label={t('game.h2hAllTime') || 'All time'} score={h2h.all} />
+      )}
       {total(h2h.today) > 0 && (
         <ScoreRow label={t('game.h2hToday')} score={h2h.today} />
       )}
-      <ScoreRow label={t('game.h2hYear')} score={h2h.year} />
+      {total(h2h.year) > 0 && total(h2h.year) !== (h2h.all ? total(h2h.all) : 0) && (
+        <ScoreRow label={t('game.h2hYear')} score={h2h.year} />
+      )}
     </div>
   );
 };

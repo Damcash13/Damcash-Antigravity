@@ -44,34 +44,31 @@ export const useLeaderboardStore = create<LeaderboardState>((set) => ({
     try {
       const { api } = await import('../lib/api');
       const data = await api.leaderboard.list({ universe, category });
-      if (data && data.length > 0) {
-        const mapped: LeaderboardEntry[] = data.map((d, i) => {
-          const rating = universe === 'chess' ? d.chessRating : d.checkersRating;
-          const peak   = universe === 'chess' ? d.peakChessRating : d.peakCheckersRating;
-          const games  = universe === 'chess' ? d.chessGames  : d.checkersGames;
-          const wins   = universe === 'chess' ? d.chessWins   : d.checkersWins;
-          const losses = universe === 'chess' ? d.chessLosses : d.checkersLosses;
-          const draws  = universe === 'chess' ? d.chessDraws  : d.checkersDraws;
-          return {
-            rank: d.rank ?? (i + 1),
-            id:   d.id,
-            name: d.username,
-            country: '🏴',
-            rating, peak, gamesPlayed: games,
-            wins, losses, draws,
-            streak: 0,
-            online: false,
-            ratingHistory: [],
-          };
-        });
-        set(s => ({
-          ...s,
-          loading: false,
-          [universe]: { ...s[universe], [category]: mapped },
-        }));
-      } else {
-        set({ loading: false });
-      }
+      const mapped: LeaderboardEntry[] = (data ?? []).map((d, i) => {
+        const rating = universe === 'chess' ? d.chessRating : d.checkersRating;
+        const peak   = universe === 'chess' ? d.peakChessRating : d.peakCheckersRating;
+        const games  = universe === 'chess' ? d.chessGames  : d.checkersGames;
+        const wins   = universe === 'chess' ? d.chessWins   : d.checkersWins;
+        const losses = universe === 'chess' ? d.chessLosses : d.checkersLosses;
+        const draws  = universe === 'chess' ? d.chessDraws  : d.checkersDraws;
+        return {
+          rank: d.rank ?? (i + 1),
+          id:   d.id,
+          name: d.username,
+          country: '🏴',
+          rating, peak, gamesPlayed: games,
+          wins, losses, draws,
+          streak: 0,
+          online: false,
+          ratingHistory: [],
+        };
+      });
+      set(s => ({
+        ...s,
+        loading: false,
+        error: null,
+        [universe]: { ...s[universe], [category]: mapped },
+      }));
     } catch (err: any) {
       set({ loading: false, error: err.message || 'Failed to load leaderboard' });
     }

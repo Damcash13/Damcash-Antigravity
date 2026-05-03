@@ -1,32 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUniverseStore } from '../../stores';
+import { useUniverseStore, useUserStore } from '../../stores';
 import { useTournamentStore, Tournament, TournamentStatus } from '../../stores/tournamentStore';
+import { api } from '../../lib/api';
+import { useNotificationStore } from '../../stores';
 import '../../styles/tournaments.css';
-
-function timeUntil(ts: number): string {
-  const diff = ts - Date.now();
-  if (diff <= 0) return 'Started';
-  const h = Math.floor(diff / 3_600_000);
-  const m = Math.floor((diff % 3_600_000) / 60_000);
-  if (h > 0) return `in ${h}h ${m}m`;
-  return `in ${m}m`;
-}
-
-function timeLeft(t: Tournament): string {
-  const end = t.startsAt + t.durationMs;
-  const diff = end - Date.now();
-  if (diff <= 0) return 'Ended';
-  const h = Math.floor(diff / 3_600_000);
-  const m = Math.floor((diff % 3_600_000) / 60_000);
-  if (h > 0) return `${h}h ${m}m left`;
-  return `${m}m left`;
-}
 
 const STATUS_COLORS: Record<TournamentStatus, string> = {
   upcoming: '#3b82f6',
   running:  '#22c55e',
   finished: 'var(--text-3)',
+};
+
+const TIME_CONTROLS = ['1+0', '2+1', '3+0', '3+2', '5+0', '5+3', '10+0', '10+5', '15+10', '30+0'];
+
+interface CreateForm {
+  name: string;
+  icon: string;
+  universe: 'chess' | 'checkers';
+  format: 'arena' | 'swiss' | 'roundrobin';
+  timeControl: string;
+  durationMs: number;
+  totalRounds: number;
+  startsInMinutes: number;
+  rated: boolean;
+}
+
+const DEFAULT_FORM: CreateForm = {
+  name: '',
+  icon: '🏆',
+  universe: 'chess',
+  format: 'arena',
+  timeControl: '5+0',
+  durationMs: 3600000,
+  totalRounds: 0,
+  startsInMinutes: 15,
+  rated: true,
 };
 
 interface Props {
@@ -35,9 +44,41 @@ interface Props {
 
 export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
   const { universe } = useUniverseStore();
+  const user = useUserStore(s => s.user);
   const { t } = useTranslation();
   const { tournaments, loading, fetchTournaments } = useTournamentStore();
+  const addNotification = useNotificationStore(s => s.addNotification);
   const [filter, setFilter] = useState<'all' | TournamentStatus>('all');
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState<CreateForm>({ ...DEFAULT_FORM, universe: universe as 'chess' | 'checkers' });
+
+  const handleCreate = async () => {
+    if (!form.name.trim()) { addNotification('Tournament name is required', 'error'); return; }
+    setCreating(true);
+    try {
+      const startsAt = new Date(Date.now() + form.startsInMinutes * 60 * 1000).toISOString();
+      await api.tournaments.create({
+        name: form.name.trim(),
+        icon: form.icon,
+        universe: form.universe,
+        format: form.format,
+        timeControl: form.timeControl,
+        durationMs: form.durationMs,
+        totalRounds: form.format === 'arena' ? 0 : form.totalRounds || 7,
+        rated: form.rated,
+        startsAt,
+      });
+      addNotification('Tournament created!', 'success');
+      setShowCreate(false);
+      setForm({ ...DEFAULT_FORM, universe: universe as 'chess' | 'checkers' });
+      fetchTournaments();
+    } catch (e: any) {
+      addNotification(e?.message || 'Failed to create tournament', 'error');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   useEffect(() => { fetchTournaments(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -80,18 +121,30 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
           </p>
         </div>
 
-        {/* Filter chips */}
-        <div className="tl-filters">
-          {(['all', 'running', 'upcoming', 'finished'] as const).map(f => (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Filter chips */}
+          <div className="tl-filters">
+            {(['all', 'running', 'upcoming', 'finished'] as const).map(f => (
+              <button
+                key={f}
+                className={`tl-chip ${filter === f ? 'active' : ''}`}
+                style={filter === f && f !== 'all' ? { borderColor: STATUS_COLORS[f as TournamentStatus], color: STATUS_COLORS[f as TournamentStatus] } : {}}
+                onClick={() => setFilter(f)}
+              >
+                {f === 'all' ? t('leaderboard.viewAll') : f === 'running' ? `🔴 ${t('tournament.running')}` : f === 'upcoming' ? `⏰ ${t('tournament.upcoming')}` : `✅ ${t('tournament.finished')}`}
+              </button>
+            ))}
+          </div>
+
+          {user && (
             <button
-              key={f}
-              className={`tl-chip ${filter === f ? 'active' : ''}`}
-              style={filter === f && f !== 'all' ? { borderColor: STATUS_COLORS[f as TournamentStatus], color: STATUS_COLORS[f as TournamentStatus] } : {}}
-              onClick={() => setFilter(f)}
+              className="btn btn-primary"
+              style={{ whiteSpace: 'nowrap', fontSize: 13 }}
+              onClick={() => setShowCreate(true)}
             >
-              {f === 'all' ? t('leaderboard.viewAll') : f === 'running' ? `🔴 ${t('tournament.running')}` : f === 'upcoming' ? `⏰ ${t('tournament.upcoming')}` : `✅ ${t('tournament.finished')}`}
+              + {t('tournament.createTournament') || 'Create'}
             </button>
-          ))}
+          )}
         </div>
       </div>
 
@@ -105,6 +158,155 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-3)' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🏆</div>
           <div style={{ fontWeight: 700, color: 'var(--text-2)', marginBottom: 8 }}>{t('tournament.noTournaments')}</div>
+          {user && (
+            <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setShowCreate(true)}>
+              + {t('tournament.createTournament') || 'Create Tournament'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Create Tournament Modal ── */}
+      {showCreate && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }} onClick={e => { if (e.target === e.currentTarget) setShowCreate(false); }}>
+          <div style={{
+            background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 12,
+            padding: 24, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, color: 'var(--text-1)' }}>🏆 {t('tournament.createTournament') || 'Create Tournament'}</h3>
+              <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-3)' }}>✕</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Name + Icon */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  style={{ width: 48, textAlign: 'center', fontSize: 20, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 4px', color: 'var(--text-1)' }}
+                  value={form.icon}
+                  onChange={e => setForm(f => ({ ...f, icon: e.target.value }))}
+                  maxLength={2}
+                  title="Icon (emoji)"
+                />
+                <input
+                  style={{ flex: 1, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text-1)' }}
+                  placeholder="Tournament name"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  maxLength={100}
+                />
+              </div>
+
+              {/* Universe + Format */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <label style={{ color: 'var(--text-3)', fontSize: 12 }}>
+                  Game
+                  <select
+                    style={{ display: 'block', width: '100%', marginTop: 4, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--text-1)' }}
+                    value={form.universe}
+                    onChange={e => setForm(f => ({ ...f, universe: e.target.value as 'chess' | 'checkers' }))}
+                  >
+                    <option value="chess">♟ Chess</option>
+                    <option value="checkers">⬤ Checkers</option>
+                  </select>
+                </label>
+                <label style={{ color: 'var(--text-3)', fontSize: 12 }}>
+                  {t('tournament.format') || 'Format'}
+                  <select
+                    style={{ display: 'block', width: '100%', marginTop: 4, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--text-1)' }}
+                    value={form.format}
+                    onChange={e => setForm(f => ({ ...f, format: e.target.value as CreateForm['format'] }))}
+                  >
+                    <option value="arena">🎪 Arena</option>
+                    <option value="swiss">🔀 Swiss</option>
+                    <option value="roundrobin">🔄 Round Robin</option>
+                  </select>
+                </label>
+              </div>
+
+              {/* Time control + Duration */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <label style={{ color: 'var(--text-3)', fontSize: 12 }}>
+                  {t('tournament.timeControl') || 'Time Control'}
+                  <select
+                    style={{ display: 'block', width: '100%', marginTop: 4, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--text-1)' }}
+                    value={form.timeControl}
+                    onChange={e => setForm(f => ({ ...f, timeControl: e.target.value }))}
+                  >
+                    {TIME_CONTROLS.map(tc => <option key={tc} value={tc}>{tc}</option>)}
+                  </select>
+                </label>
+                <label style={{ color: 'var(--text-3)', fontSize: 12 }}>
+                  Duration
+                  <select
+                    style={{ display: 'block', width: '100%', marginTop: 4, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--text-1)' }}
+                    value={form.durationMs}
+                    onChange={e => setForm(f => ({ ...f, durationMs: Number(e.target.value) }))}
+                  >
+                    <option value={600000}>10 min</option>
+                    <option value={1800000}>30 min</option>
+                    <option value={3600000}>1 hour</option>
+                    <option value={7200000}>2 hours</option>
+                    <option value={14400000}>4 hours</option>
+                  </select>
+                </label>
+              </div>
+
+              {/* Starts in + Rounds (swiss/rr only) */}
+              <div style={{ display: 'grid', gridTemplateColumns: form.format !== 'arena' ? '1fr 1fr' : '1fr', gap: 8 }}>
+                <label style={{ color: 'var(--text-3)', fontSize: 12 }}>
+                  Starts in
+                  <select
+                    style={{ display: 'block', width: '100%', marginTop: 4, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--text-1)' }}
+                    value={form.startsInMinutes}
+                    onChange={e => setForm(f => ({ ...f, startsInMinutes: Number(e.target.value) }))}
+                  >
+                    <option value={5}>5 minutes</option>
+                    <option value={15}>15 minutes</option>
+                    <option value={30}>30 minutes</option>
+                    <option value={60}>1 hour</option>
+                    <option value={120}>2 hours</option>
+                    <option value={1440}>1 day</option>
+                  </select>
+                </label>
+                {form.format !== 'arena' && (
+                  <label style={{ color: 'var(--text-3)', fontSize: 12 }}>
+                    Rounds
+                    <input
+                      type="number"
+                      min={3} max={15}
+                      style={{ display: 'block', width: '100%', marginTop: 4, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--text-1)' }}
+                      value={form.totalRounds || 7}
+                      onChange={e => setForm(f => ({ ...f, totalRounds: Math.max(3, Math.min(15, Number(e.target.value))) }))}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Rated toggle */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: 'var(--text-2)' }}>
+                <input
+                  type="checkbox"
+                  checked={form.rated}
+                  onChange={e => setForm(f => ({ ...f, rated: e.target.checked }))}
+                  style={{ width: 16, height: 16 }}
+                />
+                ★ {t('tournament.rated') || 'Rated'} — affects player ratings
+              </label>
+
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '10px 0', marginTop: 4 }}
+                onClick={handleCreate}
+                disabled={creating || !form.name.trim()}
+              >
+                {creating ? '…' : `+ ${t('tournament.createTournament') || 'Create Tournament'}`}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
