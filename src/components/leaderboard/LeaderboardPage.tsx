@@ -128,7 +128,7 @@ export const LeaderboardPage: React.FC = () => {
   const top3       = filtered.slice(0, 3);
 
   // Find user's own rank
-  const myEntry   = user ? rawList.find(e => e.name === user.name) : undefined;
+  const myEntry   = user ? rawList.find(e => e.id === user.id) : undefined;
   const TC_TABS = TC_TAB_KEYS.map(tab => ({ ...tab, label: t(tab.timeKey) }));
   const activeTab = TC_TABS.find(tab => tab.key === tc)!;
 
@@ -260,7 +260,7 @@ export const LeaderboardPage: React.FC = () => {
             )}
           </div>
         ) : pageSlice.map(entry => {
-          const isMe  = user?.name === entry.name;
+          const isMe  = user?.id === entry.id;
           const band  = ratingBand(entry.rating);
           const winPct = entry.gamesPlayed > 0
             ? Math.round((entry.wins / entry.gamesPlayed) * 100)
