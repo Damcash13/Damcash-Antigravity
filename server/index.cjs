@@ -2384,7 +2384,10 @@ app.post('/api/correspondence/:id/resign', requireAuth, async (req, res) => {
   try {
     const game = await prisma.correspondenceGame.findUnique({ where: { id: req.params.id } });
     if (!game) return res.status(404).json({ error: 'Not found' });
+    if (game.status === 'ended') return res.status(400).json({ error: 'Game is already over' });
     const isWhite = game.whiteId === req.user.id;
+    const isBlack = game.blackId === req.user.id;
+    if (!isWhite && !isBlack) return res.status(403).json({ error: 'Not a player in this game' });
     const winner = isWhite ? 'black' : 'white';
     const updated = await prisma.correspondenceGame.update({
       where: { id: req.params.id },
@@ -2400,6 +2403,12 @@ app.post('/api/correspondence/:id/resign', requireAuth, async (req, res) => {
 
 app.post('/api/correspondence/:id/draw', requireAuth, async (req, res) => {
   try {
+    const game = await prisma.correspondenceGame.findUnique({ where: { id: req.params.id } });
+    if (!game) return res.status(404).json({ error: 'Not found' });
+    if (game.status === 'ended') return res.status(400).json({ error: 'Game is already over' });
+    const isWhite = game.whiteId === req.user.id;
+    const isBlack = game.blackId === req.user.id;
+    if (!isWhite && !isBlack) return res.status(403).json({ error: 'Not a player in this game' });
     const updated = await prisma.correspondenceGame.update({
       where: { id: req.params.id },
       data: { status: 'ended', result: 'draw', resultReason: 'agreement' },
@@ -2528,14 +2537,17 @@ app.get('/api/wallet', requireAuth, async (req, res) => {
 
 app.post('/api/wallet/deposit', requireAuth, async (req, res) => {
   try {
-    const { amount } = req.body;
-    if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
-    const wallet = await prisma.wallet.update({
-      where: { userId: req.user.id },
-      data: { balance: { increment: amount } },
-    });
-    await prisma.transaction.create({
-      data: { walletId: wallet.id, amount, type: 'DEPOSIT', status: 'COMPLETED' },
+    const safeAmount = sanitizeMoney(req.body.amount);
+    if (safeAmount <= 0) return res.status(400).json({ error: 'Invalid amount' });
+    const wallet = await prisma.$transaction(async (tx) => {
+      const updated = await tx.wallet.update({
+        where: { userId: req.user.id },
+        data: { balance: { increment: safeAmount } },
+      });
+      await tx.transaction.create({
+        data: { walletId: updated.id, amount: safeAmount, type: 'DEPOSIT', status: 'COMPLETED' },
+      });
+      return updated;
     });
     res.json(wallet);
   } catch { res.status(500).json({ error: 'Failed' }); }
@@ -2543,17 +2555,32 @@ app.post('/api/wallet/deposit', requireAuth, async (req, res) => {
 
 app.post('/api/wallet/withdraw', requireAuth, async (req, res) => {
   try {
-    const { amount } = req.body;
-    if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
-    const current = await prisma.wallet.findUnique({ where: { userId: req.user.id } });
-    if (!current || current.balance < amount) return res.status(400).json({ error: 'Insufficient funds' });
-    const wallet = await prisma.wallet.update({
-      where: { userId: req.user.id },
-      data: { balance: { decrement: amount } },
-    });
-    await prisma.transaction.create({
-      data: { walletId: wallet.id, amount: -amount, type: 'WITHDRAWAL', status: 'COMPLETED' },
-    });
+    const safeAmount = sanitizeMoney(req.body.amount);
+    if (safeAmount <= 0) return res.status(400).json({ error: 'Invalid amount' });
+    let wallet;
+    try {
+      wallet = await prisma.$transaction(async (tx) => {
+        // SELECT FOR UPDATE locks the row so concurrent withdrawals can't both
+        // pass the balance check before either decrement lands (double-spend).
+        const [locked] = await tx.$queryRaw`
+          SELECT id, balance FROM "Wallet" WHERE "userId" = ${req.user.id} FOR UPDATE
+        `;
+        if (!locked || Number(locked.balance) < safeAmount) {
+          throw new Error('Insufficient funds');
+        }
+        const updated = await tx.wallet.update({
+          where: { userId: req.user.id },
+          data: { balance: { decrement: safeAmount } },
+        });
+        await tx.transaction.create({
+          data: { walletId: updated.id, amount: -safeAmount, type: 'WITHDRAWAL', status: 'COMPLETED' },
+        });
+        return updated;
+      });
+    } catch (err) {
+      if (err.message === 'Insufficient funds') return res.status(400).json({ error: 'Insufficient funds' });
+      throw err;
+    }
     res.json(wallet);
   } catch { res.status(500).json({ error: 'Failed' }); }
 });
