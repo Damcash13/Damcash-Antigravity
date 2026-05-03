@@ -112,6 +112,8 @@ export default function App() {
       console.log(`[Lobby] Room created: ${roomId}, waiting for opponent...`);
     };
     const handleGameStart = (data: any) => {
+      console.log('[Socket] Game-start received!', data);
+      useNotificationStore.getState().addNotification('Game starting! Redirecting...', 'success');
       setSearching(null);
       // Use the explicit color from the server if provided, otherwise fall back to detection
       const color = data.color || (data.black === socket.id ? 'b' : 'w');

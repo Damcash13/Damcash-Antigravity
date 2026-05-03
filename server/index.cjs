@@ -247,11 +247,14 @@ function removeSeekById(seekId) {
 }
 
 async function startRoom(roomId, creatorId, joinerId, config) {
+  console.log(`[GameStart] Attempting to start room ${roomId}. Creator: ${creatorId}, Joiner: ${joinerId}`);
   // Resolve the latest socket IDs for these users in case they blipped and reconnected
   const creatorUser = socketToUserId.get(creatorId);
   const joinerUser  = socketToUserId.get(joinerId);
   const currentCreatorId = creatorUser ? (userIdToSocketId.get(creatorUser) || creatorId) : creatorId;
   const currentJoinerId  = joinerUser  ? (userIdToSocketId.get(joinerUser)  || joinerId)  : joinerId;
+
+  console.log(`[GameStart] Resolved IDs -> Creator: ${currentCreatorId}, Joiner: ${currentJoinerId}`);
 
   const { white, black } = resolveColor(config.colorPref, currentCreatorId, currentJoinerId);
   const tc = parseTimeControl(config.timeControl || '5+0');
@@ -325,6 +328,7 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     blackPlayer: { name: bp?.name || 'Black', rating: bp?.rating || { chess: 1500, checkers: 1450 }, country: bp?.country || '' },
   };
 
+  console.log(`[GameStart] Emitting game-start to White: ${white} and Black: ${black}`);
   io.to(white).emit('game-start', { ...gameData, color: 'w' });
   io.to(black).emit('game-start', { ...gameData, color: 'b' });
   io.to(roomId).emit('game-start', gameData);
@@ -333,6 +337,7 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     const p = players.get(id);
     if (p) { p.status = 'playing'; p.currentTC = config?.timeControl || null; players.set(id, p); }
   });
+  console.log(`[GameStart] Room ${roomId} fully initialized and signals sent.`);
   broadcastPlayerList();
 }
 
