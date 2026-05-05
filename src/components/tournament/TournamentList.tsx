@@ -14,6 +14,7 @@ const STATUS_COLORS: Record<TournamentStatus, string> = {
 
 const TIME_CONTROLS = ['1+0', '2+1', '3+0', '3+2', '5+0', '5+3', '10+0', '10+5', '15+10', '30+0'];
 const JOIN_WINDOW_MS = 3 * 60_000;
+const PAIRING_CUTOFF_MS = 2 * 60_000;
 
 interface CreateForm {
   name: string;
@@ -128,7 +129,18 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
     const h = Math.floor(diff / 3_600_000);
     const m = Math.floor((diff % 3_600_000) / 60_000);
     const left = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    if (diff <= PAIRING_CUTOFF_MS) return `Pairing closed · ${left} left`;
     return `Late join open · ${left} left`;
+  };
+
+  const clarityLine = (tObj: Tournament): string => {
+    const status = liveStatus(tObj);
+    const waitingRoomAt = tObj.startsAt - JOIN_WINDOW_MS;
+    const pairingClosesAt = tObj.startsAt + tObj.durationMs - PAIRING_CUTOFF_MS;
+    if (status === 'upcoming') return `Waiting room opens ${exactTimeStr(waitingRoomAt)} (H-3)`;
+    if (status === 'running' && now >= pairingClosesAt) return 'Late joins allowed · Pairing closed for final 2 minutes';
+    if (status === 'running') return `Late joins allowed · Pairing closes ${exactTimeStr(pairingClosesAt)}`;
+    return 'Final standings and games are available';
   };
 
   const visible = tournaments
@@ -368,6 +380,11 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
                 {tourn.rated && <span className="tl-tag rated">★ {t('tournament.rated')}</span>}
                 {tourn.betEntry > 0 && <span className="tl-tag bet">💰 ${tourn.betEntry} {t('tournament.entry').toLowerCase()}</span>}
                 {tourn.prizePool > 0 && <span className="tl-tag prize">🎁 ${tourn.prizePool}</span>}
+              </div>
+
+              <div className="tl-card-rules">
+                <span>Starts {exactTimeStr(tourn.startsAt)}</span>
+                <span>{clarityLine(tourn)}</span>
               </div>
 
               {/* Footer */}

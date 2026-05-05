@@ -2409,7 +2409,8 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
 
       let duration = '0:00';
       if (m.endedAt) {
-        const ms = m.endedAt.getTime() - m.createdAt.getTime();
+        const startedAt = m.startedAt || m.createdAt;
+        const ms = m.endedAt.getTime() - startedAt.getTime();
         const mnt = Math.floor(ms / 60000);
         const sec = Math.floor((ms % 60000) / 1000);
         duration = `${mnt}:${sec.toString().padStart(2, '0')}`;
@@ -2422,7 +2423,7 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
         result,
         moves,
         duration,
-        playedAt: m.createdAt.getTime()
+        playedAt: (m.endedAt || m.startedAt || m.createdAt).getTime()
       };
     });
 

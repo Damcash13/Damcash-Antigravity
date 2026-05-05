@@ -37,6 +37,27 @@ function formatStartTime(ts: number): string {
   });
 }
 
+function formatExactTime(ts: number): string {
+  return new Date(ts).toLocaleString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
+}
+
+function formatDuration(ms: number): string {
+  const totalMinutes = Math.max(0, Math.round(ms / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+}
+
 function getLiveStatus(startsAt: number, durationMs: number, now: number) {
   const endsAt = startsAt + durationMs;
   if (now >= endsAt) return 'finished';
@@ -213,11 +234,28 @@ export const TournamentPage: React.FC = () => {
   const isRunning  = status === 'running';
   const isUpcoming = status === 'upcoming';
   const isFinished = status === 'finished';
+  const displayRound = isUpcoming ? 0 : Math.max(tournament.currentRound, 1);
   const startsIn = tournament.startsAt - now;
   const timeLeft = endsAt - now;
   const waitingRoomOpen = isUpcoming && startsIn <= JOIN_WINDOW_MS;
   const pairingOpen = isRunning && timeLeft > PAIRING_CUTOFF_MS;
   const waitingRoomOpensAt = tournament.startsAt - JOIN_WINDOW_MS;
+  const pairingClosesAt = endsAt - PAIRING_CUTOFF_MS;
+  const liveGames = tournament.games.filter(g => g.result === '*');
+  const finishedGames = tournament.games.filter(g => g.result !== '*');
+  const scoringText = tournament.format === 'arena'
+    ? 'Win = 2 pts · Draw = 1 pt · Loss = 0 pts'
+    : 'Win = 1 pt · Draw = 0.5 pt · Loss = 0 pts';
+  const pairingText = tournament.format === 'arena'
+    ? 'Pairing is on demand against any available online opponent.'
+    : 'Pairing prefers opponents you have not played, then closest score, then closest rating.';
+  const lateJoinText = isFinished
+    ? 'This tournament is closed. New players cannot join.'
+    : isRunning
+    ? pairingOpen
+      ? 'Late joining is open. New players can join, request games, and catch up while pairings remain open.'
+      : 'Late joining can still place you in the room, but new pairings are closed for the final 2 minutes.'
+    : 'Players can register now, then enter the waiting room during the final 3 minutes before start.';
   const joinCta = hasJoined
     ? isRunning ? `🏳 ${t('tournament.withdraw')}` : `✕ ${t('common.cancel')}`
     : isRunning ? `▶ Join & catch up`
@@ -303,6 +341,82 @@ export const TournamentPage: React.FC = () => {
         </div>
       )}
 
+      <div className="tp-clarity-panel">
+        <div className="tp-clarity-head">
+          <div>
+            <div className="tp-clarity-title">Tournament clarity</div>
+            <div className="tp-clarity-sub">
+              {isRunning ? 'In progress now' : isUpcoming ? 'Upcoming schedule' : 'Finished tournament record'}
+            </div>
+          </div>
+          <span className={`tp-clarity-status ${status}`}>
+            {isRunning ? t('tournament.running') : isUpcoming ? t('tournament.upcoming') : t('tournament.finished')}
+          </span>
+        </div>
+
+        <div className="tp-timeline-grid">
+          <div className="tp-timeline-card">
+            <span className="tp-timeline-label">Exact start</span>
+            <strong>{formatExactTime(tournament.startsAt)}</strong>
+          </div>
+          <div className="tp-timeline-card">
+            <span className="tp-timeline-label">Waiting room opens</span>
+            <strong>{formatExactTime(waitingRoomOpensAt)}</strong>
+            <small>H-3 minutes</small>
+          </div>
+          <div className="tp-timeline-card">
+            <span className="tp-timeline-label">Pairing closes</span>
+            <strong>{formatExactTime(pairingClosesAt)}</strong>
+            <small>Final 2 minutes</small>
+          </div>
+          <div className="tp-timeline-card">
+            <span className="tp-timeline-label">Tournament ends</span>
+            <strong>{formatExactTime(endsAt)}</strong>
+            <small>{formatDuration(tournament.durationMs)} duration</small>
+          </div>
+        </div>
+
+        <div className="tp-rules-grid">
+          <div className="tp-rule-card">
+            <span className="tp-rule-label">Late joining</span>
+            <p>{lateJoinText}</p>
+          </div>
+          <div className="tp-rule-card">
+            <span className="tp-rule-label">Scoring system</span>
+            <p>{scoringText}</p>
+          </div>
+          <div className="tp-rule-card">
+            <span className="tp-rule-label">Pairing method</span>
+            <p>{pairingText}</p>
+          </div>
+          <div className="tp-rule-card">
+            <span className="tp-rule-label">Games record</span>
+            <p>{liveGames.length} current · {finishedGames.length} finished · standings update after each result.</p>
+          </div>
+        </div>
+
+        <div className="tp-clarity-bottom">
+          <div className="tp-mini-standings">
+            <span className="tp-rule-label">Current standings</span>
+            {standings.length === 0 ? (
+              <span className="tp-muted-line">No players registered yet.</span>
+            ) : standings.slice(0, 3).map((p, idx) => (
+              <div key={p.id || p.name} className="tp-mini-standing-row">
+                <span>{medal(idx + 1)} {p.name}</span>
+                <strong>{p.score ?? 0}</strong>
+              </div>
+            ))}
+          </div>
+          <div className="tp-mini-games">
+            <span className="tp-rule-label">Current / finished games</span>
+            <div className="tp-game-counts">
+              <strong>{liveGames.length}</strong><span>current</span>
+              <strong>{finishedGames.length}</strong><span>finished</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── Stats bar ── */}
       <div className="tp-stats-bar">
         <div className="tp-stat">
@@ -310,12 +424,12 @@ export const TournamentPage: React.FC = () => {
           <span className="tp-stat-label">{t('tournament.players')}</span>
         </div>
         <div className="tp-stat">
-          <span className="tp-stat-val">{tournament.games.length}</span>
-          <span className="tp-stat-label">{t('tournament.played')}</span>
+          <span className="tp-stat-val">{liveGames.length}/{finishedGames.length}</span>
+          <span className="tp-stat-label">current / finished</span>
         </div>
         {tournament.format !== 'arena' && (
           <div className="tp-stat">
-            <span className="tp-stat-val">{tournament.currentRound}/{tournament.totalRounds}</span>
+            <span className="tp-stat-val">{displayRound}/{tournament.totalRounds}</span>
             <span className="tp-stat-label">{t('tournament.rounds')}</span>
           </div>
         )}
@@ -423,28 +537,29 @@ export const TournamentPage: React.FC = () => {
               {/* Current / Next round header */}
               <div className="tp-round-header">
                 {isRunning
-                  ? `${t('tournament.round')} ${tournament.currentRound} — ${t('tournament.livePairings')}`
+                  ? tournament.format === 'arena'
+                    ? `Live pairings — ${pairingOpen ? 'pairing open' : 'pairing closed'}`
+                    : `${t('tournament.round')} ${displayRound} — ${t('tournament.livePairings')}`
                   : isUpcoming
                   ? t('tournament.registeredPlayers')
                   : `${t('tournament.finalPairings')} — ${tournament.totalRounds || tournament.games.length} ${t('tournament.rounds').toLowerCase()}`}
               </div>
 
-              {/* Arena: show all current games as pairings */}
-              {tournament.format === 'arena' && isRunning && tournament.games.length > 0 && (
+              {/* Arena: show current games as pairings */}
+              {tournament.format === 'arena' && isRunning && liveGames.length > 0 && (
                 <div className="tp-pairing-list">
-                  {[...tournament.games].reverse().slice(0, 8).map((g, i) => {
+                  {liveGames.slice(0, 8).map((g, i) => {
                     const wp = tournament.players.find(p => p.name === g.white);
                     const bp = tournament.players.find(p => p.name === g.black);
-                    const done = g.result !== '*';
                     return (
-                      <div key={g.id} className={`tp-pairing-row ${done ? 'done' : 'live'}`}>
+                      <div key={g.id} className="tp-pairing-row live">
                         <span className="tp-pair-board">#{i + 1}</span>
                         <div className="tp-pair-player white">
                           <span className="tp-pair-name">{g.white}</span>
                           <span className="tp-pair-rating">{wp?.rating ?? '?'}</span>
                         </div>
-                        <span className={`tp-pair-result ${done ? (g.result === '1-0' ? 'white-win' : g.result === '0-1' ? 'black-win' : 'draw') : 'live'}`}>
-                          {done ? g.result : '● vs'}
+                        <span className="tp-pair-result live">
+                          ● vs
                         </span>
                         <div className="tp-pair-player black">
                           <span className="tp-pair-name">{g.black}</span>
@@ -453,6 +568,13 @@ export const TournamentPage: React.FC = () => {
                       </div>
                     );
                   })}
+                </div>
+              )}
+              {tournament.format === 'arena' && isRunning && liveGames.length === 0 && (
+                <div className="tp-inline-note">
+                  {pairingOpen
+                    ? `No current games. Joined players can request a tournament game until ${formatStartTime(pairingClosesAt)}.`
+                    : 'No current games. New pairings are closed for the final 2 minutes.'}
                 </div>
               )}
 
@@ -522,28 +644,55 @@ export const TournamentPage: React.FC = () => {
               </div>
             </div>
           ) : (
-            [...tournament.games].reverse().map(game => (
-              <div key={game.id} className="tp-game-row">
-                <div className="tp-game-players">
-                  <span className="tp-gp white">{game.white}</span>
-                  <span className={`tp-result-badge ${
-                    game.result === '1-0' ? 'white-win'
-                    : game.result === '0-1' ? 'black-win'
-                    : 'draw'
-                  }`}>
-                    {game.result}
-                  </span>
-                  <span className="tp-gp black">{game.black}</span>
+            <>
+              {liveGames.length > 0 && (
+                <div className="tp-games-section">
+                  <div className="tp-games-section-title">Current games ({liveGames.length})</div>
+                  {liveGames.map(game => (
+                    <div key={game.id} className="tp-game-row live">
+                      <div className="tp-game-players">
+                        <span className="tp-gp white">{game.white}</span>
+                        <span className="tp-result-badge live">LIVE</span>
+                        <span className="tp-gp black">{game.black}</span>
+                      </div>
+                      <div className="tp-game-meta">
+                        <span>{game.moves} {t('game.moves').toLowerCase()}</span>
+                        <span>·</span>
+                        <span>Started {timeAgo(game.playedAt)}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="tp-game-meta">
-                  <span>{game.moves} {t('game.moves').toLowerCase()}</span>
-                  <span>·</span>
-                  <span>{game.duration}</span>
-                  <span>·</span>
-                  <span>{timeAgo(game.playedAt)}</span>
+              )}
+
+              {finishedGames.length > 0 && (
+                <div className="tp-games-section">
+                  <div className="tp-games-section-title">Finished games ({finishedGames.length})</div>
+                  {finishedGames.map(game => (
+                    <div key={game.id} className="tp-game-row">
+                      <div className="tp-game-players">
+                        <span className="tp-gp white">{game.white}</span>
+                        <span className={`tp-result-badge ${
+                          game.result === '1-0' ? 'white-win'
+                          : game.result === '0-1' ? 'black-win'
+                          : 'draw'
+                        }`}>
+                          {game.result}
+                        </span>
+                        <span className="tp-gp black">{game.black}</span>
+                      </div>
+                      <div className="tp-game-meta">
+                        <span>{game.moves} {t('game.moves').toLowerCase()}</span>
+                        <span>·</span>
+                        <span>{game.duration}</span>
+                        <span>·</span>
+                        <span>{timeAgo(game.playedAt)}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            ))
+              )}
+            </>
           )}
         </div>
       )}
@@ -559,6 +708,12 @@ export const TournamentPage: React.FC = () => {
             <div className="tp-info-card">
               <div className="tp-info-label">Waiting room</div>
               <div className="tp-info-val">{formatStartTime(waitingRoomOpensAt)}</div>
+              <div className="tp-info-note">Opens 3 minutes before start</div>
+            </div>
+            <div className="tp-info-card">
+              <div className="tp-info-label">Pairing closes</div>
+              <div className="tp-info-val">{formatStartTime(pairingClosesAt)}</div>
+              <div className="tp-info-note">No new pairings in final 2 minutes</div>
             </div>
             <div className="tp-info-card">
               <div className="tp-info-label">{t('tournament.format')}</div>
@@ -605,11 +760,10 @@ export const TournamentPage: React.FC = () => {
             <div className="tp-rules-box">
               <div className="tp-desc-title">{t('tournament.arenaRules')}</div>
               <ul className="tp-rules">
-                <li>Players can join and leave at any time during the tournament.</li>
-                <li>Games are paired automatically against available opponents.</li>
-                <li>Win = 2 pts · Draw = 1 pt · Loss = 0 pts</li>
-                <li>A win streak activates 🔥 Berserk mode — double points risk.</li>
-                <li>Standings are determined by score, then by performance rating.</li>
+                <li>Players may join before start or late while the tournament is running.</li>
+                <li>Players request games against available online opponents until the final 2-minute pairing cutoff.</li>
+                <li>{scoringText}</li>
+                <li>Standings are sorted by score, then performance rating.</li>
               </ul>
             </div>
           )}
@@ -618,10 +772,22 @@ export const TournamentPage: React.FC = () => {
             <div className="tp-rules-box">
               <div className="tp-desc-title">{t('tournament.swissRules')}</div>
               <ul className="tp-rules">
-                <li>All players play {tournament.totalRounds} rounds.</li>
-                <li>Players with similar scores are paired each round.</li>
-                <li>Win = 1 pt · Draw = 0.5 pt · Loss = 0 pt</li>
-                <li>Final ranking by total score, then tiebreaks (Buchholz, SB).</li>
+                <li>Players may join before start or late while the tournament is running.</li>
+                <li>{pairingText}</li>
+                <li>{scoringText}</li>
+                <li>Standings are sorted by score, then performance rating.</li>
+              </ul>
+            </div>
+          )}
+
+          {tournament.format === 'roundrobin' && (
+            <div className="tp-rules-box">
+              <div className="tp-desc-title">{t('tournament.roundRobin')}</div>
+              <ul className="tp-rules">
+                <li>Players may join before start or late while the tournament is running.</li>
+                <li>{pairingText}</li>
+                <li>{scoringText}</li>
+                <li>Standings are sorted by score, then performance rating.</li>
               </ul>
             </div>
           )}
