@@ -151,42 +151,91 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  letter-spacing: -0.5px;
+  letter-spacing: 0;
   flex-shrink: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.logo:hover { opacity: 0.88; }
+.logo:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.logo-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.18));
+  animation: logoMarkFloat 7s ease-in-out infinite;
+}
+
+.logo-mark-large {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+}
 
 .logo-wordmark {
   display: flex;
   align-items: baseline;
   gap: 0;
   line-height: 1;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.26));
 }
 
 .logo-dam {
   font-size: 26px;
   font-weight: 900;
-  letter-spacing: -1px;
-  background: linear-gradient(135deg, #ffe680 0%, #f59e0b 55%, #d97706 100%);
+  letter-spacing: 0;
+  background: linear-gradient(110deg, #fff0ad 0%, #f59e0b 35%, #fff7d6 50%, #d97706 68%, #fbbf24 100%);
+  background-size: 220% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  animation: logoTextShine 7s ease-in-out infinite;
 }
 
 .logo-cash {
   font-size: 26px;
   font-weight: 900;
-  letter-spacing: -1px;
-  background: linear-gradient(135deg, #6fcf97 0%, #22c55e 60%, #16a34a 100%);
+  letter-spacing: 0;
+  background: linear-gradient(110deg, #bbf7d0 0%, #22c55e 35%, #ecfdf5 50%, #16a34a 68%, #6ee7b7 100%);
+  background-size: 220% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  animation: logoTextShine 7s ease-in-out infinite;
+  animation-delay: 0.25s;
 }
 
 .logo-icon {
   font-size: 22px;
+}
+
+@keyframes logoMarkFloat {
+  0%, 100% {
+    transform: translateY(0);
+    filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.18));
+  }
+  50% {
+    transform: translateY(-1px);
+    filter: drop-shadow(0 0 16px rgba(34, 197, 94, 0.2));
+  }
+}
+
+@keyframes logoTextShine {
+  0%, 42%, 100% { background-position: 0% 50%; }
+  58% { background-position: 100% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-mark,
+  .logo-dam,
+  .logo-cash {
+    animation: none;
+  }
 }
 
 .header-nav {
@@ -3073,6 +3122,9 @@ html, body {
   .header-play-wrap   { display: none; }
   .header-inner { padding: 0 8px; gap: 6px; height: 48px; }
   .logo { font-size: 16px; }
+  .header .logo-mark { width: 34px; height: 34px; border-radius: 8px; }
+  .logo-dam,
+  .logo-cash { font-size: 21px; }
   .logo-icon { font-size: 18px; }
   .btn-signin, .btn-register { font-size: 11px; padding: 5px 10px; }
 

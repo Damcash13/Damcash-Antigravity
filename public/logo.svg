@@ -1,108 +1,144 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title desc">
+  <title id="title">DamCash Logo</title>
+  <desc id="desc">A gold crown above a chessboard on a dark premium badge.</desc>
   <defs>
-    <!-- Deep dark background gradient -->
-    <linearGradient id="bgGrad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1a0e38"/>
-      <stop offset="60%" stop-color="#0d0d1a"/>
-      <stop offset="100%" stop-color="#07070f"/>
+    <linearGradient id="bg" x1="10" y1="4" x2="112" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#21143f"/>
+      <stop offset="0.48" stop-color="#101023"/>
+      <stop offset="1" stop-color="#070812"/>
     </linearGradient>
-
-    <!-- Gold crown gradient -->
-    <linearGradient id="goldMain" x1="0" y1="15" x2="0" y2="80" gradientUnits="userSpaceOnUse">
-      <stop offset="0%"   stop-color="#fff2a0"/>
-      <stop offset="30%"  stop-color="#fbbf24"/>
-      <stop offset="70%"  stop-color="#f59e0b"/>
-      <stop offset="100%" stop-color="#78350f"/>
+    <linearGradient id="rim" x1="7" y1="4" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="0.36" stop-color="#fbbf24"/>
+      <stop offset="0.68" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#38bdf8"/>
     </linearGradient>
-
-    <!-- Crown highlight (sheen) -->
-    <linearGradient id="goldSheen" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.3"/>
-      <stop offset="50%"  stop-color="#ffffff" stop-opacity="0.0"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.1"/>
+    <linearGradient id="gold" x1="22" y1="20" x2="91" y2="83" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff7c2"/>
+      <stop offset="0.32" stop-color="#fbbf24"/>
+      <stop offset="0.72" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#9a4d0b"/>
     </linearGradient>
-
-    <!-- Glow filter for gems -->
-    <filter id="gemGlow" x="-60%" y="-60%" width="220%" height="220%">
+    <linearGradient id="goldDeep" x1="20" y1="78" x2="106" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbbf24"/>
+      <stop offset="0.54" stop-color="#a16207"/>
+      <stop offset="1" stop-color="#422006"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff7d6" stop-opacity="0"/>
+      <stop offset="0.48" stop-color="#fff7d6" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#fff7d6" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="blueGem" cx="35%" cy="28%" r="70%">
+      <stop offset="0" stop-color="#f0f9ff"/>
+      <stop offset="0.42" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#0369a1"/>
+    </radialGradient>
+    <radialGradient id="violetGem" cx="35%" cy="28%" r="70%">
+      <stop offset="0" stop-color="#ede9fe"/>
+      <stop offset="0.42" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#6d28d9"/>
+    </radialGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.42"/>
+    </filter>
+    <filter id="gemGlow" x="-90%" y="-90%" width="280%" height="280%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
-
-    <!-- Outer card glow -->
-    <filter id="cardGlow" x="-10%" y="-10%" width="120%" height="120%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-
-    <!-- Clip to rounded card -->
-    <clipPath id="card">
-      <rect width="120" height="120" rx="24"/>
+    <clipPath id="cardClip">
+      <rect x="4" y="4" width="112" height="112" rx="24"/>
     </clipPath>
+    <clipPath id="crownClip">
+      <path d="M18 72 L18 40 L34 55 L48 27 L60 51 L72 27 L86 55 L102 40 L102 72 Z"/>
+      <rect x="18" y="68" width="84" height="14" rx="6"/>
+    </clipPath>
+    <style>
+      .aura {
+        animation: auraPulse 6s ease-in-out infinite;
+        transform-origin: 60px 60px;
+      }
+      .gem {
+        animation: gemPulse 4.4s ease-in-out infinite;
+        transform-origin: center;
+      }
+      .gem.left { animation-delay: .45s; }
+      .gem.right { animation-delay: .9s; }
+      .shine-sweep {
+        animation: logoSweep 5.8s ease-in-out infinite;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+      .tile.hot {
+        animation: tileGlow 5.8s ease-in-out infinite;
+      }
+      @keyframes auraPulse {
+        0%, 100% { opacity: .32; transform: scale(.98); }
+        50% { opacity: .66; transform: scale(1.02); }
+      }
+      @keyframes gemPulse {
+        0%, 100% { opacity: .88; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.08); }
+      }
+      @keyframes logoSweep {
+        0%, 34% { transform: translateX(-72px) rotate(16deg); opacity: 0; }
+        48% { opacity: .82; }
+        66%, 100% { transform: translateX(96px) rotate(16deg); opacity: 0; }
+      }
+      @keyframes tileGlow {
+        0%, 100% { opacity: .58; }
+        50% { opacity: .95; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .aura, .gem, .shine-sweep, .tile.hot { animation: none; }
+      }
+    </style>
   </defs>
 
-  <!-- Card background -->
-  <rect width="120" height="120" rx="24" fill="url(#bgGrad)"/>
+  <rect x="4" y="4" width="112" height="112" rx="24" fill="url(#bg)"/>
+  <rect x="5.5" y="5.5" width="109" height="109" rx="22.5" fill="none" stroke="url(#rim)" stroke-width="2.4" opacity=".8"/>
+  <rect x="10" y="10" width="100" height="100" rx="19" fill="none" stroke="#ffffff" stroke-width=".8" opacity=".08"/>
 
-  <!-- Subtle gold border glow -->
-  <rect x="1.5" y="1.5" width="117" height="117" rx="23" fill="none"
-        stroke="#f59e0b" stroke-width="1.5" opacity="0.5"/>
+  <g clip-path="url(#cardClip)">
+    <circle class="aura" cx="60" cy="38" r="47" fill="#fbbf24" opacity=".34"/>
+    <circle class="aura" cx="28" cy="32" r="24" fill="#7c3aed" opacity=".28"/>
+    <circle class="aura" cx="94" cy="36" r="22" fill="#22c55e" opacity=".24"/>
+  </g>
 
-  <!-- Inner violet highlight rim -->
-  <rect x="3" y="3" width="114" height="114" rx="22" fill="none"
-        stroke="#7c3aed" stroke-width="0.6" opacity="0.35"/>
+  <g filter="url(#softShadow)">
+    <path d="M18 72 L18 40 L34 55 L48 27 L60 51 L72 27 L86 55 L102 40 L102 72 Z" fill="url(#gold)"/>
+    <path d="M18 72 L18 40 L34 55 L48 27 L60 51 L72 27 L86 55 L102 40 L102 72 Z" fill="#fff7d6" opacity=".12"/>
+    <rect x="18" y="68" width="84" height="14" rx="6" fill="url(#gold)"/>
+    <rect x="22" y="70" width="76" height="4" rx="2" fill="#fff7d6" opacity=".3"/>
+    <g clip-path="url(#crownClip)">
+      <rect class="shine-sweep" x="12" y="24" width="14" height="66" fill="url(#shine)" opacity=".8"/>
+    </g>
+  </g>
 
-  <!-- ─── Crown body (5-spike king shape) ─── -->
-  <path d="M 14 72
-           L 14 44
-           L 30 58
-           L 60 16
-           L 90 58
-           L 106 44
-           L 106 72
-           Z"
-        fill="url(#goldMain)"/>
+  <g filter="url(#gemGlow)">
+    <circle class="gem left" cx="18" cy="40" r="6.5" fill="url(#violetGem)"/>
+    <circle class="gem" cx="60" cy="27" r="7.5" fill="url(#blueGem)"/>
+    <circle class="gem right" cx="102" cy="40" r="6.5" fill="url(#violetGem)"/>
+    <circle cx="57.7" cy="24.7" r="1.9" fill="#ffffff" opacity=".85"/>
+    <circle cx="16.2" cy="38.3" r="1.5" fill="#ffffff" opacity=".75"/>
+    <circle cx="100.2" cy="38.3" r="1.5" fill="#ffffff" opacity=".75"/>
+  </g>
 
-  <!-- Crown sheen overlay -->
-  <path d="M 14 72 L 14 44 L 30 58 L 60 16 L 90 58 L 106 44 L 106 72 Z"
-        fill="url(#goldSheen)"/>
-
-  <!-- Crown base band -->
-  <rect x="14" y="69" width="92" height="13" rx="5" fill="url(#goldMain)"/>
-
-  <!-- Base band highlight line -->
-  <rect x="14" y="69" width="92" height="5" rx="5" fill="#fef3c7" opacity="0.18"/>
-
-  <!-- ─── Gem at left spike ─── -->
-  <circle cx="14" cy="44" r="7"   fill="#7c3aed" filter="url(#gemGlow)"/>
-  <circle cx="14" cy="44" r="4"   fill="#c4b5fd"/>
-  <circle cx="12.5" cy="42.5" r="1.5" fill="#ffffff" opacity="0.7"/>
-
-  <!-- ─── Gem at center peak (largest, blue diamond) ─── -->
-  <circle cx="60" cy="16" r="8.5" fill="#0ea5e9" filter="url(#gemGlow)"/>
-  <circle cx="60" cy="16" r="5"   fill="#bae6fd"/>
-  <circle cx="57.5" cy="13.5" r="2" fill="#ffffff" opacity="0.7"/>
-
-  <!-- ─── Gem at right spike ─── -->
-  <circle cx="106" cy="44" r="7"  fill="#7c3aed" filter="url(#gemGlow)"/>
-  <circle cx="106" cy="44" r="4"  fill="#c4b5fd"/>
-  <circle cx="104.5" cy="42.5" r="1.5" fill="#ffffff" opacity="0.7"/>
-
-  <!-- ─── Mini checkerboard row below base ─── -->
-  <g clip-path="url(#card)">
-    <!-- Alternating gold tiles -->
-    <rect x="14"  y="86" width="15" height="14" rx="3" fill="#f59e0b" opacity="0.80"/>
-    <rect x="29"  y="86" width="15" height="14" rx="3" fill="#f59e0b" opacity="0.15"/>
-    <rect x="44"  y="86" width="15" height="14" rx="3" fill="#f59e0b" opacity="0.80"/>
-    <rect x="59"  y="86" width="15" height="14" rx="3" fill="#f59e0b" opacity="0.15"/>
-    <rect x="74"  y="86" width="15" height="14" rx="3" fill="#f59e0b" opacity="0.80"/>
-    <rect x="89"  y="86" width="17" height="14" rx="3" fill="#f59e0b" opacity="0.15"/>
-
-    <!-- Second checker row -->
-    <rect x="14"  y="100" width="15" height="20" rx="3" fill="#f59e0b" opacity="0.10"/>
-    <rect x="29"  y="100" width="15" height="20" rx="3" fill="#f59e0b" opacity="0.45"/>
-    <rect x="44"  y="100" width="15" height="20" rx="3" fill="#f59e0b" opacity="0.10"/>
-    <rect x="59"  y="100" width="15" height="20" rx="3" fill="#f59e0b" opacity="0.45"/>
-    <rect x="74"  y="100" width="15" height="20" rx="3" fill="#f59e0b" opacity="0.10"/>
-    <rect x="89"  y="100" width="17" height="20" rx="3" fill="#f59e0b" opacity="0.45"/>
+  <g clip-path="url(#cardClip)">
+    <rect x="18" y="86" width="14" height="13" rx="3" fill="url(#goldDeep)" opacity=".92"/>
+    <rect x="32" y="86" width="14" height="13" rx="3" fill="#fff4bd" opacity=".2"/>
+    <rect class="tile hot" x="46" y="86" width="14" height="13" rx="3" fill="url(#goldDeep)" opacity=".78"/>
+    <rect x="60" y="86" width="14" height="13" rx="3" fill="#fff4bd" opacity=".2"/>
+    <rect x="74" y="86" width="14" height="13" rx="3" fill="url(#goldDeep)" opacity=".92"/>
+    <rect x="88" y="86" width="14" height="13" rx="3" fill="#fff4bd" opacity=".2"/>
+    <rect x="18" y="99" width="14" height="17" rx="3" fill="#fff4bd" opacity=".14"/>
+    <rect x="32" y="99" width="14" height="17" rx="3" fill="url(#goldDeep)" opacity=".58"/>
+    <rect x="46" y="99" width="14" height="17" rx="3" fill="#fff4bd" opacity=".14"/>
+    <rect x="60" y="99" width="14" height="17" rx="3" fill="url(#goldDeep)" opacity=".58"/>
+    <rect x="74" y="99" width="14" height="17" rx="3" fill="#fff4bd" opacity=".14"/>
+    <rect class="tile hot" x="88" y="99" width="14" height="17" rx="3" fill="url(#goldDeep)" opacity=".58"/>
   </g>
 </svg>

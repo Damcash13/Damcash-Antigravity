@@ -63,9 +63,9 @@ export function AgeGate({ children }: { children: React.ReactNode }) {
     <div style={overlay}>
       <div style={card}>
         {/* Logo */}
-        <img src="/logo.svg" alt="DamCash" style={{ width: 72, height: 72, borderRadius: 16 }} />
+        <img src="/logo.svg" alt="DamCash" className="logo-mark logo-mark-large" />
 
-        <h1 style={{ fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: '-0.5px' }}>
+        <h1 style={{ fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: 0 }}>
           <span style={{ color: '#f59e0b' }}>DAM</span>
           <span style={{ color: '#6fcf97' }}>CASH</span>
         </h1>

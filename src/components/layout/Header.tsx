@@ -345,7 +345,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
       <div className="header-inner">
         {/* Logo */}
         <a className="logo" onClick={() => navigate(`/${universe}`)} style={{ cursor: 'pointer' }}>
-          <img src="/logo.svg" alt="DamCash" style={{ width: 42, height: 42, borderRadius: 10, display: 'block', flexShrink: 0 }} />
+          <img src="/logo.svg" alt="DamCash" className="logo-mark" />
           <span className="logo-wordmark">
             <span className="logo-dam">DAM</span><span className="logo-cash">CASH</span>
           </span>
