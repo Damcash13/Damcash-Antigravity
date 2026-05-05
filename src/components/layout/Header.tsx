@@ -282,7 +282,8 @@ const HamburgerMenu: React.FC<{
   t: any;
   navigate: (path: string) => void;
   onClose: () => void;
-}> = ({ menus, universe, onUniverseSwitch, soundOn, onToggleSound, i18n, t, navigate, onClose }) => {
+  onLogout?: () => void;
+}> = ({ menus, universe, onUniverseSwitch, soundOn, onToggleSound, i18n, t, navigate, onClose, onLogout }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -363,6 +364,20 @@ const HamburgerMenu: React.FC<{
           </div>
         </div>
       </div>
+
+      {/* Logout */}
+      {onLogout && (
+        <div className="hamburger-section">
+          <button
+            className="hamburger-nav-item"
+            onClick={() => { onLogout(); onClose(); }}
+            style={{ color: '#ef4444', fontWeight: 700 }}
+          >
+            <span>🚪</span>
+            <span>Sign out</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -372,7 +387,7 @@ const HamburgerMenu: React.FC<{
 export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlayer, onOpenCreateGame }) => {
   const { t, i18n } = useTranslation();
   const { universe, toggleUniverse } = useUniverseStore();
-  const { user, isLoggedIn } = useUserStore();
+  const { user, isLoggedIn, logout } = useUserStore();
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(() => getSoundEnabled());
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -433,7 +448,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
               {isLoggedIn && (
                 <button
                   className="header-avatar-btn"
-                  onClick={() => navigate('/profile')}
+                  onClick={() => navigate(`/${universe}/profile/${user.name}`)}
                   title={t('header.profileTitle', { name: user.name })}
                 >
                   <span className="header-avatar-letter">{user.name[0]?.toUpperCase()}</span>
@@ -470,6 +485,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
                 t={t}
                 navigate={navigate}
                 onClose={() => setHamburgerOpen(false)}
+                onLogout={user ? () => { logout(); navigate('/'); } : undefined}
               />
             )}
           </div>

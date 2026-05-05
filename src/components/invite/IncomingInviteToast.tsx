@@ -120,6 +120,7 @@ export const IncomingInviteToast: React.FC = () => {
   const { incoming, addIncoming, dismissIncoming } = useInviteStore();
   const { push: pushNotif } = useNotifCenterStore();
   const { play } = useSound();
+
   useEffect(() => {
     const handleInviteReceived = (data: IncomingInvite) => {
       addIncoming(data);
