@@ -92,6 +92,8 @@ model Match {
   finalFen     String?
   betAmount    Decimal  @default(0) @db.Decimal(12, 2)
   isRated      Boolean  @default(true)
+  tournamentId String?
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
 
   whiteId      String
   white        User     @relation("WhitePlayer", fields: [whiteId], references: [id], onDelete: Restrict)
@@ -104,6 +106,7 @@ model Match {
 
   @@index([whiteId])
   @@index([blackId])
+  @@index([tournamentId])
   @@index([universe, status])
   @@index([createdAt])
 }
@@ -156,6 +159,7 @@ model Tournament {
   startsAt    DateTime
   createdAt   DateTime @default(now())
   players     TournamentPlayer[]
+  matches     Match[]
 }
 
 model TournamentPlayer {

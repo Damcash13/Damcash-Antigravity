@@ -109,6 +109,7 @@ interface TournamentStore {
   fetchOne:         (id: string) => Promise<void>;
   joinTournament:   (id: string) => Promise<void>;
   leaveTournament:  (id: string) => Promise<void>;
+  pairTournament:   (id: string) => Promise<{ paired: boolean; roomId?: string; opponent?: string; message?: string }>;
   getById:          (id: string) => Tournament | undefined;
 }
 
@@ -151,6 +152,12 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
   leaveTournament: async (id) => {
     await api.tournaments.leave(id);
     await get().fetchOne(id);
+  },
+
+  pairTournament: async (id) => {
+    const result = await api.tournaments.pair(id);
+    await get().fetchOne(id);
+    return result;
   },
 
   getById: (id) => get().tournaments.find(t => t.id === id),

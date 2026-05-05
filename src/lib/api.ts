@@ -158,6 +158,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({}),
       }),
+    pair: (id: string) =>
+      request<{ paired: boolean; roomId?: string; opponent?: string; message?: string }>(`/api/tournaments/${id}/pair`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
     leave: (id: string) =>
       request<{ ok: boolean }>(`/api/tournaments/${id}/leave`, {
         method: 'POST',

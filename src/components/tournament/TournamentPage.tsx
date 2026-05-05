@@ -83,11 +83,13 @@ export const TournamentPage: React.FC = () => {
   const fetchOne = useTournamentStore(s => s.fetchOne);
   const joinTournament = useTournamentStore(s => s.joinTournament);
   const leaveTournament = useTournamentStore(s => s.leaveTournament);
+  const pairTournament = useTournamentStore(s => s.pairTournament);
   const loading = useTournamentStore(s => s.loading);
 
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'standings' | 'pairings' | 'games' | 'info'>('standings');
   const [joining, setJoining] = useState(false);
+  const [pairing, setPairing] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   const FORMAT_LABEL: Record<string, string> = {
@@ -177,6 +179,24 @@ export const TournamentPage: React.FC = () => {
     }
   };
 
+  const handlePair = async () => {
+    if (!user) { addNotification('Sign in to play tournament games', 'error'); return; }
+    if (!hasJoined) { addNotification('Join the tournament before pairing', 'error'); return; }
+    setPairing(true);
+    try {
+      const result = await pairTournament(tournament.id);
+      if (result.paired) {
+        addNotification(`Pairing found${result.opponent ? ` vs ${result.opponent}` : ''}`, 'success');
+      } else {
+        addNotification(result.message || 'No available opponent yet', 'info');
+      }
+    } catch (e: any) {
+      addNotification(e?.message || 'Pairing failed', 'error');
+    } finally {
+      setPairing(false);
+    }
+  };
+
   // Sorted standings
   const standings = useMemo(() => {
     return [...tournament.players].sort((a, b) =>
@@ -243,6 +263,15 @@ export const TournamentPage: React.FC = () => {
               disabled={joining}
             >
               {joining ? '…' : joinCta}
+            </button>
+          )}
+          {isRunning && hasJoined && (
+            <button
+              className="btn tp-btn-join"
+              onClick={handlePair}
+              disabled={pairing}
+            >
+              {pairing ? 'Pairing…' : '⚔ Find game'}
             </button>
           )}
         </div>
@@ -317,6 +346,11 @@ export const TournamentPage: React.FC = () => {
               {isUpcoming && !hasJoined && (
                 <button className="btn tp-btn-join" style={{ marginTop: 16 }} onClick={handleJoin}>
                   {waitingRoomOpen ? '✓ Join waiting room' : `✓ ${t('tournament.registerNow')}`}
+                </button>
+              )}
+              {isRunning && hasJoined && (
+                <button className="btn tp-btn-join" style={{ marginTop: 16 }} onClick={handlePair} disabled={pairing}>
+                  {pairing ? 'Pairing…' : '⚔ Find tournament game'}
                 </button>
               )}
             </div>

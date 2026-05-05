@@ -223,6 +223,7 @@ const seekTimeouts     = new Map(); // seekId   -> timeoutId (120s auto-expiry)
 const reconnectTokens  = new Map(); // roomId   -> { white: {token,socketId}, black: {token,socketId} }
 const socketToUserId = new Map(); // socketId -> db user id
 const userIdToSocketId = new Map(); // db user id -> socketId
+let tournamentMatchSchemaReady = false;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function genCode() {
@@ -246,6 +247,36 @@ function resolveColor(colorPref, whiteId, blackId) {
   return Math.random() < 0.5
     ? { white: whiteId, black: blackId }
     : { white: blackId, black: whiteId };
+}
+
+async function ensureTournamentMatchSchema() {
+  if (tournamentMatchSchemaReady) return;
+  await prisma.$executeRawUnsafe('ALTER TABLE "Match" ADD COLUMN IF NOT EXISTS "tournamentId" TEXT');
+  await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "Match_tournamentId_idx" ON "Match"("tournamentId")');
+  await prisma.$executeRawUnsafe(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'Match_tournamentId_fkey'
+      ) THEN
+        ALTER TABLE "Match"
+          ADD CONSTRAINT "Match_tournamentId_fkey"
+          FOREIGN KEY ("tournamentId") REFERENCES "Tournament"("id")
+          ON DELETE SET NULL ON UPDATE CASCADE;
+      END IF;
+    END $$;
+  `);
+  tournamentMatchSchemaReady = true;
+}
+
+async function resetStaleTournamentPairingStatuses() {
+  const result = await prisma.tournamentPlayer.updateMany({
+    where: { status: 'in_game' },
+    data: { status: 'available' },
+  });
+  if (result.count > 0) {
+    log.info(`[Tournament] Reset ${result.count} stale in-game pairing status${result.count === 1 ? '' : 'es'}`);
+  }
 }
 
 function broadcastPlayerList() {
@@ -302,9 +333,10 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     lastMoveTime: Date.now(),
   });
 
-  // Create DB Match record for rated games
-  if (config?.rated !== false) {
+  // Create DB Match records for rated games and all tournament games.
+  if (config?.rated !== false || config?.tournamentId) {
     try {
+      if (config?.tournamentId) await ensureTournamentMatchSchema();
       const whiteDbId = socketToUserId.get(white);
       const blackDbId = socketToUserId.get(black);
       if (whiteDbId && blackDbId) {
@@ -316,7 +348,8 @@ async function startRoom(roomId, creatorId, joinerId, config) {
             betAmount: config.betAmount || 0,
             whiteId: whiteDbId,
             blackId: blackDbId,
-            isRated: true,
+            isRated: config?.rated !== false,
+            ...(config.tournamentId ? { tournamentId: config.tournamentId } : {}),
           }
         });
         const r = rooms.get(roomId);
@@ -371,6 +404,73 @@ async function startRoom(roomId, creatorId, joinerId, config) {
   });
   console.log(`[GameStart] Room ${roomId} fully initialized and signals sent.`);
   broadcastPlayerList();
+}
+
+async function releaseTournamentRoom(roomId) {
+  const room = rooms.get(roomId);
+  const tournamentId = room?.config?.tournamentId;
+  if (!room || !tournamentId) return;
+  const userIds = [room.players.white, room.players.black]
+    .map(socketId => socketToUserId.get(socketId))
+    .filter(Boolean);
+  if (userIds.length === 0) return;
+  try {
+    await prisma.tournamentPlayer.updateMany({
+      where: { tournamentId, userId: { in: userIds } },
+      data: { status: 'available' },
+    });
+    io.to(`tournament:${tournamentId}`).emit('tournament:updated', { id: tournamentId });
+  } catch (err) {
+    log.error('[Tournament] Failed to release room players:', err.message);
+  }
+}
+
+async function settleTournamentRoom(roomId, result) {
+  const room = rooms.get(roomId);
+  const tournamentId = room?.config?.tournamentId;
+  if (!room || !tournamentId) return;
+
+  const whiteUserId = socketToUserId.get(room.players.white);
+  const blackUserId = socketToUserId.get(room.players.black);
+  if (!whiteUserId || !blackUserId) return;
+
+  try {
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      select: { format: true },
+    });
+    const winScore = tournament?.format === 'arena' ? 2 : 1;
+    const drawScore = tournament?.format === 'arena' ? 1 : 0.5;
+
+    const whiteData =
+      result === 'draw'
+        ? { draws: { increment: 1 }, score: { increment: drawScore }, status: 'available' }
+        : result === 'win'
+        ? { wins: { increment: 1 }, score: { increment: winScore }, status: 'available' }
+        : { losses: { increment: 1 }, status: 'available' };
+
+    const blackData =
+      result === 'draw'
+        ? { draws: { increment: 1 }, score: { increment: drawScore }, status: 'available' }
+        : result === 'loss'
+        ? { wins: { increment: 1 }, score: { increment: winScore }, status: 'available' }
+        : { losses: { increment: 1 }, status: 'available' };
+
+    await prisma.$transaction([
+      prisma.tournamentPlayer.updateMany({
+        where: { tournamentId, userId: whiteUserId },
+        data: whiteData,
+      }),
+      prisma.tournamentPlayer.updateMany({
+        where: { tournamentId, userId: blackUserId },
+        data: blackData,
+      }),
+    ]);
+    io.to(`tournament:${tournamentId}`).emit('tournament:updated', { id: tournamentId });
+    io.emit('tournament:global_update');
+  } catch (err) {
+    log.error('[Tournament] Failed to settle tournament standings:', err.message);
+  }
 }
 
 // ── Socket middleware ────────────────────────────────────────────────────────
@@ -920,6 +1020,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('game-over', { result: reason, by: 'server' });
     if (room.config?.rated !== false) settleElo(roomId, result, universe);
     settleBets(roomId, result);
+    settleTournamentRoom(roomId, result);
     [room.players.white, room.players.black].forEach(id => {
       const p = players.get(id);
       if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
@@ -1249,6 +1350,7 @@ io.on('connection', (socket) => {
               whiteId: whiteDbId,
               blackId: blackDbId,
               isRated: room.config?.rated !== false,
+              ...(room.config?.tournamentId ? { tournamentId: room.config.tournamentId } : {}),
             }
           });
           finalMatchId = dbMatch.id;
@@ -1385,6 +1487,7 @@ io.on('connection', (socket) => {
     // Only allow cancellation if no moves were made
     if (room.moves.length === 0) {
       socket.to(roomId).emit('room:cancelled');
+      releaseTournamentRoom(roomId);
       rooms.delete(roomId);
       reconnectTokens.delete(roomId);
       const p = players.get(socket.id);
@@ -1404,6 +1507,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('game-over', { result: 'resign', by: socket.id });
     if (room.config?.rated !== false) settleElo(roomId, result, universe);
     settleBets(roomId, result);
+    settleTournamentRoom(roomId, result);
     rooms.delete(roomId);
     reconnectTokens.delete(roomId);
     const p = players.get(socket.id);
@@ -1445,6 +1549,7 @@ io.on('connection', (socket) => {
     });
     if (room.config?.rated !== false) settleElo(roomId, result, universe);
     settleBets(roomId, result);
+    settleTournamentRoom(roomId, result);
     [room.players.white, room.players.black].forEach(id => {
       const p = players.get(id);
       if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
@@ -1495,6 +1600,7 @@ io.on('connection', (socket) => {
     });
     if (room.config?.rated !== false) settleElo(roomId, eloResult, universe);
     settleBets(roomId, eloResult);
+    settleTournamentRoom(roomId, eloResult);
     [room.players.white, room.players.black].forEach(id => {
       const p = players.get(id);
       if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
@@ -1515,6 +1621,7 @@ io.on('connection', (socket) => {
     if (room) {
       settleElo(roomId, 'draw', room.config?.universe);
       settleBets(roomId, 'draw');
+      settleTournamentRoom(roomId, 'draw');
       [room.players.white, room.players.black].forEach(id => {
         const p = players.get(id);
         if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
@@ -1623,6 +1730,7 @@ io.on('connection', (socket) => {
     for (const [roomId, room] of rooms.entries()) {
       if (Object.values(room.players).includes(socket.id)) {
         socket.to(roomId).emit('player-disconnected', { socketId: socket.id });
+        releaseTournamentRoom(roomId);
         rooms.delete(roomId);
         reconnectTokens.delete(roomId);
       }
@@ -2079,19 +2187,10 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
     });
     if (!t) return res.status(404).json({ error: 'Not found' });
 
-    const playerUserIds = t.players.map(p => p.userId);
-    if (playerUserIds.length < 2) return res.json([]);
-
-    const startsAt = t.startsAt;
-    const endsAt = new Date(t.startsAt.getTime() + t.durationMs);
+    await ensureTournamentMatchSchema();
 
     const matches = await prisma.match.findMany({
-      where: {
-        createdAt: { gte: startsAt, lte: endsAt },
-        universe: t.universe,
-        whiteId: { in: playerUserIds },
-        blackId: { in: playerUserIds },
-      },
+      where: { tournamentId: t.id },
       include: {
         white: { select: { username: true } },
         black: { select: { username: true } },
@@ -2640,13 +2739,115 @@ app.delete('/api/friends/:friendId', requireAuth, async (req, res) => {
 
 app.post('/api/tournaments/:id/pair', requireAuth, async (req, res) => {
   try {
-    const { id } = req.params;
-    // Call the database function to find a pair and create a match
-    const matchIdArr = await prisma.$queryRaw`
-      SELECT tournament_pair(${id}::uuid) as "matchId"
-    `;
-    const matchId = matchIdArr[0]?.matchId;
-    res.json({ matchId });
+    const tournamentId = req.params.id;
+    const userId = req.user.id;
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: {
+        players: {
+          include: {
+            user: { select: { id: true, username: true, chessRating: true, checkersRating: true } },
+          },
+        },
+      },
+    });
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+    if (getTournamentLifecycle(tournament) !== 'running') {
+      return res.status(400).json({ error: 'Tournament games can only be paired while the tournament is running' });
+    }
+
+    const me = tournament.players.find(p => p.userId === userId);
+    if (!me) return res.status(403).json({ error: 'Join the tournament before pairing' });
+    if (me.status === 'in_game') return res.status(409).json({ error: 'You are already in a tournament game' });
+
+    const mySocketId = userIdToSocketId.get(userId);
+    const myPresence = mySocketId ? players.get(mySocketId) : null;
+    if (!mySocketId || !myPresence || myPresence.status === 'playing') {
+      return res.status(409).json({ error: 'You must be online and idle to pair' });
+    }
+
+    await ensureTournamentMatchSchema();
+    const previousMatches = await prisma.match.findMany({
+      where: { tournamentId },
+      select: { whiteId: true, blackId: true },
+    });
+    const hasPlayed = new Set(previousMatches.map(m => [m.whiteId, m.blackId].sort().join(':')));
+
+    const candidates = tournament.players
+      .filter(p => p.userId !== userId && p.status !== 'in_game')
+      .map(p => {
+        const socketId = userIdToSocketId.get(p.userId);
+        const presence = socketId ? players.get(socketId) : null;
+        return { player: p, socketId, presence };
+      })
+      .filter(c => c.socketId && c.presence && c.presence.status !== 'playing');
+
+    if (candidates.length === 0) {
+      await prisma.tournamentPlayer.updateMany({
+        where: { tournamentId, userId },
+        data: { status: 'available' },
+      });
+      return res.json({ paired: false, message: 'No available tournament opponent yet' });
+    }
+
+    const pairKey = (otherId) => [userId, otherId].sort().join(':');
+    let sorted;
+    if (tournament.format === 'arena') {
+      sorted = [...candidates].sort(() => Math.random() - 0.5);
+    } else {
+      sorted = [...candidates].sort((a, b) => {
+        const aPlayed = hasPlayed.has(pairKey(a.player.userId)) ? 1 : 0;
+        const bPlayed = hasPlayed.has(pairKey(b.player.userId)) ? 1 : 0;
+        if (aPlayed !== bPlayed) return aPlayed - bPlayed;
+        const aScoreGap = Math.abs(Number(a.player.score) - Number(me.score));
+        const bScoreGap = Math.abs(Number(b.player.score) - Number(me.score));
+        if (aScoreGap !== bScoreGap) return aScoreGap - bScoreGap;
+        const ratingField = tournament.universe === 'checkers' ? 'checkersRating' : 'chessRating';
+        return Math.abs(a.player.user[ratingField] - me.user[ratingField])
+             - Math.abs(b.player.user[ratingField] - me.user[ratingField]);
+      });
+    }
+
+    const opponent = sorted[0];
+    const locked = await prisma.tournamentPlayer.updateMany({
+      where: {
+        tournamentId,
+        userId: { in: [userId, opponent.player.userId] },
+        status: { not: 'in_game' },
+      },
+      data: { status: 'in_game' },
+    });
+    if (locked.count !== 2) {
+      return res.status(409).json({ error: 'Pairing changed, please try again' });
+    }
+
+    const roomId = `tournament-${tournamentId}-${genId()}`;
+    const config = {
+      universe: tournament.universe,
+      timeControl: tournament.timeControl,
+      rated: tournament.rated,
+      betAmount: 0,
+      colorPref: 'random',
+      tournamentId,
+      tournamentName: tournament.name,
+    };
+
+    try {
+      await startRoom(roomId, mySocketId, opponent.socketId, config);
+    } catch (err) {
+      await prisma.tournamentPlayer.updateMany({
+        where: { tournamentId, userId: { in: [userId, opponent.player.userId] } },
+        data: { status: 'available' },
+      });
+      throw err;
+    }
+
+    io.to(`tournament:${tournamentId}`).emit('tournament:updated', { id: tournamentId });
+    res.json({
+      paired: true,
+      roomId,
+      opponent: opponent.player.user.username,
+    });
   } catch (err) {
     console.error('[Tournament] Pairing error:', err);
     res.status(500).json({ error: 'Pairing failed' });
@@ -3039,6 +3240,7 @@ setInterval(() => {
   for (const [id, room] of rooms.entries()) {
     const age = now - (room.createdAt || 0);
     if (age > 4 * 60 * 60 * 1000 && room.moves.length === 0) {
+      releaseTournamentRoom(id);
       rooms.delete(id);
       log.warn(`[CLEANUP] Removed stale room ${id}`);
     }
@@ -3093,9 +3295,18 @@ process.on('uncaughtException', (err) => {
 });
 
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, '0.0.0.0', () => {
-  log.info(`DamCash server → http://0.0.0.0:${PORT}`);
-  startTournamentScheduler();
+async function startServer() {
+  await ensureTournamentMatchSchema();
+  await resetStaleTournamentPairingStatuses();
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    log.info(`DamCash server → http://0.0.0.0:${PORT}`);
+    startTournamentScheduler();
+  });
+}
+
+startServer().catch((err) => {
+  log.error('[FATAL] Server startup failed:', err);
+  process.exit(1);
 });
 
 // ── Automated Tournament Scheduler ───────────────────────────────────────────
