@@ -1,0 +1,14 @@
+-- Make Match the durable audit record for every signed-in game.
+ALTER TABLE "Match"
+  ADD COLUMN IF NOT EXISTS "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS "resultReason" TEXT,
+  ADD COLUMN IF NOT EXISTS "moveList" JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS "finalPosition" TEXT,
+  ADD COLUMN IF NOT EXISTS "whiteRatingBefore" INTEGER,
+  ADD COLUMN IF NOT EXISTS "whiteRatingAfter" INTEGER,
+  ADD COLUMN IF NOT EXISTS "whiteRatingDelta" INTEGER,
+  ADD COLUMN IF NOT EXISTS "blackRatingBefore" INTEGER,
+  ADD COLUMN IF NOT EXISTS "blackRatingAfter" INTEGER,
+  ADD COLUMN IF NOT EXISTS "blackRatingDelta" INTEGER,
+  ADD COLUMN IF NOT EXISTS "walletStatus" TEXT NOT NULL DEFAULT 'none',
+  ADD COLUMN IF NOT EXISTS "walletSettledAt" TIMESTAMP(3);

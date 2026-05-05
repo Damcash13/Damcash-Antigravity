@@ -88,12 +88,23 @@ model Match {
   timeControl  String   // e.g. '5+0'
   status       String   // 'playing', 'ended', 'aborted'
   result       String?  // 'white', 'black', 'draw', 'abandoned'
+  resultReason String?
   pgn          String?
+  moveList     Json     @default("[]")
   finalFen     String?
+  finalPosition String?
   betAmount    Decimal  @default(0) @db.Decimal(12, 2)
   isRated      Boolean  @default(true)
   tournamentId String?
   tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  whiteRatingBefore Int?
+  whiteRatingAfter  Int?
+  whiteRatingDelta  Int?
+  blackRatingBefore Int?
+  blackRatingAfter  Int?
+  blackRatingDelta  Int?
+  walletStatus String   @default("none") // 'none', 'escrowed', 'settled', 'refunded', 'failed'
+  walletSettledAt DateTime?
 
   whiteId      String
   white        User     @relation("WhitePlayer", fields: [whiteId], references: [id], onDelete: Restrict)
@@ -102,6 +113,7 @@ model Match {
   black        User     @relation("BlackPlayer", fields: [blackId], references: [id], onDelete: Restrict)
 
   createdAt    DateTime @default(now())
+  startedAt    DateTime @default(now())
   endedAt      DateTime?
 
   @@index([whiteId])

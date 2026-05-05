@@ -461,14 +461,27 @@ export interface ApiMatch {
   timeControl: string;
   status: string;
   result: string | null;
+  resultReason: string | null;
   pgn: string | null;
+  moveList: unknown[];
   finalFen: string | null;
+  finalPosition: string | null;
   betAmount: number;
   isRated: boolean;
+  tournamentId?: string | null;
+  whiteRatingBefore?: number | null;
+  whiteRatingAfter?: number | null;
+  whiteRatingDelta?: number | null;
+  blackRatingBefore?: number | null;
+  blackRatingAfter?: number | null;
+  blackRatingDelta?: number | null;
+  walletStatus?: string;
+  walletSettledAt?: string | null;
   whiteId: string;
   blackId: string;
   white: { id: string; username: string };
   black: { id: string; username: string };
   createdAt: string;
+  startedAt: string;
   endedAt: string | null;
 }

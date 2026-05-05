@@ -252,6 +252,21 @@ function resolveColor(colorPref, whiteId, blackId) {
 async function ensureTournamentMatchSchema() {
   if (tournamentMatchSchemaReady) return;
   await prisma.$executeRawUnsafe('ALTER TABLE "Match" ADD COLUMN IF NOT EXISTS "tournamentId" TEXT');
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "Match"
+      ADD COLUMN IF NOT EXISTS "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS "resultReason" TEXT,
+      ADD COLUMN IF NOT EXISTS "moveList" JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS "finalPosition" TEXT,
+      ADD COLUMN IF NOT EXISTS "whiteRatingBefore" INTEGER,
+      ADD COLUMN IF NOT EXISTS "whiteRatingAfter" INTEGER,
+      ADD COLUMN IF NOT EXISTS "whiteRatingDelta" INTEGER,
+      ADD COLUMN IF NOT EXISTS "blackRatingBefore" INTEGER,
+      ADD COLUMN IF NOT EXISTS "blackRatingAfter" INTEGER,
+      ADD COLUMN IF NOT EXISTS "blackRatingDelta" INTEGER,
+      ADD COLUMN IF NOT EXISTS "walletStatus" TEXT NOT NULL DEFAULT 'none',
+      ADD COLUMN IF NOT EXISTS "walletSettledAt" TIMESTAMP(3)
+  `);
   await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "Match_tournamentId_idx" ON "Match"("tournamentId")');
   await prisma.$executeRawUnsafe(`
     DO $$
@@ -267,6 +282,59 @@ async function ensureTournamentMatchSchema() {
     END $$;
   `);
   tournamentMatchSchemaReady = true;
+}
+
+function jsonSafe(value) {
+  try { return JSON.parse(JSON.stringify(value)); }
+  catch { return null; }
+}
+
+function serializeRoomMoves(room) {
+  if (!room?.moves) return [];
+  return room.moves.map((m, index) => ({
+    ply: index + 1,
+    color: m.player === room.players?.white ? 'white' : m.player === room.players?.black ? 'black' : null,
+    move: m.move || m.san || null,
+    san: m.san || null,
+    from: m.from || null,
+    to: m.to || null,
+    fen: m.fen || null,
+    board: m.board ? jsonSafe(m.board) : null,
+    whiteTime: typeof m.whiteTime === 'number' ? m.whiteTime : null,
+    blackTime: typeof m.blackTime === 'number' ? m.blackTime : null,
+  }));
+}
+
+function roomPgn(room) {
+  return (room?.moves || [])
+    .map(m => m.san || m.move || '')
+    .filter(Boolean)
+    .join(' ');
+}
+
+function roomFinalPosition(room) {
+  const lastMove = room?.moves?.[room.moves.length - 1];
+  if (room?.config?.universe === 'chess') return room.chessEngine?.fen?.() || lastMove?.fen || null;
+  if (lastMove?.board) {
+    const board = jsonSafe(lastMove.board);
+    return board ? JSON.stringify(board) : null;
+  }
+  return lastMove?.fen || null;
+}
+
+function buildMatchEndData(room, result, reason, ratingAudit = {}) {
+  const finalPosition = roomFinalPosition(room);
+  return {
+    status: 'ended',
+    result: result === 'win' ? 'white' : result === 'loss' ? 'black' : 'draw',
+    resultReason: reason || null,
+    pgn: roomPgn(room),
+    moveList: serializeRoomMoves(room),
+    finalFen: room?.config?.universe === 'chess' ? finalPosition : undefined,
+    finalPosition,
+    endedAt: new Date(),
+    ...ratingAudit,
+  };
 }
 
 async function resetStaleTournamentPairingStatuses() {
@@ -344,6 +412,7 @@ async function startRoom(roomId, creatorId, joinerId, config) {
           universe: config.universe || 'chess',
           timeControl: config.timeControl || '5+0',
           status: 'playing',
+          startedAt: new Date(),
           betAmount: config.betAmount || 0,
           whiteId: whiteDbId,
           blackId: blackDbId,
@@ -471,13 +540,23 @@ async function settleTournamentRoom(roomId, result) {
   }
 }
 
-async function markRoomMatchAborted(roomId) {
+async function markRoomMatchAborted(roomId, reason = 'Game aborted') {
   const room = rooms.get(roomId);
   if (!room?.dbMatchId) return;
   try {
     await prisma.match.update({
       where: { id: room.dbMatchId },
-      data: { status: 'aborted', result: 'abandoned', endedAt: new Date() },
+      data: {
+        status: 'aborted',
+        result: 'abandoned',
+        resultReason: reason,
+        pgn: roomPgn(room),
+        moveList: serializeRoomMoves(room),
+        finalFen: room.config?.universe === 'chess' ? roomFinalPosition(room) : undefined,
+        finalPosition: roomFinalPosition(room),
+        endedAt: new Date(),
+        ...(room.escrowed ? { walletStatus: 'failed', walletSettledAt: new Date() } : {}),
+      },
     });
   } catch (err) {
     log.error('[DB] Failed to mark match aborted:', err.message);
@@ -1029,8 +1108,8 @@ io.on('connection', (socket) => {
     if (!room) return;
     const universe = room.config?.universe;
     io.to(roomId).emit('game-over', { result: reason, by: 'server' });
-    if (room.config?.rated !== false) settleElo(roomId, result, universe);
-    else settleUnratedGameStats(roomId, result);
+    if (room.config?.rated !== false) settleElo(roomId, result, universe, reason);
+    else settleUnratedGameStats(roomId, result, reason);
     settleBets(roomId, result);
     settleTournamentRoom(roomId, result);
     [room.players.white, room.players.black].forEach(id => {
@@ -1161,7 +1240,7 @@ io.on('connection', (socket) => {
   });
 
   // ── Game over: compute + broadcast ELO ──────────────────────────────────
-  async function settleElo(roomId, result, universe) {
+  async function settleElo(roomId, result, universe, reason) {
     const room = rooms.get(roomId);
     if (!room || !room.config?.rated) return;
 
@@ -1270,12 +1349,14 @@ io.on('connection', (socket) => {
       if (room.dbMatchId) {
         ops.push(prisma.match.update({
           where: { id: room.dbMatchId },
-          data: {
-            status:  'ended',
-            result:  result === 'win' ? 'white' : result === 'loss' ? 'black' : 'draw',
-            pgn:     room.moves.map(m => m.move || m.san).join(' '),
-            endedAt: new Date(),
-          },
+          data: buildMatchEndData(room, result, reason, {
+            whiteRatingBefore: elo.white.before,
+            whiteRatingAfter: elo.white.after,
+            whiteRatingDelta: elo.white.delta,
+            blackRatingBefore: elo.black.before,
+            blackRatingAfter: elo.black.after,
+            blackRatingDelta: elo.black.delta,
+          }),
         }));
       }
       await prisma.$transaction(ops);
@@ -1313,7 +1394,7 @@ io.on('connection', (socket) => {
     }
   }
 
-  async function settleUnratedGameStats(roomId, result) {
+  async function settleUnratedGameStats(roomId, result, reason) {
     const room = rooms.get(roomId);
     if (!room || room.config?.rated !== false) return;
 
@@ -1360,12 +1441,7 @@ io.on('connection', (socket) => {
       if (room.dbMatchId) {
         ops.push(prisma.match.update({
           where: { id: room.dbMatchId },
-          data: {
-            status: 'ended',
-            result: result === 'win' ? 'white' : result === 'loss' ? 'black' : 'draw',
-            pgn: room.moves.map(m => m.move || m.san).join(' '),
-            endedAt: new Date(),
-          },
+          data: buildMatchEndData(room, result, reason),
         }));
       }
 
@@ -1426,7 +1502,7 @@ io.on('connection', (socket) => {
         if (finalMatchId) {
           await tx.match.update({
             where: { id: finalMatchId },
-            data: { betAmount }
+            data: { betAmount, walletStatus: 'escrowed' }
           });
         } else {
           const dbMatch = await tx.match.create({
@@ -1434,10 +1510,12 @@ io.on('connection', (socket) => {
               universe: room.config?.universe || 'chess',
               timeControl: room.config?.timeControl || '5+0',
               status: 'playing',
+              startedAt: new Date(room.createdAt || Date.now()),
               betAmount,
               whiteId: whiteDbId,
               blackId: blackDbId,
               isRated: room.config?.rated !== false,
+              walletStatus: 'escrowed',
               ...(room.config?.tournamentId ? { tournamentId: room.config.tournamentId } : {}),
             }
           });
@@ -1519,7 +1597,10 @@ io.on('connection', (socket) => {
             const [w, b] = await Promise.all([
               tx.wallet.update({ where: { id: ww.id }, data: { balance: { increment: betAmount } } }),
               tx.wallet.update({ where: { id: bw.id }, data: { balance: { increment: betAmount } } }),
-              tx.match.update({ where: { id: room.dbMatchId || roomId }, data: { status: 'ended', result: 'draw', endedAt: new Date() } })
+              tx.match.update({
+                where: { id: room.dbMatchId || roomId },
+                data: { status: 'ended', result: 'draw', walletStatus: 'refunded', walletSettledAt: new Date(), endedAt: new Date() }
+              })
             ]);
             
             await tx.transaction.createMany({
@@ -1546,7 +1627,13 @@ io.on('connection', (socket) => {
               tx.wallet.update({ where: { id: lockedWallet.id }, data: { balance: { increment: payout } } }),
               tx.match.update({ 
                 where: { id: room.dbMatchId || roomId }, 
-                data: { status: 'ended', result: result === 'win' ? 'white' : 'black', endedAt: new Date() } 
+                data: {
+                  status: 'ended',
+                  result: result === 'win' ? 'white' : 'black',
+                  walletStatus: 'settled',
+                  walletSettledAt: new Date(),
+                  endedAt: new Date()
+                } 
               })
             ]);
 
@@ -1563,6 +1650,12 @@ io.on('connection', (socket) => {
         if (attempts === maxAttempts) {
           // Final failure — should probably notify admin or mark Match as "NEEDS_SETTLEMENT"
           console.error(`[BET] FATAL: Settlement failed after ${maxAttempts} attempts for room ${roomId}`);
+          if (room.dbMatchId) {
+            await prisma.match.update({
+              where: { id: room.dbMatchId },
+              data: { walletStatus: 'failed' },
+            }).catch(err => console.error('[BET] Failed to mark wallet settlement failure:', err.message));
+          }
         } else {
           await new Promise(resolve => setTimeout(resolve, 1000)); // wait before retry
         }
@@ -1575,7 +1668,7 @@ io.on('connection', (socket) => {
     // Only allow cancellation if no moves were made
     if (room.moves.length === 0) {
       socket.to(roomId).emit('room:cancelled');
-      markRoomMatchAborted(roomId);
+      markRoomMatchAborted(roomId, 'Cancelled before first move');
       releaseTournamentRoom(roomId);
       rooms.delete(roomId);
       reconnectTokens.delete(roomId);
@@ -1593,9 +1686,10 @@ io.on('connection', (socket) => {
     const isWhite = room.players.white === socket.id;
     const result  = isWhite ? 'loss' : 'win';
     const universe = room.config?.universe;
+    const reason = isWhite ? 'White resigned' : 'Black resigned';
     io.to(roomId).emit('game-over', { result: 'resign', by: socket.id });
-    if (room.config?.rated !== false) settleElo(roomId, result, universe);
-    else settleUnratedGameStats(roomId, result);
+    if (room.config?.rated !== false) settleElo(roomId, result, universe, reason);
+    else settleUnratedGameStats(roomId, result, reason);
     settleBets(roomId, result);
     settleTournamentRoom(roomId, result);
     rooms.delete(roomId);
@@ -1629,16 +1723,17 @@ io.on('connection', (socket) => {
     const result = flaggedColor === 'white' ? 'loss' : 'win';
     const winner = flaggedColor === 'white' ? 'black' : 'white';
     const universe = room.config?.universe;
+    const reason = `${winner === 'white' ? 'White' : 'Black'} wins on time`;
     io.to(roomId).emit('game-over', {
       result: 'timeout',
-      reason: `${winner === 'white' ? 'White' : 'Black'} wins on time`,
+      reason,
       winner,
       whiteTime: room.whiteTime,
       blackTime: room.blackTime,
       by: 'server',
     });
-    if (room.config?.rated !== false) settleElo(roomId, result, universe);
-    else settleUnratedGameStats(roomId, result);
+    if (room.config?.rated !== false) settleElo(roomId, result, universe, reason);
+    else settleUnratedGameStats(roomId, result, reason);
     settleBets(roomId, result);
     settleTournamentRoom(roomId, result);
     [room.players.white, room.players.black].forEach(id => {
@@ -1685,12 +1780,13 @@ io.on('connection', (socket) => {
     room.settling = true;
 
     const eloResult = result === 'white' ? 'win' : result === 'draw' ? 'draw' : 'loss';
+    const reasonText = result === 'draw' ? 'Draw' : (result === 'white' ? 'White wins' : 'Black wins');
     io.to(roomId).emit('game-over', {
-      result: result === 'draw' ? 'draw' : (result === 'white' ? 'White wins' : 'Black wins'),
+      result: reasonText,
       by: 'server',
     });
-    if (room.config?.rated !== false) settleElo(roomId, eloResult, universe);
-    else settleUnratedGameStats(roomId, eloResult);
+    if (room.config?.rated !== false) settleElo(roomId, eloResult, universe, reasonText);
+    else settleUnratedGameStats(roomId, eloResult, reasonText);
     settleBets(roomId, eloResult);
     settleTournamentRoom(roomId, eloResult);
     [room.players.white, room.players.black].forEach(id => {
@@ -1711,8 +1807,8 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     io.to(roomId).emit('game-over', { result: 'draw', reason: 'agreement' });
     if (room) {
-      if (room.config?.rated !== false) settleElo(roomId, 'draw', room.config?.universe);
-      else settleUnratedGameStats(roomId, 'draw');
+      if (room.config?.rated !== false) settleElo(roomId, 'draw', room.config?.universe, 'Draw by agreement');
+      else settleUnratedGameStats(roomId, 'draw', 'Draw by agreement');
       settleBets(roomId, 'draw');
       settleTournamentRoom(roomId, 'draw');
       [room.players.white, room.players.black].forEach(id => {
@@ -1823,7 +1919,7 @@ io.on('connection', (socket) => {
     for (const [roomId, room] of rooms.entries()) {
       if (Object.values(room.players).includes(socket.id)) {
         socket.to(roomId).emit('player-disconnected', { socketId: socket.id });
-        markRoomMatchAborted(roomId);
+        markRoomMatchAborted(roomId, 'Player disconnected');
         releaseTournamentRoom(roomId);
         rooms.delete(roomId);
         reconnectTokens.delete(roomId);
@@ -3358,7 +3454,7 @@ setInterval(() => {
   for (const [id, room] of rooms.entries()) {
     const age = now - (room.createdAt || 0);
     if (age > 4 * 60 * 60 * 1000 && room.moves.length === 0) {
-      markRoomMatchAborted(id);
+      markRoomMatchAborted(id, 'Stale room cleanup');
       releaseTournamentRoom(id);
       rooms.delete(id);
       log.warn(`[CLEANUP] Removed stale room ${id}`);
