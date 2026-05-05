@@ -230,7 +230,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app-container ${universe}-universe`}>
+    <div className={`app-wrapper app-container ${universe}-universe`}>
       <Header
         onOpenAuth={() => setShowAuth(true)}
         onOpenWallet={() => setShowWallet(true)}
@@ -238,7 +238,7 @@ export default function App() {
         onOpenCreateGame={() => openConfig()}
       />
 
-      <div className="layout-body">
+      <div className="main-layout">
         {searching && (
           <SearchingOverlay
             timeControl={searching.tc}
