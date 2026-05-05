@@ -152,7 +152,7 @@ export default function App() {
       navigate(`/${universe}/play/computer/${tc}`);
     } else {
       setSearching({ tc, mode });
-      socket.emit('seek:create', { tc, universe });
+      socket.emit('seek', { timeControl: tc, universe, betAmount: 0, rated: true });
     }
   };
 

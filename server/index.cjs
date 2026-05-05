@@ -226,6 +226,13 @@ function genId() {
   return crypto.randomBytes(16).toString('hex'); // 32 hex chars
 }
 
+function parseTimeControl(tc) {
+  const parts = String(tc || '5+0').split('+').map(Number);
+  const base = isNaN(parts[0]) ? 5 : parts[0];
+  const inc  = isNaN(parts[1]) ? 0 : parts[1];
+  return { initial: base * 60 * 1000, increment: inc * 1000 };
+}
+
 function resolveColor(colorPref, whiteId, blackId) {
   if (colorPref === 'white') return { white: whiteId, black: blackId };
   if (colorPref === 'black') return { white: blackId, black: whiteId };
@@ -433,7 +440,8 @@ io.on('connection', (socket) => {
   });
 
   // ── Quick pairing (matchmaking queue) ───────────────────────────────────
-  socket.on('seek', ({ timeControl, universe, betAmount, rated, config: rawConfig }) => {
+  // Registered as both 'seek' (LobbyTab) and 'seek:create' (App.tsx home page)
+  const handleSeek = ({ timeControl, universe, betAmount, rated, config: rawConfig }) => {
     if (socketRateLimit(socket.id, 10)) {
       socket.emit('room:error', { message: 'Too many seek requests. Please wait.' });
       return;
@@ -533,6 +541,10 @@ io.on('connection', (socket) => {
       }, 120_000);
       seekTimeouts.set(seekId, expireTimeout);
     }
+  };
+  socket.on('seek', handleSeek);
+  socket.on('seek:create', ({ tc, timeControl, universe, betAmount, rated } = {}) => {
+    handleSeek({ timeControl: tc || timeControl, universe, betAmount, rated });
   });
 
   // ── Accept a public seek from the lobby ──────────────────────────────────

@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { socket } from '../../lib/socket';
 import { useInviteStore, IncomingInvite } from '../../stores/inviteStore';
 import { useNotifCenterStore } from '../../stores/notifCenterStore';
@@ -8,7 +7,6 @@ import { useSound } from '../../hooks/useSound';
 // Single invite card
 const InviteCard: React.FC<{ invite: IncomingInvite }> = ({ invite }) => {
   const { dismissIncoming } = useInviteStore();
-  const navigate = useNavigate();
   const { play } = useSound();
 
   const timeLeft = Math.max(0, Math.round((invite.expiresAt - Date.now()) / 1000));
@@ -26,7 +24,6 @@ const InviteCard: React.FC<{ invite: IncomingInvite }> = ({ invite }) => {
   };
 
   const { config } = invite;
-  const betLabel = config.betAmount > 0 ? ` · $${config.betAmount}` : '';
 
   return (
     <div style={{
@@ -143,19 +140,11 @@ export const IncomingInviteToast: React.FC = () => {
       dismissIncoming(inviteId);
     };
 
-    const handleInviteStarted = (data: any) => {
-      // Navigate immediately
-      const color = data.color || (data.black === socket.id ? 'b' : 'w');
-      navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
-    };
-
     socket.on('invite:received', handleInviteReceived);
     socket.on('invite:cancelled', handleInviteCancelled);
-    socket.on('invite:started', handleInviteStarted);
     return () => {
       socket.off('invite:received', handleInviteReceived);
       socket.off('invite:cancelled', handleInviteCancelled);
-      socket.off('invite:started', handleInviteStarted);
     };
   }, [addIncoming, dismissIncoming, play, navigate]);
 
