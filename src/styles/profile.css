@@ -564,6 +564,21 @@
 .pf-hist-row:last-child { border-bottom: none; }
 .pf-hist-row:hover { background: var(--bg-2); border-radius: 6px; padding: 9px 6px; }
 
+.pf-hist-head.pf-game-history,
+.pf-hist-row.pf-game-history {
+  grid-template-columns: 40px minmax(120px, 1fr) 82px 86px 70px 56px 78px 80px;
+}
+
+.pf-hist-head.pf-public-games,
+.pf-hist-row.pf-public-games {
+  grid-template-columns: minmax(120px, 1fr) 90px 90px 70px 90px 64px;
+}
+
+.pf-hist-head.pf-wallet-history,
+.pf-hist-row.pf-wallet-history {
+  grid-template-columns: minmax(120px, 1fr) 110px 100px 120px;
+}
+
 .pf-hist-head .c,
 .pf-hist-row .c { text-align: center; }
 

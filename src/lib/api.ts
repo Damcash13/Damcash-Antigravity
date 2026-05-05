@@ -426,8 +426,27 @@ export interface ApiFullStats {
   totalGames: number;
   bestStreak: number;
   favouriteTC: string | null;
-  chess: { games: number; wins: number; losses: number; draws: number; rating: number; peak: number };
-  checkers: { games: number; wins: number; losses: number; draws: number; rating: number; peak: number };
+  chess: {
+    games: number; wins: number; losses: number; draws: number;
+    rating: number; peak: number; bestStreak: number; favouriteTC: string | null;
+  };
+  checkers: {
+    games: number; wins: number; losses: number; draws: number;
+    rating: number; peak: number; bestStreak: number; favouriteTC: string | null;
+  };
+  ratingHistory: Array<{
+    matchId: string;
+    universe: 'chess' | 'checkers';
+    before: number;
+    after: number;
+    delta: number;
+    opponent: string;
+    opponentRating: number;
+    result: 'win' | 'draw' | 'loss';
+    playedAt: number;
+    timeControl: string;
+    tournamentId?: string | null;
+  }>;
   tournaments: Array<{
     id: string; name: string; icon: string; universe: string;
     format: string; timeControl: string; status: string;

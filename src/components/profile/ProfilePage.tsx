@@ -39,7 +39,15 @@ const Sparkline: React.FC<{ data: number[]; color: string; width?: number; heigh
 };
 
 // ── Activity heatmap (GitHub-style, 12 weeks) ─────────────────────────────────
-const ActivityHeatmap: React.FC<{ history: RatingEntry[] }> = ({ history }) => {
+type ProfileRatingEntry = RatingEntry & {
+  matchId?: string;
+  timeControl?: string;
+  tournamentId?: string | null;
+};
+
+type ActivityEntry = { playedAt: number };
+
+const ActivityHeatmap: React.FC<{ history: ActivityEntry[] }> = ({ history }) => {
   const WEEKS = 26;
   const DAYS  = 7;
   const now   = Date.now();
@@ -222,6 +230,27 @@ const SocialLinksRow: React.FC<{ links?: SocialLinks }> = ({ links }) => {
   );
 };
 
+const getStoredRatingHistory = (fullStats: ApiFullStats | null, fallback: RatingEntry[] = []): ProfileRatingEntry[] =>
+  fullStats?.ratingHistory?.length ? fullStats.ratingHistory : fallback;
+
+const matchOpponentName = (match: ApiMatch, username: string) =>
+  match.white.username === username ? match.black.username : match.white.username;
+
+const matchResultForUser = (match: ApiMatch, username: string): 'win' | 'draw' | 'loss' | null => {
+  const isWhite = match.white.username === username;
+  if (match.result === 'draw') return 'draw';
+  if ((isWhite && match.result === 'white') || (!isWhite && match.result === 'black')) return 'win';
+  if ((isWhite && match.result === 'black') || (!isWhite && match.result === 'white')) return 'loss';
+  return null;
+};
+
+const matchRatingDeltaForUser = (match: ApiMatch, username: string) => {
+  const delta = match.white.username === username ? match.whiteRatingDelta : match.blackRatingDelta;
+  return typeof delta === 'number' ? delta : null;
+};
+
+const matchPlayedAt = (match: ApiMatch) => new Date(match.endedAt ?? match.createdAt).getTime();
+
 // ── Public profile (other users) ─────────────────────────────────────────────
 const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
   const navigate = useNavigate();
@@ -263,7 +292,25 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
     </div>
   );
 
-  const uStats = universe === 'chess' ? stats.chess : stats.checkers;
+  const fallbackStats = universe === 'chess' ? stats.chess : stats.checkers;
+  const durableStats = fullStats?.[universe];
+  const uStats = {
+    rating: durableStats?.rating ?? fallbackStats.rating,
+    peak: durableStats?.peak ?? fallbackStats.peak,
+    games: durableStats?.games ?? fallbackStats.games,
+    wins: durableStats?.wins ?? fallbackStats.wins,
+    losses: durableStats?.losses ?? fallbackStats.losses,
+    draws: durableStats?.draws ?? fallbackStats.draws,
+    bestStreak: durableStats?.bestStreak ?? fullStats?.bestStreak ?? 0,
+    favouriteTC: durableStats?.favouriteTC ?? fullStats?.favouriteTC ?? null,
+  };
+  const winRate = uStats.games > 0 ? Math.round((uStats.wins / uStats.games) * 100) : 0;
+  const publicRatingHistory = getStoredRatingHistory(fullStats).filter(e => e.universe === universe);
+  const publicSparkData = [...publicRatingHistory].reverse().slice(-40).map(e => e.after);
+  const publicActivity = games.length > 0
+    ? games.map(g => ({ playedAt: matchPlayedAt(g) })).filter(e => Number.isFinite(e.playedAt))
+    : publicRatingHistory;
+  const publicRecentGames = games.filter(g => g.universe === universe).slice(0, 15);
   const rating = uStats.rating;
   const band   = ratingBand(rating);
   const joined = new Date(profile.createdAt).toLocaleDateString([], { year: 'numeric', month: 'long' });
@@ -298,7 +345,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
             <div className="pf-hero-sub">
               <span>🎮 {uStats.games} {t('common.games')}</span>
               <span>·</span>
-              <span style={{ color: uStats.winRate >= 50 ? '#22c55e' : '#ef4444' }}>{uStats.winRate}% {t('common.winRate')}</span>
+              <span style={{ color: winRate >= 50 ? '#22c55e' : '#ef4444' }}>{winRate}% {t('common.winRate')}</span>
               <span>·</span>
               <span>📅 {t('profile.memberSince')} {joined}</span>
             </div>
@@ -363,9 +410,23 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
               <div className="pf-rating-row">
                 <div className="pf-mini-badge"><span>🏔 {t('profile.peak')}</span><strong>{uStats.peak}</strong></div>
                 <div className="pf-mini-badge"><span>🎮 {t('common.games')}</span><strong>{uStats.games}</strong></div>
-                <div className="pf-mini-badge"><span>📈 {t('common.winRate')}</span><strong>{uStats.winRate}%</strong></div>
-                <div className="pf-mini-badge"><span>🎯 {t('profile.favouriteTC')}</span><strong>{fullStats?.favouriteTC ?? '—'}</strong></div>
+                <div className="pf-mini-badge"><span>📈 {t('common.winRate')}</span><strong>{winRate}%</strong></div>
+                <div className="pf-mini-badge"><span>🎯 {t('profile.favouriteTC')}</span><strong>{uStats.favouriteTC ?? '—'}</strong></div>
               </div>
+            </div>
+
+            <div className="pf-section">
+              <div className="pf-section-title">📈 {t('common.rating')}</div>
+              <div className="pf-rating-banner">
+                <div>
+                  <div className="pf-big-rating" style={{ color: band.color }}>{rating}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
+                    {publicRatingHistory.length} rated games recorded
+                  </div>
+                </div>
+                <Sparkline data={publicSparkData} color={band.color} width={180} height={55} />
+              </div>
+              <RatingChart entries={[...publicRatingHistory].reverse().slice(-60)} color={band.color} currentRating={rating} />
             </div>
 
             {/* W/D/L */}
@@ -386,34 +447,44 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
               </div>
             </div>
 
+            <div className="pf-section">
+              <div className="pf-section-title">📅 Activity</div>
+              <ActivityHeatmap history={publicActivity} />
+            </div>
+
             {/* Recent games */}
-            {games.length > 0 && (
+            {publicRecentGames.length > 0 && (
               <div className="pf-section">
                 <div className="pf-section-title">⏱ {t('profile.recentGames')}</div>
-                <div className="pf-hist-head">
+                <div className="pf-hist-head pf-public-games">
                   <span>{t('common.player')}</span>
                   <span className="c">{t('common.white')}/{t('common.black')}</span>
                   <span className="c">{t('game.drawResult')}</span>
                   <span className="c">TC</span>
                   <span className="c">{t('common.today')}</span>
+                  <span className="c">Replay</span>
                 </div>
-                {games.slice(0, 15).map(g => {
+                {publicRecentGames.map(g => {
                   const isWhite = g.white.username === profile.username;
-                  const opp     = isWhite ? g.black.username : g.white.username;
-                  const myResult = g.result == null ? '–' :
-                    g.result === 'draw' ? 'Draw' :
-                    (isWhite && g.result === 'white') || (!isWhite && g.result === 'black') ? 'Win' : 'Loss';
-                  const rc = myResult === 'Win' ? 'win' : myResult === 'Draw' ? 'draw' : myResult === 'Loss' ? 'loss' : '';
+                  const opp = matchOpponentName(g, profile.username);
+                  const myResult = matchResultForUser(g, profile.username);
+                  const rc = myResult ?? '';
                   return (
-                    <div key={g.id} className="pf-hist-row">
+                    <div key={g.id} className="pf-hist-row pf-public-games">
                       <span className="pf-hist-opp">vs {opp}</span>
                       <span className="c pf-dim">{isWhite ? '♙ White' : '♟ Black'}</span>
                       <span className={`c pf-result ${rc}`}>
-                        {myResult === 'Win' ? '🏆 Win' : myResult === 'Draw' ? '🤝 Draw' : myResult === 'Loss' ? '💀 Loss' : '—'}
+                        {myResult === 'win' ? '🏆 Win' : myResult === 'draw' ? '🤝 Draw' : myResult === 'loss' ? '💀 Loss' : '—'}
                       </span>
                       <span className="c pf-dim" style={{ fontSize: 11 }}>{g.timeControl}</span>
                       <span className="c pf-dim" style={{ fontSize: 11 }}>
-                        {new Date(g.createdAt).toLocaleDateString()}
+                        {new Date(g.endedAt ?? g.createdAt).toLocaleDateString()}
+                      </span>
+                      <span className="c">
+                        {g.pgn
+                          ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>▶</button>
+                          : <span style={{ color: 'var(--text-3)', fontSize: 11 }}>—</span>
+                        }
                       </span>
                     </div>
                   );
@@ -489,23 +560,39 @@ export const ProfilePage: React.FC = () => {
     );
   }
 
-  const history      = ratingHistory.filter(e => e.universe === universe);
-  const rating       = user.rating[universe];
+  const storedRatingHistory = getStoredRatingHistory(fullStats, ratingHistory);
+  const history      = storedRatingHistory.filter(e => e.universe === universe);
+  const uvStats      = fullStats?.[universe];
+  const rating       = uvStats?.rating ?? user.rating[universe];
   const band         = ratingBand(rating);
-  const totalGames   = gamesPlayed[universe] || 0;
-  const wins         = history.filter(e => e.result === 'win').length;
-  const draws        = history.filter(e => e.result === 'draw').length;
-  const losses       = history.filter(e => e.result === 'loss').length;
+  const totalGames   = uvStats?.games ?? gamesPlayed[universe] ?? 0;
+  const wins         = uvStats?.wins ?? history.filter(e => e.result === 'win').length;
+  const draws        = uvStats?.draws ?? history.filter(e => e.result === 'draw').length;
+  const losses       = uvStats?.losses ?? history.filter(e => e.result === 'loss').length;
   const winRate      = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-  const peak         = history.length > 0 ? Math.max(rating, ...history.map(e => e.after)) : rating;
-  const low          = history.length > 0 ? Math.min(rating, ...history.map(e => e.after)) : rating;
+  const ratingPoints = history.flatMap(e => [e.before, e.after]);
+  const peak         = uvStats?.peak ?? (ratingPoints.length > 0 ? Math.max(rating, ...ratingPoints) : rating);
+  const low          = ratingPoints.length > 0 ? Math.min(rating, ...ratingPoints) : rating;
   const sparkData    = [...history].reverse().slice(-40).map(e => e.after);
   const last10       = history.slice(0, 10);
-  const streak       = (() => {
+  const currentStreak = (() => {
+    if (apiGames.length > 0) {
+      let n = 0;
+      for (const g of apiGames.filter(match => match.universe === universe)) {
+        if (matchResultForUser(g, user.name) === 'win') n++;
+        else break;
+      }
+      return n;
+    }
     let n = 0;
     for (const e of history) { if (e.result === 'win') n++; else break; }
     return n;
   })();
+  const bestStreak   = uvStats?.bestStreak ?? fullStats?.bestStreak ?? currentStreak;
+  const activityEntries = apiGames.length > 0
+    ? apiGames.map(g => ({ playedAt: matchPlayedAt(g) })).filter(e => Number.isFinite(e.playedAt))
+    : storedRatingHistory;
+  const recentMatches = apiGames.filter(g => g.universe === universe).slice(0, 5);
 
   const perfRating   = history.length > 0
     ? performanceRating(history.map(e => e.opponentRating), history.map(e => e.result))
@@ -558,7 +645,7 @@ export const ProfilePage: React.FC = () => {
                 user.name[0]?.toUpperCase()
               )}
             </div>
-            {streak >= 3 && <div className="pf-streak-badge">🔥 {streak}</div>}
+            {currentStreak >= 3 && <div className="pf-streak-badge">🔥 {currentStreak}</div>}
             <div className="pf-online-dot" title="Online" />
           </div>
           <div className="pf-hero-info">
@@ -695,7 +782,7 @@ export const ProfilePage: React.FC = () => {
               <div className="pf-kpi-lbl">{t('profile.memberSince')}</div>
             </div>
             <div className="pf-kpi">
-              <div className="pf-kpi-val">{fullStats?.favouriteTC ?? '—'}</div>
+              <div className="pf-kpi-val">{uvStats?.favouriteTC ?? fullStats?.favouriteTC ?? '—'}</div>
               <div className="pf-kpi-lbl">{t('profile.favouriteTC')}</div>
             </div>
           </div>
@@ -719,7 +806,7 @@ export const ProfilePage: React.FC = () => {
                   <div className="pf-mini-badge"><span>🏔 {t('profile.peak')}</span><strong>{peak}</strong></div>
                   <div className="pf-mini-badge"><span>📉 Low</span><strong>{low}</strong></div>
                   <div className="pf-mini-badge"><span>🎯 Perf.</span><strong>{perfRating}</strong></div>
-                  <div className="pf-mini-badge"><span>🔥 {t('profile.bestStreak')}</span><strong>{fullStats?.bestStreak ?? streak}</strong></div>
+                  <div className="pf-mini-badge"><span>🔥 {t('profile.bestStreak')}</span><strong>{bestStreak}</strong></div>
                 </div>
               </div>
 
@@ -759,7 +846,7 @@ export const ProfilePage: React.FC = () => {
               {/* Activity heatmap */}
               <div className="pf-section">
                 <div className="pf-section-title">📅 Activity (Last 6 months)</div>
-                <ActivityHeatmap history={ratingHistory} />
+                <ActivityHeatmap history={activityEntries} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 11, color: 'var(--text-3)' }}>
                   <span>Less</span>
                   {[0.1, 0.3, 0.5, 0.75, 1].map(a => (
@@ -783,11 +870,11 @@ export const ProfilePage: React.FC = () => {
             {/* Right: sidebar */}
             <div className="pf-side-col">
               {/* Streak */}
-              {streak > 0 && (
+              {currentStreak > 0 && (
                 <div className="pf-section pf-streak-card">
                   <div className="pf-streak-icon">🔥</div>
                   <div>
-                    <div className="pf-streak-num">{streak}</div>
+                    <div className="pf-streak-num">{currentStreak}</div>
                     <div className="pf-streak-label">Win streak!</div>
                   </div>
                 </div>
@@ -821,14 +908,29 @@ export const ProfilePage: React.FC = () => {
               {/* Recent games */}
               <div className="pf-section">
                 <div className="pf-section-title">⏱ {t('profile.recentGames')}</div>
-                {last10.length === 0 ? (
+                {recentMatches.length === 0 && last10.length === 0 ? (
                   <div className="pf-empty-small">{t('profile.noGamesYet')}</div>
-                ) : last10.slice(0, 5).map((e, i) => (
+                ) : recentMatches.length > 0 ? recentMatches.map(g => {
+                  const result = matchResultForUser(g, user.name);
+                  const delta = matchRatingDeltaForUser(g, user.name);
+                  return (
+                    <div key={g.id} className="pf-recent-row">
+                      <span className={`pf-result-dot ${result ?? ''}`} />
+                      <div className="pf-recent-info">
+                        <div className="pf-recent-opp">vs {matchOpponentName(g, user.name)}</div>
+                        <div className="pf-recent-tc">{g.universe === 'chess' ? '♟' : '⬤'} {g.timeControl}</div>
+                      </div>
+                      <div className={`pf-recent-delta ${delta == null || delta >= 0 ? 'pos' : 'neg'}`}>
+                        {delta == null ? '—' : `${delta >= 0 ? '+' : ''}${delta}`}
+                      </div>
+                    </div>
+                  );
+                }) : last10.slice(0, 5).map((e, i) => (
                   <div key={i} className="pf-recent-row">
                     <span className={`pf-result-dot ${e.result}`} />
                     <div className="pf-recent-info">
                       <div className="pf-recent-opp">vs {e.opponent} ({e.opponentRating})</div>
-                      <div className="pf-recent-tc">{e.universe === 'chess' ? '♟' : '⬤'}</div>
+                      <div className="pf-recent-tc">{e.universe === 'chess' ? '♟' : '⬤'} {e.timeControl ?? ''}</div>
                     </div>
                     <div className={`pf-recent-delta ${e.delta >= 0 ? 'pos' : 'neg'}`}>
                       {e.delta >= 0 ? '+' : ''}{e.delta}
@@ -896,7 +998,7 @@ export const ProfilePage: React.FC = () => {
               <StatCard icon="🎯" label="Perf." value={perfRating} />
               <StatCard icon="📊" label={t('common.games')} value={totalGames} />
               <StatCard icon="⚡" label="K-factor" value={totalGames < 30 ? '40' : rating >= 2400 ? '10' : '32'} sub={totalGames < 30 ? 'Provisional' : 'Standard'} />
-              <StatCard icon="📈" label={t('profile.bestStreak')} value={`${streak}W`} color="#f59e0b" />
+              <StatCard icon="📈" label={t('profile.bestStreak')} value={`${bestStreak}W`} color="#f59e0b" />
             </div>
           </div>
         </div>
@@ -912,9 +1014,7 @@ export const ProfilePage: React.FC = () => {
                 const allFiltered = apiGames.filter(g => g.universe === universe);
                 const filtered = allFiltered.filter(g => {
                   if (historyFilter === 'all') return true;
-                  const isW = g.white.username === user.name;
-                  const mr = g.result === 'draw' ? 'draw'
-                    : (isW && g.result === 'white') || (!isW && g.result === 'black') ? 'win' : 'loss';
+                  const mr = matchResultForUser(g, user.name);
                   return mr === historyFilter;
                 });
                 const totalPages = Math.ceil(filtered.length / HISTORY_PAGE_SIZE);
@@ -940,31 +1040,34 @@ export const ProfilePage: React.FC = () => {
                       </div>
                     ) : (
                       <>
-                        <div className="pf-hist-head">
+                        <div className="pf-hist-head pf-game-history">
                           <span>#</span><span>Opponent</span>
                           <span className="c">Color</span>
                           <span className="c">Result</span>
                           <span className="c">TC</span>
+                          <span className="c">Δ</span>
                           <span className="c">Date</span>
                           <span className="c">Replay</span>
                         </div>
                         {paged.map((g, idx) => {
                           const isWhite  = g.white.username === user.name;
-                          const opp      = isWhite ? g.black.username : g.white.username;
-                          const myResult = g.result == null ? '–'
-                            : g.result === 'draw' ? 'draw'
-                            : (isWhite && g.result === 'white') || (!isWhite && g.result === 'black') ? 'win' : 'loss';
-                          const rc = myResult === 'win' ? 'win' : myResult === 'draw' ? 'draw' : myResult === 'loss' ? 'loss' : '';
+                          const opp      = matchOpponentName(g, user.name);
+                          const myResult = matchResultForUser(g, user.name);
+                          const delta    = matchRatingDeltaForUser(g, user.name);
+                          const rc = myResult ?? '';
                           return (
-                            <div key={g.id} className="pf-hist-row">
+                            <div key={g.id} className="pf-hist-row pf-game-history">
                               <span className="pf-hist-num">{filtered.length - (historyPage * HISTORY_PAGE_SIZE + idx)}</span>
                               <span className="pf-hist-opp">{opp}</span>
                               <span className="c pf-dim" style={{ fontSize: 11 }}>{isWhite ? '♙ White' : '♟ Black'}</span>
-                              <span className={`c pf-result ${rc}`}>
+                              <span className={`c pf-result ${rc}`} title={g.resultReason ?? undefined}>
                                 {myResult === 'win' ? '🏆 Win' : myResult === 'draw' ? '🤝 Draw' : myResult === 'loss' ? '💀 Loss' : '—'}
                               </span>
                               <span className="c pf-dim" style={{ fontSize: 11 }}>{g.timeControl}</span>
-                              <span className="c pf-dim" style={{ fontSize: 11 }}>{new Date(g.createdAt).toLocaleDateString()}</span>
+                              <span className={`c pf-delta ${delta == null || delta >= 0 ? 'pos' : 'neg'}`}>
+                                {delta == null ? '—' : `${delta >= 0 ? '+' : ''}${delta}`}
+                              </span>
+                              <span className="c pf-dim" style={{ fontSize: 11 }}>{new Date(g.endedAt ?? g.createdAt).toLocaleDateString()}</span>
                               <span className="c">
                                 {g.pgn
                                   ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>▶ Replay</button>
@@ -1032,7 +1135,7 @@ export const ProfilePage: React.FC = () => {
           {fullStats && fullStats.wallet.transactions.length > 0 && (
             <div className="pf-section" style={{ marginTop: 16 }}>
               <div className="pf-section-title">💳 {t('profile.transactionHistory')}</div>
-              <div className="pf-hist-head">
+              <div className="pf-hist-head pf-wallet-history">
                 <span>Type</span>
                 <span className="c">Amount</span>
                 <span className="c">Status</span>
@@ -1046,7 +1149,7 @@ export const ProfilePage: React.FC = () => {
                 };
                 const positive = tx.amount > 0;
                 return (
-                  <div key={tx.id} className="pf-hist-row">
+                  <div key={tx.id} className="pf-hist-row pf-wallet-history">
                     <span className="pf-hist-opp">{typeLabel[tx.type] ?? tx.type}</span>
                     <span className="c" style={{ fontWeight: 700, color: positive ? '#22c55e' : '#ef4444' }}>
                       {positive ? '+' : ''}${Math.abs(tx.amount).toFixed(2)}

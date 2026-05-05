@@ -2518,17 +2518,30 @@ app.get('/api/users/:username/full-stats', async (req, res) => {
       return sum + 5 * 60 * 1000;
     }, 0);
 
-    // Best win streak
-    let bestStreak = 0, cur = 0;
-    for (const m of [...matches].reverse()) {
-      const won = (m.whiteId === u.id && m.result === 'white') || (m.blackId === u.id && m.result === 'black');
-      if (won) { cur++; bestStreak = Math.max(bestStreak, cur); } else cur = 0;
-    }
+    const resultForUser = (m) => {
+      if (m.result === 'draw') return 'draw';
+      if ((m.whiteId === u.id && m.result === 'white') || (m.blackId === u.id && m.result === 'black')) return 'win';
+      if ((m.whiteId === u.id && m.result === 'black') || (m.blackId === u.id && m.result === 'white')) return 'loss';
+      return null;
+    };
+
+    const bestStreakFor = (rows) => {
+      let best = 0, cur = 0;
+      for (const m of [...rows].reverse()) {
+        if (resultForUser(m) === 'win') { cur++; best = Math.max(best, cur); } else cur = 0;
+      }
+      return best;
+    };
+
+    const favouriteTCFor = (rows) => {
+      const count = {};
+      for (const m of rows) { count[m.timeControl] = (count[m.timeControl] || 0) + 1; }
+      return Object.entries(count).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    };
 
     // Favourite time control
-    const tcCount = {};
-    for (const m of matches) { tcCount[m.timeControl] = (tcCount[m.timeControl] || 0) + 1; }
-    const favouriteTC = Object.entries(tcCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    const bestStreak = bestStreakFor(matches);
+    const favouriteTC = favouriteTCFor(matches);
 
     // Earnings summary from transactions
     const txns = u.wallet?.transactions || [];
@@ -2546,6 +2559,42 @@ app.get('/api/users/:username/full-stats', async (req, res) => {
     // By universe
     const chess    = matches.filter(m => m.universe === 'chess');
     const checkers = matches.filter(m => m.universe === 'checkers');
+    const summarizeUniverse = (rows, rating, peak) => ({
+      games: rows.length,
+      wins: rows.filter(m => resultForUser(m) === 'win').length,
+      losses: rows.filter(m => resultForUser(m) === 'loss').length,
+      draws: rows.filter(m => resultForUser(m) === 'draw').length,
+      rating,
+      peak,
+      bestStreak: bestStreakFor(rows),
+      favouriteTC: favouriteTCFor(rows),
+    });
+
+    const ratingHistory = matches
+      .filter(m => m.isRated)
+      .map(m => {
+        const isWhite = m.whiteId === u.id;
+        const result = resultForUser(m);
+        const before = isWhite ? m.whiteRatingBefore : m.blackRatingBefore;
+        const after = isWhite ? m.whiteRatingAfter : m.blackRatingAfter;
+        const delta = isWhite ? m.whiteRatingDelta : m.blackRatingDelta;
+        const opponentRating = isWhite ? m.blackRatingBefore : m.whiteRatingBefore;
+        if (!result || typeof before !== 'number' || typeof after !== 'number' || typeof delta !== 'number') return null;
+        return {
+          matchId: m.id,
+          universe: m.universe,
+          before,
+          after,
+          delta,
+          opponent: isWhite ? m.black.username : m.white.username,
+          opponentRating: typeof opponentRating === 'number' ? opponentRating : 0,
+          result,
+          playedAt: (m.endedAt || m.createdAt).getTime(),
+          timeControl: m.timeControl,
+          tournamentId: m.tournamentId,
+        };
+      })
+      .filter(Boolean);
 
     res.json({
       joinedAt: u.createdAt,
@@ -2553,20 +2602,9 @@ app.get('/api/users/:username/full-stats', async (req, res) => {
       totalGames,
       bestStreak,
       favouriteTC,
-      chess: {
-        games: chess.length,
-        wins:   chess.filter(m => (m.whiteId===u.id&&m.result==='white')||(m.blackId===u.id&&m.result==='black')).length,
-        losses: chess.filter(m => (m.whiteId===u.id&&m.result==='black')||(m.blackId===u.id&&m.result==='white')).length,
-        draws:  chess.filter(m => m.result==='draw').length,
-        rating: u.chessRating, peak: u.peakChessRating,
-      },
-      checkers: {
-        games: checkers.length,
-        wins:   checkers.filter(m => (m.whiteId===u.id&&m.result==='white')||(m.blackId===u.id&&m.result==='black')).length,
-        losses: checkers.filter(m => (m.whiteId===u.id&&m.result==='black')||(m.blackId===u.id&&m.result==='white')).length,
-        draws:  checkers.filter(m => m.result==='draw').length,
-        rating: u.checkersRating, peak: u.peakCheckersRating,
-      },
+      chess: summarizeUniverse(chess, u.chessRating, u.peakChessRating),
+      checkers: summarizeUniverse(checkers, u.checkersRating, u.peakCheckersRating),
+      ratingHistory,
       tournaments: u.tournaments.map(tp => ({
         id: tp.tournament.id,
         name: tp.tournament.name,
