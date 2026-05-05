@@ -43,7 +43,7 @@ export const useLeaderboardStore = create<LeaderboardState>((set) => ({
     set({ loading: true, error: null });
     try {
       const { api } = await import('../lib/api');
-      const data = await api.leaderboard.list({ universe, category });
+      const data = await api.leaderboard.list({ universe, category, limit: 5000 });
       const mapped: LeaderboardEntry[] = (data ?? []).map((d, i) => {
         const rating = universe === 'chess' ? d.chessRating : d.checkersRating;
         const peak   = universe === 'chess' ? d.peakChessRating : d.peakCheckersRating;

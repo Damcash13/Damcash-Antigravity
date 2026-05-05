@@ -122,6 +122,7 @@ const RequestRow: React.FC<{
 // ── Add friend input ──────────────────────────────────────────────────────────
 const AddFriendBar: React.FC = () => {
   const { t } = useTranslation();
+  const universe = useUniverseStore(s => s.universe);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [focus, setFocus] = useState(false);
@@ -133,14 +134,14 @@ const AddFriendBar: React.FC = () => {
     }
     const t = setTimeout(async () => {
       try {
-        const data = await api.users.search(query);
+        const data = await api.users.search(query, { universe, playedOnly: true });
         setResults(data);
       } catch (e) {
         console.error('Search failed', e);
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, universe]);
 
   const sendRequest = async (username: string) => {
     try {
@@ -192,9 +193,9 @@ const AddFriendBar: React.FC = () => {
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
-              <span style={{ fontWeight: 600 }}>{p.name}</span>
+              <span style={{ fontWeight: 600 }}>{p.username}</span>
               <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 'auto' }}>
-                {p.rating?.chess ?? '?'}
+                {universe === 'chess' ? p.chessRating : p.checkersRating}
               </span>
               <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700 }}>{t('social.add')}</span>
             </button>

@@ -2489,13 +2489,39 @@ app.post('/api/auth/change-password', (_req, res) => {
 });
 
 // ── REST: Leaderboard ────────────────────────────────────────────────────────
+function playedUserWhere(universe) {
+  const matchFilter = universe ? { universe } : {};
+  const statFilters = universe === 'checkers'
+    ? [{ checkersGames: { gt: 0 } }]
+    : universe === 'chess'
+    ? [{ chessGames: { gt: 0 } }]
+    : [{ chessGames: { gt: 0 } }, { checkersGames: { gt: 0 } }];
+
+  return {
+    OR: [
+      ...statFilters,
+      { matchesAsWhite: { some: matchFilter } },
+      { matchesAsBlack: { some: matchFilter } },
+    ],
+  };
+}
+
+function parseListLimit(value, fallback = 500, max = 5000) {
+  if (value === 'all') return max;
+  const parsed = parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(parsed, max);
+}
+
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const { universe } = req.query;
-    const limit = parseInt(req.query.limit) || 50;
+    const leaderboardUniverse = universe === 'checkers' ? 'checkers' : 'chess';
+    const limit = parseListLimit(req.query.limit);
     const offset = parseInt(req.query.offset) || 0;
-    const orderByField = universe === 'checkers' ? 'checkersRating' : 'chessRating';
+    const orderByField = leaderboardUniverse === 'checkers' ? 'checkersRating' : 'chessRating';
     const users = await prisma.user.findMany({
+      where: playedUserWhere(leaderboardUniverse),
       orderBy: { [orderByField]: 'desc' },
       take: limit,
       skip: offset,
@@ -2842,12 +2868,41 @@ app.get('/api/users/search', async (req, res) => {
   try {
     const { q } = req.query;
     if (!q || typeof q !== 'string') return res.json([]);
-    const results = await prisma.$queryRaw`
-      SELECT id, username, "chessRating" as "chessRating", "checkersRating" as "checkersRating", country
-      FROM "User"
-      WHERE username ILIKE ${q + '%'}
-      LIMIT 10
-    `;
+    const universe = req.query.universe === 'checkers' ? 'checkers' : req.query.universe === 'chess' ? 'chess' : null;
+    const playedOnly = req.query.playedOnly !== 'false';
+    const trimmed = q.trim().slice(0, 40);
+    if (!trimmed) return res.json([]);
+
+    const results = await prisma.user.findMany({
+      where: {
+        username: { contains: trimmed, mode: 'insensitive' },
+        ...(playedOnly ? playedUserWhere(universe) : {}),
+      },
+      orderBy: [
+        universe === 'checkers' ? { checkersRating: 'desc' } : { chessRating: 'desc' },
+        { username: 'asc' },
+      ],
+      take: 20,
+      select: {
+        id: true,
+        username: true,
+        country: true,
+        avatarUrl: true,
+        chessRating: true,
+        checkersRating: true,
+        peakChessRating: true,
+        peakCheckersRating: true,
+        chessGames: true,
+        checkersGames: true,
+        chessWins: true,
+        chessLosses: true,
+        chessDraws: true,
+        checkersWins: true,
+        checkersLosses: true,
+        checkersDraws: true,
+        createdAt: true,
+      },
+    });
     res.json(results);
   } catch (err) {
     console.error('[Search] Error:', err);

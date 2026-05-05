@@ -47,7 +47,7 @@ export const PlayerSearchBar: React.FC<Props> = ({ onInvite }) => {
     let active = true;
     setDirectoryLoading(true);
     const timer = setTimeout(() => {
-      api.users.search(trimmedQuery)
+      api.users.search(trimmedQuery, { universe, playedOnly: true })
         .then((players) => {
           if (active) setDirectoryResults(players);
         })

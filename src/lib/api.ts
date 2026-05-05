@@ -284,7 +284,14 @@ export const api = {
   },
 
   users: {
-    search: (q: string) => request<ApiUserProfile[]>(`/api/users/search?q=${encodeURIComponent(q)}`),
+    search: (q: string, params?: { universe?: string; playedOnly?: boolean }) => {
+      const query = new URLSearchParams({
+        q,
+        ...(params?.universe ? { universe: params.universe } : {}),
+        ...(params?.playedOnly != null ? { playedOnly: String(params.playedOnly) } : {}),
+      });
+      return request<ApiUserProfile[]>(`/api/users/search?${query}`);
+    },
     get: (username: string) => request<ApiUserProfile>(`/api/users/${username}`),
     games: (username: string) => request<ApiMatch[]>(`/api/users/${username}/games`),
     stats: (username: string) => request<ApiUserStats>(`/api/users/${username}/stats`),
