@@ -39,30 +39,30 @@ export const Sidebar: React.FC<Props> = ({
       {/* Stats */}
       <div className="sidebar-stats">
         {user && (
-          <div className="stat" style={{ marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-            <span style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('betting.balance')}</span>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 20 }}>💰</span>
-                <strong style={{ fontSize: 24, color: 'var(--accent)', fontWeight: 800 }}>
-                  ${Number(user.walletBalance).toFixed(2)}
-                </strong>
-              </div>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={onOpenWallet}
-                style={{ fontSize: 11, padding: '4px 8px' }}
-                title={t('sidebar.topUpWallet')}
-              >
-                + {t('betting.deposit')}
-              </button>
+          <div className="sidebar-wallet-card">
+            <span className="sidebar-wallet-label">{t('betting.balance')}</span>
+            <div className="sidebar-wallet-balance">
+              <span className="sidebar-wallet-icon" aria-hidden="true">💰</span>
+              <strong className="sidebar-wallet-value">${Number(user.walletBalance).toFixed(2)}</strong>
             </div>
+            <button
+              className="btn btn-primary btn-sm sidebar-wallet-action"
+              onClick={onOpenWallet}
+              title={t('sidebar.topUpWallet')}
+            >
+              + {t('betting.deposit')}
+            </button>
           </div>
         )}
-        <div className="stat"><span><strong>{playerCount}</strong> {t('lobby.players')}</span></div>
-        <div className="stat">
-          <strong>{gameCount}</strong>
-          <span>{t('lobby.gamesInPlay')}</span>
+        <div className="sidebar-counts">
+          <div className="sidebar-count">
+            <strong>{playerCount}</strong>
+            <span>{t('lobby.players')}</span>
+          </div>
+          <div className="sidebar-count">
+            <strong>{gameCount}</strong>
+            <span>{t('lobby.gamesInPlay')}</span>
+          </div>
         </div>
       </div>
 
@@ -102,7 +102,7 @@ export const Sidebar: React.FC<Props> = ({
           </button>
         </div>
         {visibleTournaments.length === 0 ? (
-          <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px 0' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px 12px' }}>
             {t('tournament.noTournaments', 'No tournaments right now')}
           </div>
         ) : visibleTournaments.map((t_) => (

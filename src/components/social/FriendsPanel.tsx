@@ -167,11 +167,17 @@ const AddFriendBar: React.FC = () => {
   return (
     <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', position: 'relative' }}>
       <input
+        type="text"
         placeholder={t('social.addFriendPlaceholder')}
         value={query}
         onChange={e => setQuery(e.target.value)}
         onFocus={() => setFocus(true)}
         onBlur={() => setTimeout(() => setFocus(false), 150)}
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        data-1p-ignore="true"
+        data-lpignore="true"
         style={{
           width: '100%', padding: '6px 10px', borderRadius: 7, fontSize: 12,
           background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text-1)',
