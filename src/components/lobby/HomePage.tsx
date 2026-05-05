@@ -46,13 +46,13 @@ const CHECKERS_TC: TcOption[] = [
 ];
 
 
-// ── Category colour map ───────────────────────────────────────────────────────
+// ── Category tone map ─────────────────────────────────────────────────────────
 
 const CAT_COLOR: Record<string, string> = {
-  Bullet:    '#ef4444',
-  Blitz:     '#f59e0b',
-  Rapid:     'var(--accent)',
-  Classical: '#3b82f6',
+  Bullet:    'var(--text-3)',
+  Blitz:     'var(--text-3)',
+  Rapid:     'var(--text-3)',
+  Classical: 'var(--text-3)',
 };
 
 const ONBOARDING_ITEMS = [
@@ -269,9 +269,13 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
                 {t('lobby.liveGames')}
                 {!liveGamesLoading && liveCount > 0 && (
                   <span style={{
-                    marginLeft: 8, background: 'rgba(239,68,68,0.18)',
-                    color: '#ef4444', fontSize: 11, fontWeight: 700,
-                    padding: '2px 8px', borderRadius: 20,
+                    marginLeft: 8,
+                    background: 'var(--bg-3)',
+                    color: 'var(--text-2)',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 20,
                   }}>
                     {liveCount} {t('social.playing')}
                   </span>

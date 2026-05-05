@@ -608,8 +608,8 @@ body {
 
 .tab-btn:hover { color: var(--text-1); }
 .tab-btn.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+  color: var(--text-1);
+  border-bottom-color: var(--text-3);
   font-weight: 600;
 }
 
@@ -672,18 +672,18 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--accent);
+  background: var(--text-2);
   opacity: 0;
   transition: opacity 0.25s ease;
 }
 
 .time-card:hover {
-  border-color: var(--accent);
+  border-color: var(--text-3);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px var(--accent-dim);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18);
 }
 
-.time-card:hover::before { opacity: 0.05; }
+.time-card:hover::before { opacity: 0.03; }
 .time-card:active { transform: translateY(0); }
 
 .time-card .time-value {
@@ -696,7 +696,7 @@ body {
 
 .time-card .time-category {
   font-size: 12px;
-  color: var(--accent);
+  color: var(--text-3);
   font-weight: 600;
   margin-top: 4px;
   text-transform: uppercase;
@@ -723,9 +723,9 @@ body {
   transition: border-color var(--transition), color var(--transition), background var(--transition);
 }
 .pairing-custom-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-color: var(--text-3);
+  color: var(--text-1);
+  background: var(--bg-2);
 }
 
 /* ===== GAMES LIST ===== */
@@ -753,12 +753,15 @@ body {
 
 .more-link {
   font-size: 12px;
-  color: var(--accent);
+  color: var(--text-3);
   text-decoration: none;
   cursor: pointer;
 }
 
-.more-link:hover { text-decoration: underline; }
+.more-link:hover {
+  color: var(--text-1);
+  text-decoration: underline;
+}
 
 /* ===== ADMIN SAFETY ===== */
 .admin-safety-page {
@@ -2717,7 +2720,7 @@ html, body {
   text-align: right;
 }
 
-.lb-rank.top-3 { color: var(--gold); }
+.lb-rank.top-3 { color: var(--text-2); }
 
 .lb-name {
   flex: 1;
@@ -2731,7 +2734,7 @@ html, body {
 
 .lb-rating {
   font-size: 12px;
-  color: var(--accent);
+  color: var(--text-2);
   font-weight: 700;
 }
 
