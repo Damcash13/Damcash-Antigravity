@@ -56,9 +56,6 @@ const CHESS_MENUS: NavMenu[] = [
         items: [
           { icon: '📺', labelKey: 'menu.liveGames',       descKey: 'menu.descWatchLive',        path: '/chess' },
           { icon: '🏆', labelKey: 'lobby.tournaments',    descKey: 'menu.descTournaments',      path: '/chess/tournaments' },
-          { icon: '📡', labelKey: 'lobby.streamers',      descKey: 'menu.descStreamers',        path: '/chess/coming-soon/streamers' },
-          { icon: '🎬', labelKey: 'menu.gameOfDay',       descKey: 'menu.descGameOfDay',        path: '/chess/coming-soon/game-of-the-day' },
-          { icon: '📼', labelKey: 'menu.broadcasts',      descKey: 'menu.descBroadcasts',       path: '/chess/coming-soon/broadcasts' },
         ],
       },
     ],
@@ -71,15 +68,11 @@ const CHESS_MENUS: NavMenu[] = [
         titleKey: 'menu.connect',
         items: [
           { icon: '👥', labelKey: 'tournament.players',   descKey: 'menu.descPlayers',          path: '/chess/leaderboard' },
-          { icon: '🏘️', labelKey: 'menu.teams',           descKey: 'menu.descTeams',            path: '/chess/coming-soon/teams' },
-          { icon: '💬', labelKey: 'menu.forum',           descKey: 'menu.descForum',            path: '/chess/coming-soon/forum' },
-          { icon: '📰', labelKey: 'menu.blog',            descKey: 'menu.descBlog',             path: '/chess/coming-soon/blog' },
         ],
       },
       {
         titleKey: 'menu.events',
         items: [
-          { icon: '🏅', labelKey: 'menu.simuls',          descKey: 'menu.descSimuls',           path: '/chess/coming-soon/simuls' },
           { icon: '📊', labelKey: 'lobby.leaderboard',    descKey: 'menu.descLeaderboard',      path: '/chess/leaderboard' },
         ],
       },
@@ -93,7 +86,6 @@ const CHESS_MENUS: NavMenu[] = [
         titleKey: 'menu.analysis',
         items: [
           { icon: '🔬', labelKey: 'menu.analysisBoard',   descKey: 'menu.descAnalysisBoard',   path: '/chess/analysis' },
-          { icon: '📚', labelKey: 'menu.openingExplorer', descKey: 'menu.descOpeningExplorer', path: '/chess/opening-explorer' },
           { icon: '🏗️', labelKey: 'menu.boardEditor',     descKey: 'menu.descBoardEditor',     path: '/chess/board-editor' },
           { icon: '⚙️', labelKey: 'menu.gameImporter',    descKey: 'menu.descGameImporter',    path: '/chess/import' },
         ],
@@ -102,8 +94,6 @@ const CHESS_MENUS: NavMenu[] = [
         titleKey: 'menu.training',
         items: [
           { icon: '🧩', labelKey: 'menu.puzzles',         descKey: 'menu.descPuzzles',         path: '/chess/puzzles' },
-          { icon: '🔢', labelKey: 'menu.puzzleStreak',    descKey: 'menu.descPuzzleStreak',    path: '/chess/puzzle-streak' },
-          { icon: '🕐', labelKey: 'menu.puzzleStorm',     descKey: 'menu.descPuzzleStorm',     path: '/chess/puzzle-storm' },
         ],
       },
     ],
@@ -115,9 +105,7 @@ const CHESS_MENUS: NavMenu[] = [
       {
         titleKey: 'menu.courses',
         items: [
-          { icon: '📖', labelKey: 'menu.chessBasics',     descKey: 'menu.descChessBasics',     path: '/chess/coming-soon/chess-basics' },
           { icon: '🎓', labelKey: 'menu.practice',        descKey: 'menu.descPractice',        path: '/chess/play/computer/5+0' },
-          { icon: '📝', labelKey: 'menu.coordinates',     descKey: 'menu.descCoordinates',     path: '/chess/coordinates' },
         ],
       },
       {
@@ -142,7 +130,6 @@ const CHECKERS_MENUS: NavMenu[] = [
           { icon: '📺', labelKey: 'menu.liveGames',              descKey: 'menu.descWatchLiveCheckers',    path: '/checkers' },
           { icon: '🏆', labelKey: 'lobby.tournaments',           descKey: 'menu.descTournaments',          path: '/checkers/tournaments' },
           { icon: '🏅', labelKey: 'menu.frisianChampionship',    descKey: 'menu.descFrisianChampionship',  path: '/checkers/coming-soon/frisian-championship' },
-          { icon: '📼', labelKey: 'menu.broadcasts',             descKey: 'menu.descBroadcastsCheckers',  path: '/checkers/coming-soon/broadcasts' },
         ],
       },
     ],
@@ -155,8 +142,6 @@ const CHECKERS_MENUS: NavMenu[] = [
         titleKey: 'menu.connect',
         items: [
           { icon: '👥', labelKey: 'tournament.players',          descKey: 'menu.descPlayersCheckers',      path: '/checkers/leaderboard' },
-          { icon: '🏘️', labelKey: 'menu.clubs',                  descKey: 'menu.descClubs',                path: '/checkers/coming-soon/teams' },
-          { icon: '💬', labelKey: 'menu.forum',                  descKey: 'menu.descForumCheckers',        path: '/checkers/coming-soon/forum' },
         ],
       },
       {
@@ -203,7 +188,6 @@ const CHECKERS_MENUS: NavMenu[] = [
       {
         titleKey: 'menu.strategy',
         items: [
-          { icon: '🗂️', labelKey: 'menu.openingTheory',          descKey: 'menu.descOpeningTheory',        path: '/checkers/opening-explorer' },
           { icon: '📝', labelKey: 'menu.tacticsGuide',           descKey: 'menu.descTacticsGuide',         path: '/checkers/coming-soon/tactics-guide' },
         ],
       },
