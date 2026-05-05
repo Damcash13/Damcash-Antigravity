@@ -11,7 +11,7 @@ interface Props {
 
 export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
   const { t } = useTranslation();
-  const { user, setWalletBalance } = useUserStore();
+  const { user, isLoggedIn, setWalletBalance } = useUserStore();
   const { addNotification } = useNotificationStore();
   const [depositAmount, setDepositAmount] = useState(50);
   const [tab, setTab] = useState<'balance' | 'history'>('balance');
@@ -98,6 +98,24 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
       TOURNAMENT_REFUND: { label: 'Tournament refund', detail: 'Entry fee returned before tournament start.' },
     };
     return labels[type] ?? { label: type.replace(/_/g, ' '), detail: 'Wallet ledger event.' };
+  };
+
+  const handleReviewTransaction = async (tx: ApiTransaction) => {
+    if (!isLoggedIn) {
+      addNotification('Sign in to request a wallet review.', 'warning');
+      return;
+    }
+    try {
+      await api.safety.review({
+        reason: 'suspicious_payment',
+        paymentId: tx.stripeSessionId || tx.id,
+        matchId: tx.matchId || undefined,
+        notes: `Wallet review requested for ${tx.type} transaction ${tx.id}.`,
+      });
+      addNotification('Wallet review request recorded for admins.', 'success');
+    } catch (err: any) {
+      addNotification(err?.message || 'Could not request wallet review. Please try again.', 'error');
+    }
   };
 
   return (
@@ -247,6 +265,13 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
                     <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', background: tx.status === 'COMPLETED' ? 'rgba(34,197,94,0.15)' : 'var(--bg-3)', color: tx.status === 'COMPLETED' ? '#22c55e' : 'var(--text-3)', padding: '2px 6px', borderRadius: 4 }}>
                       {tx.status}
                     </div>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 10, padding: '2px 6px' }}
+                      onClick={() => handleReviewTransaction(tx)}
+                    >
+                      Review
+                    </button>
                   </div>
                 </div>
               );

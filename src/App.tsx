@@ -14,6 +14,7 @@ import { useFriendsStore } from './stores/friendsStore';
 import { useRatingUpdates } from './hooks/useRatingUpdates';
 import { socket } from './lib/socket';
 import { api } from './lib/api';
+import { useSafetyStore } from './stores/safetyStore';
 
 // Lazy load pages
 const HomePage = lazy(() => import('./components/lobby/HomePage').then(m => ({ default: m.HomePage })));
@@ -34,6 +35,7 @@ const EndgameTrainingPage = lazy(() => import('./components/tools/EndgameTrainin
 const CoordinatesPage = lazy(() => import('./components/tools/CoordinatesPage').then(m => ({ default: m.CoordinatesPage })));
 const GameImporterPage = lazy(() => import('./components/tools/GameImporterPage').then(m => ({ default: m.GameImporterPage })));
 const ComingSoonPage = lazy(() => import('./components/common/ComingSoonPage').then(m => ({ default: m.ComingSoonPage })));
+const AdminSafetyPage = lazy(() => import('./components/admin/AdminSafetyPage').then(m => ({ default: m.AdminSafetyPage })));
 
 // ── Lobby wrapper ─────────────────────────────────────────────────────────────
 
@@ -84,6 +86,7 @@ export default function App() {
 
   const initFriends        = useFriendsStore(s => s.initialize);
   const syncOnlinePlayers  = useFriendsStore(s => s.syncOnlinePlayers);
+  const setBlockedUsers    = useSafetyStore(s => s.setBlockedUsers);
 
   const [showAuth, setShowAuth] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
@@ -100,8 +103,13 @@ export default function App() {
     if (user?.id) {
       initPresence(user.name, user.rating ?? { chess: 1500, checkers: 1450 });
       initFriends();
+      if (isLoggedIn) {
+        api.safety.blocked()
+          .then(({ blockedUsers }) => setBlockedUsers(blockedUsers))
+          .catch(() => {});
+      }
     }
-  }, [user?.id]);
+  }, [user?.id, isLoggedIn, setBlockedUsers]);
 
   useEffect(() => {
     const parts = location.pathname.split('/');
@@ -254,6 +262,7 @@ export default function App() {
             <Route path="/:universe/coordinates" element={<main className="main-content"><CoordinatesPage /></main>} />
             <Route path="/:universe/import" element={<main className="main-content"><GameImporterPage /></main>} />
             <Route path="/:universe/coming-soon/:feature" element={<main className="main-content"><ComingSoonPage /></main>} />
+            <Route path="/:universe/admin/safety" element={<ProtectedRoute><main className="main-content"><AdminSafetyPage /></main></ProtectedRoute>} />
 
             <Route path="/:universe/puzzles"        element={<main className="main-content"><PuzzlesPage /></main>} />
             <Route path="/:universe/puzzle-streak" element={<main className="main-content"><PuzzleStreakPage /></main>} />

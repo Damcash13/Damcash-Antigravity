@@ -8,6 +8,8 @@ import { useTournamentStore } from '../../stores/tournamentStore';
 import { ratingBand, performanceRating } from '../../lib/elo';
 import { api, ApiUserProfile, ApiUserStats, ApiMatch, ApiFullStats } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
+import { useInviteStore } from '../../stores/inviteStore';
+import { useSafetyStore } from '../../stores/safetyStore';
 import { AvatarUpload } from './AvatarUpload';
 import '../../styles/profile.css';
 
@@ -256,6 +258,12 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user: me } = useUserStore();
+  const isLoggedIn = useUserStore(s => s.isLoggedIn);
+  const addNotification = useNotificationStore(s => s.addNotification);
+  const { onlinePlayers, openConfig } = useInviteStore();
+  const blockedUsers = useSafetyStore(s => s.blockedUsers);
+  const blockUser = useSafetyStore(s => s.blockUser);
+  const unblockUser = useSafetyStore(s => s.unblockUser);
   const [profile,   setProfile]   = useState<ApiUserProfile | null>(null);
   const [stats,     setStats]     = useState<ApiUserStats | null>(null);
   const [games,     setGames]     = useState<ApiMatch[]>([]);
@@ -314,6 +322,84 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
   const rating = uStats.rating;
   const band   = ratingBand(rating);
   const joined = new Date(profile.createdAt).toLocaleDateString([], { year: 'numeric', month: 'long' });
+  const isBlocked = blockedUsers.includes(profile.username.trim().toLowerCase());
+  const onlineEntry = onlinePlayers.find(p => p.name === profile.username);
+
+  const handleChallenge = () => {
+    if (isBlocked) {
+      addNotification(`Unblock ${profile.username} before challenging them.`, 'warning');
+      return;
+    }
+    if (!onlineEntry) {
+      addNotification(`${profile.username} is not online right now.`, 'info');
+      return;
+    }
+    openConfig({ socketId: onlineEntry.socketId, name: onlineEntry.name });
+  };
+
+  const handleReport = async () => {
+    if (!isLoggedIn) {
+      addNotification('Sign in to report a user.', 'warning');
+      return;
+    }
+    try {
+      await api.safety.report({
+        targetUsername: profile.username,
+        reason: 'profile_report',
+        context: 'profile_page',
+        notes: 'Reported from public profile.',
+      });
+      addNotification(`Report received for ${profile.username}.`, 'success');
+    } catch (err: any) {
+      addNotification(err?.message || 'Could not send report. Please try again.', 'error');
+    }
+  };
+
+  const handleReview = async () => {
+    if (!isLoggedIn) {
+      addNotification('Sign in to request a review.', 'warning');
+      return;
+    }
+    try {
+      await api.safety.review({
+        targetUsername: profile.username,
+        reason: 'suspicious_game_or_payment',
+        notes: 'Suspicious game/payment review requested from public profile.',
+      });
+      addNotification(`Review request recorded for ${profile.username}.`, 'success');
+    } catch (err: any) {
+      addNotification(err?.message || 'Could not request review. Please try again.', 'error');
+    }
+  };
+
+  const handleBlock = async () => {
+    if (isBlocked) {
+      unblockUser(profile.username);
+      if (!isLoggedIn) {
+        addNotification(`Unblocked ${profile.username}.`, 'info');
+        return;
+      }
+      try {
+        await api.safety.unblock(profile.username);
+        addNotification(`Unblocked ${profile.username}.`, 'info');
+      } catch (err: any) {
+        addNotification(err?.message || 'Unblocked locally. Server sync will retry later.', 'warning');
+      }
+      return;
+    }
+
+    blockUser(profile.username);
+    if (!isLoggedIn) {
+      addNotification(`Blocked ${profile.username} on this device.`, 'info');
+      return;
+    }
+    try {
+      await api.safety.block({ targetUsername: profile.username });
+      addNotification(`Blocked ${profile.username}.`, 'info');
+    } catch (err: any) {
+      addNotification(err?.message || 'Blocked locally. Server sync will retry later.', 'warning');
+    }
+  };
 
   return (
     <div className="pf-page">
@@ -349,6 +435,22 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
               <span>·</span>
               <span>📅 {t('profile.memberSince')} {joined}</span>
             </div>
+            {me && me.name !== profile.username && (
+              <div className="pf-safety-actions">
+                <button className="btn btn-primary btn-sm" onClick={handleChallenge} disabled={!onlineEntry || isBlocked}>
+                  ⚔ Challenge
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={handleReport}>
+                  🚩 Report
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={handleReview}>
+                  🛡 Review
+                </button>
+                <button className="btn btn-secondary btn-sm pf-danger-btn" onClick={handleBlock}>
+                  {isBlocked ? '✅ Unblock' : '🚫 Block'}
+                </button>
+              </div>
+            )}
           </div>
           <div className="pf-universe-switch">
             <button className={`pf-usw ${universe === 'chess' ? 'active' : ''}`} onClick={() => setUniverse('chess')}>♟ {t('profile.chess')}</button>
@@ -504,7 +606,7 @@ type Tab = typeof TABS[number];
 
 export const ProfilePage: React.FC = () => {
   const navigate  = useNavigate();
-  const { username: paramUsername } = useParams<{ username?: string }>();
+  const { name: paramUsername } = useParams<{ name?: string }>();
   const { user, ratingHistory, gamesPlayed, saveUsername, updateProfile } = useUserStore();
   const { tournaments } = useTournamentStore();
 

@@ -145,6 +145,18 @@
   flex-wrap: wrap;
 }
 
+.pf-safety-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pf-danger-btn {
+  color: #ef4444 !important;
+  border-color: rgba(239,68,68,0.32) !important;
+}
+
 /* ── Universe switch in hero ── */
 .pf-universe-switch {
   display: flex;

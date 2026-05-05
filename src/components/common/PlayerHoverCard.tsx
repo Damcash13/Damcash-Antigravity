@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useUserStore, useNotificationStore } from '../../stores';
+import { useUserStore, useNotificationStore, useUniverseStore } from '../../stores';
 import { useInviteStore } from '../../stores/inviteStore';
 import { useLiveGamesStore } from '../../stores';
+import { useSafetyStore } from '../../stores/safetyStore';
+import { api } from '../../lib/api';
 
 // Convert ISO 3166-1 alpha-2 code → emoji flag (e.g. "US" → 🇺🇸)
 export function countryFlag(code: string): string {
@@ -29,13 +31,24 @@ export const PlayerHoverCard: React.FC<Props> = ({
   username, rating, wins, losses, draws, games, country, children,
 }) => {
   const navigate   = useNavigate();
+  const universe = useUniverseStore(s => s.universe);
   const { user: me }       = useUserStore();
+  const isLoggedIn = useUserStore(s => s.isLoggedIn);
   const addNotification = useNotificationStore(s => s.addNotification);
   const { onlinePlayers, openConfig } = useInviteStore();
   const { games: liveGames }          = useLiveGamesStore();
+  const blockedUsers = useSafetyStore(s => s.blockedUsers);
+  const mutedUsers = useSafetyStore(s => s.mutedUsers);
+  const blockUser = useSafetyStore(s => s.blockUser);
+  const unblockUser = useSafetyStore(s => s.unblockUser);
+  const muteUser = useSafetyStore(s => s.muteUser);
+  const unmuteUser = useSafetyStore(s => s.unmuteUser);
 
   const [visible, setVisible] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const usernameKey = username.trim().toLowerCase();
+  const isBlockedUser = blockedUsers.includes(usernameKey);
+  const isMutedUser = mutedUsers.includes(usernameKey);
 
   // Is this player in any live game right now?
   const liveGame = liveGames.find(
@@ -67,13 +80,18 @@ export const PlayerHoverCard: React.FC<Props> = ({
 
   const handleInvite = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isBlockedUser) {
+      addNotification(`Unblock ${username} before challenging them.`, 'warning');
+      setVisible(false);
+      return;
+    }
     if (onlineEntry) openConfig({ socketId: onlineEntry.socketId, name: onlineEntry.name });
     setVisible(false);
   };
 
   const handleViewProfile = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/profile/${username}`);
+    navigate(`/${universe}/profile/${encodeURIComponent(username)}`);
     setVisible(false);
   };
 
@@ -87,10 +105,96 @@ export const PlayerHoverCard: React.FC<Props> = ({
     addNotification('Direct messages are coming soon.', 'info');
     setVisible(false);
   };
-  const handleBlock = (e: React.MouseEvent) => {
+
+  const handleMute = (e: React.MouseEvent) => {
     e.stopPropagation();
-    addNotification(`Blocked ${username}.`, 'info');
+    if (isMutedUser) {
+      unmuteUser(username);
+      addNotification(`Unmuted ${username} in chat.`, 'info');
+    } else {
+      muteUser(username);
+      addNotification(`Muted ${username} in chat.`, 'info');
+    }
     setVisible(false);
+  };
+
+  const handleReport = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!me || !isLoggedIn) {
+      addNotification('Sign in to report a user.', 'warning');
+      setVisible(false);
+      return;
+    }
+    try {
+      await api.safety.report({
+        targetUsername: username,
+        reason: 'player_menu',
+        context: 'username_click',
+        notes: 'Reported from the player action menu.',
+      });
+      addNotification(`Report received for ${username}.`, 'success');
+    } catch (err: any) {
+      addNotification(err?.message || 'Could not send report. Please try again.', 'error');
+    } finally {
+      setVisible(false);
+    }
+  };
+
+  const handleReview = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!me || !isLoggedIn) {
+      addNotification('Sign in to request a review.', 'warning');
+      setVisible(false);
+      return;
+    }
+    try {
+      await api.safety.review({
+        targetUsername: username,
+        reason: 'suspicious_game_or_payment',
+        notes: 'Review requested from the player action menu.',
+      });
+      addNotification(`Review request recorded for ${username}.`, 'success');
+    } catch (err: any) {
+      addNotification(err?.message || 'Could not request review. Please try again.', 'error');
+    } finally {
+      setVisible(false);
+    }
+  };
+
+  const handleBlock = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isBlockedUser) {
+      unblockUser(username);
+      if (!isLoggedIn) {
+        addNotification(`Unblocked ${username}.`, 'info');
+        setVisible(false);
+        return;
+      }
+      try {
+        await api.safety.unblock(username);
+        addNotification(`Unblocked ${username}.`, 'info');
+      } catch (err: any) {
+        addNotification(err?.message || 'Unblocked locally. Server sync will retry later.', 'warning');
+      } finally {
+        setVisible(false);
+      }
+      return;
+    }
+
+    blockUser(username);
+    if (!isLoggedIn) {
+      addNotification(`Blocked ${username} on this device.`, 'info');
+      setVisible(false);
+      return;
+    }
+    try {
+      await api.safety.block({ targetUsername: username });
+      addNotification(`Blocked ${username}. They are hidden from chat and quick player lists.`, 'info');
+    } catch (err: any) {
+      addNotification(err?.message || 'Blocked locally. Server sync will retry later.', 'warning');
+    } finally {
+      setVisible(false);
+    }
   };
 
   return (
@@ -161,6 +265,11 @@ export const PlayerHoverCard: React.FC<Props> = ({
                 ⚔ Challenge
               </button>
             ) : null}
+            {isBlockedUser && (
+              <div className="phc-safety-note">
+                Blocked locally
+              </div>
+            )}
             <button className="phc-btn phc-btn-profile" onClick={handleViewProfile}>
               👤 View profile
             </button>
@@ -171,8 +280,23 @@ export const PlayerHoverCard: React.FC<Props> = ({
               💬 Message
             </button>
             {me && me.name !== username && (
+              <button className="phc-btn phc-btn-muted" onClick={handleMute}>
+                {isMutedUser ? '🔊 Unmute' : '🔇 Mute chat'}
+              </button>
+            )}
+            {me && me.name !== username && (
+              <button className="phc-btn phc-btn-report" onClick={handleReport}>
+                🚩 Report
+              </button>
+            )}
+            {me && me.name !== username && (
+              <button className="phc-btn phc-btn-review" onClick={handleReview}>
+                🛡 Review
+              </button>
+            )}
+            {me && me.name !== username && (
               <button className="phc-btn phc-btn-block" onClick={handleBlock}>
-                🚫 Block
+                {isBlockedUser ? '✅ Unblock' : '🚫 Block'}
               </button>
             )}
           </div>

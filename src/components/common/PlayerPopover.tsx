@@ -77,7 +77,7 @@ export const PlayerPopover: React.FC<Props> = ({ player, children }) => {
           <button
             className="btn btn-secondary btn-sm"
             style={{ width: '100%', marginTop: 8, fontSize: 11 }}
-            onClick={(e) => { e.stopPropagation(); navigate(`/profile/${player.name}`); setShow(false); }}
+            onClick={(e) => { e.stopPropagation(); navigate(`/${universe}/profile/${encodeURIComponent(player.name)}`); setShow(false); }}
           >
             👤 View profile
           </button>

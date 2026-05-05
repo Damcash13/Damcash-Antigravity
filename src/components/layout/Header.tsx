@@ -448,7 +448,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
               {isLoggedIn && (
                 <button
                   className="header-avatar-btn"
-                  onClick={() => navigate(`/${universe}/profile/${user.name}`)}
+                  onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`)}
                   title={t('header.profileTitle', { name: user.name })}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, padding: '4px 8px', minWidth: 48 }}
                 >

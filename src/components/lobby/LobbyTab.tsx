@@ -4,6 +4,7 @@ import '../../styles/lobby-room.css';
 import { socket } from '../../lib/socket';
 import { useUniverseStore, useUserStore } from '../../stores';
 import { useInviteStore, OnlinePlayer } from '../../stores/inviteStore';
+import { useSafetyStore } from '../../stores/safetyStore';
 import { supabase } from '../../lib/supabase';
 import { countryFlag } from '../../lib/countries';
 import { PlayerHoverCard } from '../common/PlayerHoverCard';
@@ -168,6 +169,10 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
   const { universe } = useUniverseStore();
   const { user } = useUserStore();
   const { onlinePlayers } = useInviteStore();
+  const blockedUsers = useSafetyStore(s => s.blockedUsers);
+  const mutedUsers = useSafetyStore(s => s.mutedUsers);
+  const muteUser = useSafetyStore(s => s.muteUser);
+  const unmuteUser = useSafetyStore(s => s.unmuteUser);
   const [seeks,       setSeeks]       = useState<PublicSeek[]>([]);
   const [seekExpired, setSeekExpired] = useState(false);
   const [showForm,    setShowForm]    = useState(false);
@@ -175,9 +180,12 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
   const [rightTab,    setRightTab]    = useState<'players' | 'chat'>('chat');
   const [chatMessages,setChatMessages]= useState<LobbyChatMessage[]>([]);
   const [chatInput,   setChatInput]   = useState('');
+  const [chatMuted,   setChatMuted]   = useState(false);
   const [lobbyChannel, setLobbyChannel] = useState<any>(null);
   const chatRef = React.useRef<HTMLDivElement>(null);
   const [, tick] = useState(0);
+  const isBlockedName = (name: string) => blockedUsers.includes(name.trim().toLowerCase());
+  const isMutedName = (name: string) => mutedUsers.includes(name.trim().toLowerCase());
 
   // Refresh age counters
   useEffect(() => {
@@ -269,14 +277,19 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
   const handleAccept = (seek: PublicSeek) => socket.emit('seek:accept', { seekId: seek.seekId });
   const handleCancel = () => { socket.emit('seek:cancel'); };
 
-  const visibleSeeks = seeks.filter(s => s.universe === universe);
+  const visibleSeeks = seeks.filter(s => s.universe === universe && !isBlockedName(s.name));
   const mySeek       = visibleSeeks.find(s => s.socketId === socket.id);
 
   // Filter online players
   const filteredPlayers = onlinePlayers.filter(p =>
+    !isBlockedName(p.name) &&
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const totalOnline = onlinePlayers.length;
+  const totalOnline = onlinePlayers.filter(p => !isBlockedName(p.name)).length;
+  const visibleChatMessages = chatMuted ? [] : chatMessages.filter(m => {
+    const isMe = m.senderName === user?.name || m.senderId === user?.id || m.senderId === socket.id;
+    return m.universe === universe && (isMe || (!isBlockedName(m.senderName) && !isMutedName(m.senderName)));
+  });
 
   const universeName = universe === 'chess' ? t('profile.chess') : t('profile.checkers');
 
@@ -547,18 +560,54 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
         </>
         ) : (
           <div className="lobby-chat-container">
+            <div className="lobby-chat-safety-row">
+              <span>Mute/report from usernames. Suspicious games or payments can be sent for review.</span>
+              <button
+                className={`lobby-chat-mute ${chatMuted ? 'active' : ''}`}
+                onClick={() => setChatMuted(v => !v)}
+              >
+                {chatMuted ? 'Unmute chat' : 'Mute chat'}
+              </button>
+            </div>
             <div className="lobby-chat-msgs" ref={chatRef}>
-              {chatMessages.length === 0 ? (
+              {chatMuted ? (
+                <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
+                  Lobby chat is muted on this device.
+                </div>
+              ) : visibleChatMessages.length === 0 ? (
                 <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
                   {t('lobby.welcomeLobby', { universe: universeName })}
                 </div>
               ) : (
-                chatMessages.filter(m => m.universe === universe).map(msg => {
-                  const isMe = msg.senderId === socket.id;
+                visibleChatMessages.map(msg => {
+                  const isMe = msg.senderName === user?.name || msg.senderId === user?.id || msg.senderId === socket.id;
+                  const chatPlayer = onlinePlayers.find(p => p.name === msg.senderName);
+                  const chatRating = chatPlayer
+                    ? universe === 'chess' ? chatPlayer.rating.chess : chatPlayer.rating.checkers
+                    : 1500;
+                  const muted = isMutedName(msg.senderName);
                   return (
                     <div key={msg.id} className={`lobby-chat-msg ${isMe ? 'mine' : ''}`}>
                       {!isMe && (
-                        <div className="lobby-chat-name">{msg.senderName}</div>
+                        <div className="lobby-chat-meta">
+                          <PlayerHoverCard
+                            username={msg.senderName}
+                            rating={chatRating}
+                            wins={0}
+                            losses={0}
+                            draws={0}
+                            games={0}
+                            country={chatPlayer?.country}
+                          >
+                            <span className="lobby-chat-name">{msg.senderName}</span>
+                          </PlayerHoverCard>
+                          <button
+                            className="lobby-chat-name-action"
+                            onClick={() => muted ? unmuteUser(msg.senderName) : muteUser(msg.senderName)}
+                          >
+                            {muted ? 'Unmute' : 'Mute'}
+                          </button>
+                        </div>
                       )}
                       <div className="lobby-chat-bubble">{msg.text}</div>
                     </div>
@@ -569,13 +618,14 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
             <div className="lobby-chat-input-row">
               <input
                 className="lobby-chat-input"
-                placeholder={t('lobby.typeMessage')}
+                placeholder={chatMuted ? 'Chat is muted' : t('lobby.typeMessage')}
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleSendChat(); }}
                 maxLength={200}
+                disabled={chatMuted}
               />
-              <button className="lobby-chat-send" onClick={handleSendChat}>↵</button>
+              <button className="lobby-chat-send" onClick={handleSendChat} disabled={chatMuted}>↵</button>
             </div>
           </div>
         )}

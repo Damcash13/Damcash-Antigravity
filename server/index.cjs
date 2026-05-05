@@ -224,6 +224,7 @@ const reconnectTokens  = new Map(); // roomId   -> { white: {token,socketId}, bl
 const socketToUserId = new Map(); // socketId -> db user id
 const userIdToSocketId = new Map(); // db user id -> socketId
 let tournamentMatchSchemaReady = false;
+let safetySchemaReady = false;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function genCode() {
@@ -282,6 +283,64 @@ async function ensureTournamentMatchSchema() {
     END $$;
   `);
   tournamentMatchSchemaReady = true;
+}
+
+async function ensureSafetySchema() {
+  if (safetySchemaReady) return;
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "ModerationReport" (
+      id TEXT PRIMARY KEY,
+      "reporterId" TEXT REFERENCES "User"("id") ON DELETE SET NULL,
+      "targetId" TEXT REFERENCES "User"("id") ON DELETE SET NULL,
+      "targetUsername" TEXT,
+      reason TEXT NOT NULL,
+      context TEXT,
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      "matchId" TEXT,
+      "paymentId" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "UserBlock" (
+      id TEXT PRIMARY KEY,
+      "blockerId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+      "targetId" TEXT REFERENCES "User"("id") ON DELETE SET NULL,
+      "targetUsername" TEXT NOT NULL,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE("blockerId", "targetUsername")
+    )
+  `);
+  await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "ModerationReport_status_createdAt_idx" ON "ModerationReport"(status, "createdAt")');
+  await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "ModerationReport_targetUsername_idx" ON "ModerationReport"("targetUsername")');
+  await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "UserBlock_blockerId_idx" ON "UserBlock"("blockerId")');
+  safetySchemaReady = true;
+}
+
+async function findUserByUsername(username) {
+  const clean = sanitizeText(username, 40);
+  if (!clean) return null;
+  const rows = await prisma.$queryRaw`
+    SELECT id, username
+    FROM "User"
+    WHERE LOWER(username) = LOWER(${clean})
+    LIMIT 1
+  `;
+  return rows?.[0] || null;
+}
+
+async function getLocalAuthUser(req) {
+  if (req.dbUser?.id) return req.dbUser;
+  const id = req.user?.id || '';
+  const email = req.user?.email || '';
+  const rows = await prisma.$queryRaw`
+    SELECT id, username
+    FROM "User"
+    WHERE id = ${id} OR email = ${email}
+    LIMIT 1
+  `;
+  return rows?.[0] || null;
 }
 
 function jsonSafe(value) {
@@ -3056,6 +3115,153 @@ app.delete('/api/friends/:friendId', requireAuth, async (req, res) => {
   } catch { res.status(500).json({ error: 'Failed' }); }
 });
 
+// ── REST: Safety and moderation ─────────────────────────────────────────────
+app.post('/api/safety/report', requireAuth, async (req, res) => {
+  try {
+    await ensureSafetySchema();
+    const reporter = await getLocalAuthUser(req);
+    if (!reporter) return res.status(404).json({ error: 'Account profile not synced yet' });
+
+    const reason = sanitizeText(req.body?.reason, 80) || 'player_report';
+    const context = sanitizeText(req.body?.context, 80) || null;
+    const notes = sanitizeText(req.body?.notes, 1000) || null;
+    const matchId = sanitizeText(req.body?.matchId, 80) || null;
+    const paymentId = sanitizeText(req.body?.paymentId, 120) || null;
+    const targetUsername = sanitizeText(req.body?.targetUsername, 40);
+    const target = targetUsername ? await findUserByUsername(targetUsername) : null;
+
+    const id = genId();
+    await prisma.$executeRaw`
+      INSERT INTO "ModerationReport"
+        (id, "reporterId", "targetId", "targetUsername", reason, context, notes, "matchId", "paymentId")
+      VALUES
+        (${id}, ${reporter.id}, ${target?.id || null}, ${target?.username || targetUsername || null}, ${reason}, ${context}, ${notes}, ${matchId}, ${paymentId})
+    `;
+    res.json({ ok: true, id });
+  } catch (err) {
+    console.error('[Safety report] Error:', err);
+    res.status(500).json({ error: 'Could not record report' });
+  }
+});
+
+app.post('/api/safety/review', requireAuth, async (req, res) => {
+  try {
+    await ensureSafetySchema();
+    const reporter = await getLocalAuthUser(req);
+    if (!reporter) return res.status(404).json({ error: 'Account profile not synced yet' });
+
+    const reason = sanitizeText(req.body?.reason, 80) || 'suspicious_review';
+    const notes = sanitizeText(req.body?.notes, 1000) || null;
+    const matchId = sanitizeText(req.body?.matchId, 80) || null;
+    const paymentId = sanitizeText(req.body?.paymentId, 120) || null;
+    const targetUsername = sanitizeText(req.body?.targetUsername, 40);
+    const target = targetUsername ? await findUserByUsername(targetUsername) : null;
+    const id = genId();
+
+    await prisma.$executeRaw`
+      INSERT INTO "ModerationReport"
+        (id, "reporterId", "targetId", "targetUsername", reason, context, notes, "matchId", "paymentId")
+      VALUES
+        (${id}, ${reporter.id}, ${target?.id || null}, ${target?.username || targetUsername || null}, ${reason}, 'suspicious_review', ${notes}, ${matchId}, ${paymentId})
+    `;
+    res.json({ ok: true, id });
+  } catch (err) {
+    console.error('[Safety review] Error:', err);
+    res.status(500).json({ error: 'Could not request review' });
+  }
+});
+
+app.get('/api/safety/blocked', requireAuth, async (req, res) => {
+  try {
+    await ensureSafetySchema();
+    const blocker = await getLocalAuthUser(req);
+    if (!blocker) return res.json({ blockedUsers: [] });
+    const rows = await prisma.$queryRaw`
+      SELECT "targetUsername"
+      FROM "UserBlock"
+      WHERE "blockerId" = ${blocker.id}
+      ORDER BY "createdAt" DESC
+    `;
+    res.json({ blockedUsers: rows.map(r => r.targetUsername) });
+  } catch (err) {
+    console.error('[Safety blocked] Error:', err);
+    res.status(500).json({ error: 'Could not load blocked users' });
+  }
+});
+
+app.post('/api/safety/block', requireAuth, async (req, res) => {
+  try {
+    await ensureSafetySchema();
+    const blocker = await getLocalAuthUser(req);
+    if (!blocker) return res.status(404).json({ error: 'Account profile not synced yet' });
+
+    const targetUsername = sanitizeText(req.body?.targetUsername, 40);
+    if (!targetUsername) return res.status(400).json({ error: 'Target username is required' });
+    const target = await findUserByUsername(targetUsername);
+    const canonicalUsername = target?.username || targetUsername;
+    if (canonicalUsername.toLowerCase() === blocker.username.toLowerCase()) {
+      return res.status(400).json({ error: 'Cannot block yourself' });
+    }
+
+    await prisma.$executeRaw`
+      INSERT INTO "UserBlock" (id, "blockerId", "targetId", "targetUsername")
+      VALUES (${genId()}, ${blocker.id}, ${target?.id || null}, ${canonicalUsername})
+      ON CONFLICT ("blockerId", "targetUsername") DO NOTHING
+    `;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Safety block] Error:', err);
+    res.status(500).json({ error: 'Could not block user' });
+  }
+});
+
+app.delete('/api/safety/block/:username', requireAuth, async (req, res) => {
+  try {
+    await ensureSafetySchema();
+    const blocker = await getLocalAuthUser(req);
+    if (!blocker) return res.json({ ok: true });
+    const targetUsername = sanitizeText(req.params.username, 40);
+    await prisma.$executeRaw`
+      DELETE FROM "UserBlock"
+      WHERE "blockerId" = ${blocker.id} AND LOWER("targetUsername") = LOWER(${targetUsername})
+    `;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Safety unblock] Error:', err);
+    res.status(500).json({ error: 'Could not unblock user' });
+  }
+});
+
+app.get('/api/admin/moderation', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await ensureSafetySchema();
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 50));
+    const reports = await prisma.$queryRaw`
+      SELECT
+        r.id,
+        r.reason,
+        r.context,
+        r.notes,
+        r.status,
+        r."targetUsername",
+        r."matchId",
+        r."paymentId",
+        r."createdAt",
+        reporter.username AS "reporterUsername",
+        target.username AS "targetResolvedUsername"
+      FROM "ModerationReport" r
+      LEFT JOIN "User" reporter ON reporter.id = r."reporterId"
+      LEFT JOIN "User" target ON target.id = r."targetId"
+      ORDER BY r."createdAt" DESC
+      LIMIT ${limit}
+    `;
+    res.json({ reports });
+  } catch (err) {
+    console.error('[Admin moderation] Error:', err);
+    res.status(500).json({ error: 'Could not load moderation dashboard' });
+  }
+});
+
 app.post('/api/tournaments/:id/pair', requireAuth, async (req, res) => {
   try {
     const tournamentId = req.params.id;
@@ -3629,6 +3835,7 @@ process.on('uncaughtException', (err) => {
 const PORT = process.env.PORT || 3000;
 async function startServer() {
   await ensureTournamentMatchSchema();
+  await ensureSafetySchema();
   await resetStaleTournamentPairingStatuses();
   httpServer.listen(PORT, '0.0.0.0', () => {
     log.info(`DamCash server → http://0.0.0.0:${PORT}`);

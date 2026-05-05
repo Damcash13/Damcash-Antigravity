@@ -194,6 +194,44 @@ export const api = {
       }),
   },
 
+  safety: {
+    report: (body: {
+      targetUsername?: string;
+      reason: string;
+      context?: string;
+      notes?: string;
+      matchId?: string;
+      paymentId?: string;
+    }) =>
+      request<{ ok: boolean; id: string }>('/api/safety/report', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    review: (body: {
+      targetUsername?: string;
+      reason: string;
+      notes?: string;
+      matchId?: string;
+      paymentId?: string;
+    }) =>
+      request<{ ok: boolean; id: string }>('/api/safety/review', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    block: (body: { targetUsername: string }) =>
+      request<{ ok: boolean }>('/api/safety/block', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    unblock: (username: string) =>
+      request<{ ok: boolean }>(`/api/safety/block/${encodeURIComponent(username)}`, {
+        method: 'DELETE',
+      }),
+    blocked: () => request<{ blockedUsers: string[] }>('/api/safety/blocked'),
+    adminModeration: (limit = 50) =>
+      request<{ reports: ApiModerationReport[] }>(`/api/admin/moderation?limit=${encodeURIComponent(String(limit))}`),
+  },
+
   wallet: {
     get: () => request<ApiWallet>('/api/wallet'),
     deposit: (amount: number) =>
@@ -341,6 +379,20 @@ export interface ApiFriendsResponse {
   friends: ApiFriend[];
   incoming: ApiFriend[];
   outgoing: ApiFriend[];
+}
+
+export interface ApiModerationReport {
+  id: string;
+  reason: string;
+  context: string | null;
+  notes: string | null;
+  status: string;
+  targetUsername: string | null;
+  targetResolvedUsername: string | null;
+  reporterUsername: string | null;
+  matchId: string | null;
+  paymentId: string | null;
+  createdAt: string;
 }
 
 export interface ApiWallet {

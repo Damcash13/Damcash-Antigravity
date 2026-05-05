@@ -54,6 +54,33 @@ const CAT_COLOR: Record<string, string> = {
   Classical: '#3b82f6',
 };
 
+const ONBOARDING_ITEMS = [
+  {
+    title: 'What is Damcash?',
+    body: 'A competitive chess and checkers lobby for casual games, rated games, tournaments, and optional wallet-backed stakes.',
+  },
+  {
+    title: 'Chess or checkers',
+    body: 'Use the game switcher to move between boards; ratings and stats are tracked separately for each mode.',
+  },
+  {
+    title: 'Rated vs unrated',
+    body: 'Rated games affect your player record. Casual games are for practice and do not move your rating.',
+  },
+  {
+    title: 'Casual or tournament',
+    body: 'Quick pairing starts one game. Tournaments have a waiting room, standings, late joins, and pairing windows.',
+  },
+  {
+    title: 'Wallet rules',
+    body: 'Free games cost nothing. Money games escrow stakes and record deposits, payouts, and refunds in wallet history.',
+  },
+  {
+    title: 'Challenge someone',
+    body: 'Click a username to open actions, then choose profile, challenge, message, mute, report, or block.',
+  },
+];
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -75,6 +102,15 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
   }[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [liveGamesLoading, setLiveGamesLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try { return localStorage.getItem('damcash_onboarding_dismissed') !== 'yes'; }
+    catch { return true; }
+  });
+
+  const dismissOnboarding = () => {
+    setShowOnboarding(false);
+    try { localStorage.setItem('damcash_onboarding_dismissed', 'yes'); } catch {}
+  };
 
   // Fetch real leaderboard from API
   useEffect(() => {
@@ -154,6 +190,28 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
 
   return (
     <div>
+      {showOnboarding && (
+        <section className="home-onboarding" aria-label="Damcash quick guide">
+          <div className="home-onboarding-head">
+            <div>
+              <div className="home-onboarding-kicker">New here</div>
+              <h2>Damcash in 30 seconds</h2>
+            </div>
+            <button className="home-onboarding-dismiss" onClick={dismissOnboarding} aria-label="Dismiss quick guide">
+              ×
+            </button>
+          </div>
+          <div className="home-onboarding-grid">
+            {ONBOARDING_ITEMS.map(item => (
+              <div className="home-onboarding-item" key={item.title}>
+                <strong>{item.title}</strong>
+                <span>{item.body}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Tabs ── */}
       <div className="tabs" role="tablist">
         {(['quick', 'lobby', 'correspondence'] as const).map(tab => (
@@ -276,7 +334,7 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
                   >
                     <span
                       className="lb-name lb-name-link"
-                      onClick={() => navigate(`/profile/${entry.name}`)}
+                      onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(entry.name)}`)}
                     >
                       {entry.name}
                     </span>
