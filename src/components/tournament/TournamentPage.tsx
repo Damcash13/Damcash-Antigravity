@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore, useNotificationStore } from '../../stores';
@@ -229,11 +229,9 @@ export const TournamentPage: React.FC = () => {
   };
 
   // Sorted standings
-  const standings = useMemo(() => {
-    return [...tournament.players].sort((a, b) =>
-      b.score !== a.score ? b.score - a.score : b.performance - a.performance
-    );
-  }, [tournament.players]);
+  const standings = [...tournament.players].sort((a, b) =>
+    b.score !== a.score ? b.score - a.score : b.performance - a.performance
+  );
 
   const status = getLiveStatus(tournament.startsAt, tournament.durationMs, now);
   const isRunning  = status === 'running';
