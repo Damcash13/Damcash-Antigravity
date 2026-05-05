@@ -120,8 +120,6 @@ export const IncomingInviteToast: React.FC = () => {
   const { incoming, addIncoming, dismissIncoming } = useInviteStore();
   const { push: pushNotif } = useNotifCenterStore();
   const { play } = useSound();
-  const navigate = useNavigate();
-
   useEffect(() => {
     const handleInviteReceived = (data: IncomingInvite) => {
       addIncoming(data);
@@ -146,7 +144,7 @@ export const IncomingInviteToast: React.FC = () => {
       socket.off('invite:received', handleInviteReceived);
       socket.off('invite:cancelled', handleInviteCancelled);
     };
-  }, [addIncoming, dismissIncoming, play, navigate]);
+  }, [addIncoming, dismissIncoming, play]);
 
   if (incoming.length === 0) return null;
 
