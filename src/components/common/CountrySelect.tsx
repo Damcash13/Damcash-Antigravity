@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { COUNTRIES, countryFlag } from '../../lib/countries';
+import { COUNTRIES, countryFlag, countryMatches } from '../../lib/countries';
 
 interface Props {
   value: string;
@@ -25,10 +25,7 @@ export const CountrySelect: React.FC<Props> = ({ value, onChange, required }) =>
 
   const filtered = query.length < 1
     ? COUNTRIES
-    : COUNTRIES.filter(c =>
-        c.name.toLowerCase().includes(query.toLowerCase()) ||
-        c.code.toLowerCase().includes(query.toLowerCase())
-      );
+    : COUNTRIES.filter(c => countryMatches(c, query));
 
   const selected = COUNTRIES.find(c => c.code === value);
 
