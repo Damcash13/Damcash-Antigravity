@@ -42,7 +42,6 @@ export const Sidebar: React.FC<Props> = ({
           <div className="sidebar-wallet-card">
             <span className="sidebar-wallet-label">{t('betting.balance')}</span>
             <div className="sidebar-wallet-balance">
-              <span className="sidebar-wallet-icon" aria-hidden="true">💰</span>
               <strong className="sidebar-wallet-value">${Number(user.walletBalance).toFixed(2)}</strong>
             </div>
             <button
@@ -69,15 +68,12 @@ export const Sidebar: React.FC<Props> = ({
       {/* Action buttons */}
       <div className="sidebar-section">
         <button className="sidebar-btn" onClick={onCreateGame} aria-label={t('nav.createGame')}>
-          <span className="icon" aria-hidden="true">⊕</span>
           {t('nav.createGame')}
         </button>
         <button className="sidebar-btn" onClick={onChallengeFriend} aria-label={t('nav.challengeFriend')}>
-          <span className="icon" aria-hidden="true">⚔️</span>
           {t('nav.challengeFriend')}
         </button>
         <button className="sidebar-btn" onClick={onPlayComputer} aria-label={t('nav.playComputer')}>
-          <span className="icon" aria-hidden="true">🤖</span>
           {t('nav.playComputer')}
         </button>
       </div>
@@ -98,7 +94,7 @@ export const Sidebar: React.FC<Props> = ({
               fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0,
             }}
           >
-            {t('leaderboard.viewAll')} →
+            {t('leaderboard.viewAll')}
           </button>
         </div>
         {visibleTournaments.length === 0 ? (
@@ -111,7 +107,6 @@ export const Sidebar: React.FC<Props> = ({
             className="tournament-item"
             onClick={() => navigate(`/${universe}/tournament/${t_.id}`)}
           >
-            <span className="tournament-icon">{t_.icon}</span>
             <div className="tournament-info">
               <div className="tournament-name">{t_.name}</div>
               <div className="tournament-meta">

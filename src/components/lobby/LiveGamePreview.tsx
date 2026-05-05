@@ -216,7 +216,7 @@ const LiveGameCard: React.FC<{ game: LiveGame; onClick: () => void }> = ({ game,
               background: 'rgba(239,68,68,0.18)', color: '#ef4444',
               fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20,
               animation: 'pulse 2s infinite',
-            }}>● LIVE</span>
+            }}>Live</span>
             <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{game.tc}</span>
             <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{game.moveCount} moves</span>
           </div>
@@ -225,7 +225,7 @@ const LiveGameCard: React.FC<{ game: LiveGame; onClick: () => void }> = ({ game,
               background: 'var(--accent-dim)', color: 'var(--accent)',
               fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
             }}>
-              💰 ${game.bet}
+              Stake ${game.bet}
             </span>
           )}
         </div>
@@ -256,8 +256,7 @@ export const LiveGamesSection: React.FC<Props> = ({ games, universe, onClickGame
       borderRadius: 12,
       border: '1px dashed var(--border)',
     }}>
-      <div style={{ fontSize: 28, marginBottom: 8 }}>🎮</div>
-      <div>No live games right now</div>
+      <div style={{ fontWeight: 700, color: 'var(--text-2)' }}>No live games right now</div>
       <div style={{ fontSize: 11, marginTop: 4 }}>Start a game and it will appear here</div>
     </div>
   );

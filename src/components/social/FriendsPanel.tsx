@@ -5,24 +5,6 @@ import { useUniverseStore } from '../../stores';
 import { socket } from '../../lib/socket';
 import { api } from '../../lib/api';
 
-// ── Status dot ────────────────────────────────────────────────────────────────
-const Dot: React.FC<{ online: boolean; status: Friend['status'] }> = ({ online, status }) => {
-  const { t } = useTranslation();
-  const titleLabel = !online ? t('social.statusOffline')
-    : status === 'playing' ? t('social.inGame')
-    : status === 'seeking' ? t('social.seeking')
-    : t('social.onlineStatus');
-  return (
-    <span style={{
-      width: 8, height: 8, borderRadius: '50%', display: 'inline-block', flexShrink: 0,
-      background: !online ? '#475569'
-        : status === 'playing' ? '#ef4444'
-        : status === 'seeking' ? '#f59e0b'
-        : '#22c55e',
-    }} title={titleLabel} />
-  );
-};
-
 // ── Friend row ────────────────────────────────────────────────────────────────
 const FriendRow: React.FC<{ f: Friend; canChallenge: boolean; onChallenge: () => void; onRemove: () => void }> = ({ f, canChallenge, onChallenge, onRemove }) => {
   const { t } = useTranslation();
@@ -55,7 +37,6 @@ const FriendRow: React.FC<{ f: Friend; canChallenge: boolean; onChallenge: () =>
           fontSize: 13, fontWeight: 600, color: f.online ? 'var(--text-1)' : 'var(--text-3)',
           display: 'flex', alignItems: 'center', gap: 5,
         }}>
-          <Dot online={f.online} status={f.status} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {f.name}
           </span>
@@ -82,7 +63,7 @@ const FriendRow: React.FC<{ f: Friend; canChallenge: boolean; onChallenge: () =>
           }}
           title={t('social.challenge')}
         >
-          ⚔️
+          {t('social.challenge')}
         </button>
       )}
       {hover && (
@@ -95,7 +76,7 @@ const FriendRow: React.FC<{ f: Friend; canChallenge: boolean; onChallenge: () =>
           }}
           title={t('social.removeFriend')}
         >
-          ✕
+          Remove
         </button>
       )}
     </div>
@@ -125,8 +106,8 @@ const RequestRow: React.FC<{
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>{req.fromName}</div>
         <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{t('social.wantsToBeFriends')}</div>
       </div>
-      <button onClick={onAccept} style={{ background: 'var(--accent)', border: 'none', borderRadius: 5, color: '#000', padding: '3px 8px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>✓</button>
-      <button onClick={onDecline} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text-2)', padding: '3px 6px', cursor: 'pointer', fontSize: 11 }}>✕</button>
+      <button onClick={onAccept} style={{ background: 'var(--accent)', border: 'none', borderRadius: 5, color: '#000', padding: '3px 8px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Accept</button>
+      <button onClick={onDecline} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text-2)', padding: '3px 6px', cursor: 'pointer', fontSize: 11 }}>Decline</button>
     </div>
   );
 };
@@ -262,7 +243,7 @@ export const FriendsPanel: React.FC<Props> = ({ onChallenge }) => {
         onClick={() => setCollapsed(c => !c)}
       >
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'flex', alignItems: 'center', gap: 6 }}>
-          👥 {t('social.friends')}
+          {t('social.friends')}
           {online.length > 0 && (
             <span style={{ background: '#22c55e20', color: '#22c55e', fontSize: 10, padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>
               {online.length} {t('social.online')}
@@ -274,7 +255,7 @@ export const FriendsPanel: React.FC<Props> = ({ onChallenge }) => {
             </span>
           )}
         </div>
-        <span style={{ color: 'var(--text-3)', fontSize: 12 }}>{collapsed ? '›' : '‹'}</span>
+        <span style={{ color: 'var(--text-3)', fontSize: 11, fontWeight: 700 }}>{collapsed ? 'Show' : 'Hide'}</span>
       </div>
 
       {!collapsed && (

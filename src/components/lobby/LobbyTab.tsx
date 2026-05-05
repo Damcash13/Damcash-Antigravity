@@ -6,7 +6,6 @@ import { useUniverseStore, useUserStore } from '../../stores';
 import { useInviteStore, OnlinePlayer } from '../../stores/inviteStore';
 import { useSafetyStore } from '../../stores/safetyStore';
 import { supabase } from '../../lib/supabase';
-import { countryFlag } from '../../lib/countries';
 import { PlayerHoverCard } from '../common/PlayerHoverCard';
 
 const MAX_CHAT_LEN = 300;
@@ -39,12 +38,12 @@ export interface LobbyChatMessage {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-function tcCategory(tc: string): { labelKey: string; color: string; icon: string } {
+function tcCategory(tc: string): { labelKey: string; color: string } {
   const [min] = tc.split('+').map(Number);
-  if (min <= 2)  return { labelKey: 'time.bullet',   color: '#ef4444', icon: '🔥' };
-  if (min <= 5)  return { labelKey: 'time.blitz',    color: '#f59e0b', icon: '⚡' };
-  if (min <= 15) return { labelKey: 'time.rapid',    color: '#22c55e', icon: '🐢' };
-  return               { labelKey: 'time.classical', color: '#3b82f6', icon: '🏛️' };
+  if (min <= 2)  return { labelKey: 'time.bullet',   color: '#ef4444' };
+  if (min <= 5)  return { labelKey: 'time.blitz',    color: '#f59e0b' };
+  if (min <= 15) return { labelKey: 'time.rapid',    color: '#22c55e' };
+  return               { labelKey: 'time.classical', color: '#3b82f6' };
 }
 
 function elapsed(ts: number): string {
@@ -79,7 +78,7 @@ const PostSeekForm: React.FC<{ onPost: () => void; onCancel: () => void }> = ({ 
   return (
     <div className="lobby-post-form">
       <div className="lpf-header">
-        <span className="lpf-title">📋 {t('lobby.postTable')}</span>
+        <span className="lpf-title">{t('lobby.postTable')}</span>
         <button className="lpf-cancel" onClick={onCancel}>×</button>
       </div>
 
@@ -131,7 +130,7 @@ const PostSeekForm: React.FC<{ onPost: () => void; onCancel: () => void }> = ({ 
           <div className="lpf-toggle-thumb" />
         </button>
         <span className="lpf-rated-label">
-          {rated ? `★ ${t('tournament.rated')}` : `☆ ${t('lobby.casual')}`}
+          {rated ? t('tournament.rated') : t('lobby.casual')}
         </span>
         {user && (
           <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 4 }}>
@@ -147,17 +146,22 @@ const PostSeekForm: React.FC<{ onPost: () => void; onCancel: () => void }> = ({ 
   );
 };
 
-// ── Status dot ────────────────────────────────────────────────────────────────
-const StatusDot: React.FC<{ status: OnlinePlayer['status'] }> = ({ status }) => (
-  <span
-    style={{
-      display: 'inline-block',
-      width: 8, height: 8, borderRadius: '50%',
-      background: status === 'playing' ? '#ef4444' : status === 'seeking' ? '#f59e0b' : '#22c55e',
-      flexShrink: 0,
-    }}
-  />
-);
+// ── Status label ──────────────────────────────────────────────────────────────
+const StatusDot: React.FC<{ status: OnlinePlayer['status'] }> = ({ status }) => {
+  const { t } = useTranslation();
+  return (
+    <span
+      style={{
+        color: status === 'playing' ? '#ef4444' : status === 'seeking' ? '#f59e0b' : '#22c55e',
+        fontSize: 11,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      {status === 'playing' ? t('lobby.playing') : status === 'seeking' ? t('lobby.seeking') : t('lobby.idle')}
+    </span>
+  );
+};
 
 // ── Main export ───────────────────────────────────────────────────────────────
 interface Props {
@@ -305,7 +309,6 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
           boxShadow: '0 4px 16px rgba(0,0,0,0.4)', zIndex: 9999,
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <span style={{ color: '#f59e0b' }}>⏱</span>
           {t('lobby.seekExpired')}
         </div>
       )}
@@ -316,9 +319,9 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
         {/* Header */}
         <div className="lobby-col-header">
           <div>
-            <div className="lobby-col-title">🪑 {t('lobby.openTables')}</div>
+            <div className="lobby-col-title">{t('lobby.openTables')}</div>
             <div className="lobby-col-sub">
-              {visibleSeeks.length} {t('lobby.openTables').toLowerCase()} · {universe === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}`}
+              {visibleSeeks.length} {t('lobby.openTables').toLowerCase()} · {universeName}
             </div>
           </div>
           {!mySeek && !showForm && (
@@ -358,7 +361,6 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
         {/* SEEKS TABLE */}
         {visibleSeeks.length === 0 ? (
           <div className="lobby-empty-state">
-            <div style={{ fontSize: 36 }}>🎯</div>
             <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 8 }}>{t('lobby.noOpenTablesYet')}</div>
             <div style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 4 }}>
               {t('lobby.beFirst')}
@@ -377,7 +379,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
             </div>
 
             {visibleSeeks.map(seek => {
-              const { labelKey, color, icon } = tcCategory(seek.timeControl);
+              const { labelKey, color } = tcCategory(seek.timeControl);
               const isMine = seek.socketId === socket.id;
               const ratingVal = universe === 'chess' ? seek.rating?.chess : seek.rating?.checkers;
 
@@ -397,14 +399,11 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                     </div>
                     <div>
                       <div className="lobby-seek-name">
-                        {(seek as any).country && (
-                          <span style={{ fontSize: 14, marginRight: 4 }}>{countryFlag((seek as any).country)}</span>
-                        )}
                         {seek.name}
                         {isMine && <span className="lobby-you-badge">{t('lobby.you')}</span>}
                       </div>
                       <div className="lobby-seek-meta">
-                        {seek.rated ? `★ ${t('tournament.rated')}` : `☆ ${t('lobby.casual')}`}
+                        {seek.rated ? t('tournament.rated') : t('lobby.casual')}
                       </div>
                     </div>
                   </div>
@@ -415,7 +414,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                   {/* Time control */}
                   <div className="lobby-seek-cell">
                     <span className="lobby-tc-badge" style={{ color, background: `${color}18` }}>
-                      {icon} {seek.timeControl}
+                      {seek.timeControl}
                     </span>
                     <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2, textAlign: 'center' }}>{t(labelKey)}</div>
                   </div>
@@ -423,9 +422,9 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                   {/* Wager */}
                   <div className="lobby-seek-cell">
                     {seek.betAmount > 0 ? (
-                      <span className="lobby-bet-badge">💰 ${seek.betAmount}</span>
+                      <span className="lobby-bet-badge">${seek.betAmount}</span>
                     ) : (
-                      <span style={{ color: 'var(--text-3)', fontSize: 12 }}>—</span>
+                      <span style={{ color: 'var(--text-3)', fontSize: 12 }}>{t('lobby.free')}</span>
                     )}
                   </div>
 
@@ -438,7 +437,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                       <button className="lobby-cancel-btn" onClick={handleCancel}>{t('common.cancel')}</button>
                     ) : (
                       <button className="lobby-join-btn" onClick={() => handleAccept(seek)}>
-                        {t('tournament.join')} ▶
+                        {t('tournament.join')}
                       </button>
                     )}
                   </div>
@@ -458,13 +457,13 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
             className={`lobby-rtab ${rightTab === 'chat' ? 'active' : ''}`}
             onClick={() => setRightTab('chat')}
           >
-            💬 {t('lobby.lobbyChat')}
+            {t('lobby.lobbyChat')}
           </button>
           <button
             className={`lobby-rtab ${rightTab === 'players' ? 'active' : ''}`}
             onClick={() => setRightTab('players')}
           >
-            🌐 {t('lobby.onlinePlayers')} ({totalOnline})
+            {t('lobby.onlinePlayers')} ({totalOnline})
           </button>
         </div>
 
@@ -474,7 +473,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
             <div className="lobby-search-row">
               <input
                 className="lobby-player-search"
-                placeholder={`🔍 ${t('lobby.searchPlayers')}`}
+                placeholder={t('lobby.searchPlayers')}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
@@ -482,16 +481,15 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
 
         {/* Status legend */}
         <div className="lobby-status-legend">
-          <span><span style={{ color: '#22c55e' }}>●</span> {t('lobby.idle')}</span>
-          <span><span style={{ color: '#f59e0b' }}>●</span> {t('lobby.seeking')}</span>
-          <span><span style={{ color: '#ef4444' }}>●</span> {t('lobby.playing')}</span>
+          <span>{t('lobby.idle')}</span>
+          <span>{t('lobby.seeking')}</span>
+          <span>{t('lobby.playing')}</span>
         </div>
 
         {/* Player list */}
         <div className="lobby-player-list">
           {filteredPlayers.length === 0 ? (
             <div className="lobby-empty-state" style={{ padding: '24px 0' }}>
-              <div style={{ fontSize: 28 }}>👤</div>
               <div style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 6 }}>
                 {searchQuery ? t('lobby.noPlayersFound') : t('lobby.noOtherPlayers')}
               </div>
@@ -531,7 +529,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                         {isMe && <span className="lobby-you-badge">{t('lobby.you')}</span>}
                       </div>
                       <div className="lobby-player-sub">
-                        {player.universe === 'chess' ? '♟' : '⬤'} {myRating}
+                        {myRating}
                         {theirSeek && (
                           <span className="lobby-seeking-pill">
                             {t('lobby.seeking')} {theirSeek.timeControl}
@@ -543,7 +541,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                       <StatusDot status={theirSeek ? 'seeking' : player.status} />
                       {canChallenge && (
                         <span className="lobby-challenge-btn" aria-label={`Open actions for ${player.name}`}>
-                          ⋮
+                          Actions
                         </span>
                       )}
                       {theirSeek && (
@@ -626,7 +624,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                 maxLength={200}
                 disabled={chatMuted}
               />
-              <button className="lobby-chat-send" onClick={handleSendChat} disabled={chatMuted}>↵</button>
+              <button className="lobby-chat-send" onClick={handleSendChat} disabled={chatMuted}>Send</button>
             </div>
           </div>
         )}

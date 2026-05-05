@@ -46,7 +46,6 @@ export const SearchingOverlay: React.FC<Props> = ({ timeControl, betAmount = 0, 
   if (expired) {
     return (
       <div className="searching-overlay">
-        <div style={{ fontSize: 36 }}>⏱</div>
         <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--warning, #f59e0b)' }}>
           {t('game.seekExpired', 'No opponent found')}
         </div>
@@ -70,7 +69,7 @@ export const SearchingOverlay: React.FC<Props> = ({ timeControl, betAmount = 0, 
         {t('tournament.timeControl')}: <strong style={{ color: 'var(--accent)' }}>{timeControl}</strong>
         {betAmount > 0 && (
           <span style={{ marginLeft: 12, color: '#22c55e', fontWeight: 700 }}>
-            💰 ${betAmount}
+            Stake ${betAmount}
           </span>
         )}
       </div>

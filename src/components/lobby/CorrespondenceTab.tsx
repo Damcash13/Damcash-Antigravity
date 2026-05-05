@@ -7,10 +7,10 @@ import { useCorrespondenceStore, CorrGame } from '../../stores/correspondenceSto
 const DAY_MS = 86_400_000;
 
 const TIME_OPTIONS = [
-  { label: '1 day',  value: DAY_MS,      icon: '⚡' },
-  { label: '3 days', value: 3 * DAY_MS,  icon: '🌙' },
-  { label: '7 days', value: 7 * DAY_MS,  icon: '📅' },
-  { label: '14 days',value: 14 * DAY_MS, icon: '🗓️' },
+  { label: '1 day',  value: DAY_MS },
+  { label: '3 days', value: 3 * DAY_MS },
+  { label: '7 days', value: 7 * DAY_MS },
+  { label: '14 days',value: 14 * DAY_MS },
 ];
 
 function timeLeft(game: CorrGame): string {
@@ -88,7 +88,7 @@ export const CorrespondenceTab: React.FC = () => {
       {/* ── Header ── */}
       <div className="corr-header">
         <div>
-          <h2 className="corr-title">✉️ {t('correspondence.title')}</h2>
+          <h2 className="corr-title">{t('correspondence.title')}</h2>
           <p className="corr-subtitle">{t('correspondence.timePerMove')}</p>
         </div>
         <div className="corr-header-actions">
@@ -96,13 +96,13 @@ export const CorrespondenceTab: React.FC = () => {
             className={`corr-tab-btn ${panel === 'list' ? 'active' : ''}`}
             onClick={() => setPanel('list')}
           >
-            📋 {t('correspondence.yourGames')}
+            {t('correspondence.yourGames')}
           </button>
           <button
             className={`corr-tab-btn ${panel === 'create' ? 'active' : ''}`}
             onClick={() => setPanel('create')}
           >
-            ➕ {t('correspondence.newGame')}
+            {t('correspondence.newGame')}
           </button>
         </div>
       </div>
@@ -118,7 +118,6 @@ export const CorrespondenceTab: React.FC = () => {
                 className={`corr-time-btn ${selectedTime === opt.value ? 'active' : ''}`}
                 onClick={() => setSelectedTime(opt.value)}
               >
-                <span className="corr-time-icon">{opt.icon}</span>
                 <span className="corr-time-label">{opt.label}</span>
               </button>
             ))}
@@ -135,9 +134,9 @@ export const CorrespondenceTab: React.FC = () => {
           />
 
           <div className="corr-create-summary">
-            <span>🌐 {universe === 'chess' ? t('profile.chess') : t('profile.checkers')}</span>
-            <span>⏱ {TIME_OPTIONS.find(o => o.value === selectedTime)?.label} / {t('correspondence.timePerMove')}</span>
-            {opponentName && <span>👤 {opponentName}</span>}
+            <span>{universe === 'chess' ? t('profile.chess') : t('profile.checkers')}</span>
+            <span>{TIME_OPTIONS.find(o => o.value === selectedTime)?.label} / {t('correspondence.timePerMove')}</span>
+            {opponentName && <span>{opponentName}</span>}
           </div>
 
           {createError && (
@@ -171,14 +170,13 @@ export const CorrespondenceTab: React.FC = () => {
                 className={`corr-filter-chip ${filterStatus === s ? 'active' : ''}`}
                 onClick={() => setFilterStatus(s)}
               >
-                {s === 'all' ? t('leaderboard.viewAll') : s === 'active' ? `🎮 ${t('correspondence.active')}` : s === 'waiting' ? `⏳ ${t('correspondence.waiting')}` : `✅ ${t('correspondence.ended')}`}
+                {s === 'all' ? t('leaderboard.viewAll') : s === 'active' ? t('correspondence.active') : s === 'waiting' ? t('correspondence.waiting') : t('correspondence.ended')}
               </button>
             ))}
           </div>
 
           {filtered.length === 0 ? (
             <div className="corr-empty">
-              <div style={{ fontSize: 48, marginBottom: 12 }}>✉️</div>
               <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{t('correspondence.noGames')}</div>
               <button className="btn btn-accent" onClick={() => setPanel('create')}>
                 {t('correspondence.startNewGame')}
@@ -208,7 +206,7 @@ export const CorrespondenceTab: React.FC = () => {
                         <strong>{g.blackPlayer}</strong>
                       </div>
                       <div className="corr-card-meta">
-                        <span>{g.universe === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}`}</span>
+                        <span>{g.universe === 'chess' ? t('profile.chess') : t('profile.checkers')}</span>
                         <span>·</span>
                         <span>{TIME_OPTIONS.find(o => o.value === g.timePerMove)?.label ?? '?'}/move</span>
                         <span>·</span>
@@ -222,15 +220,15 @@ export const CorrespondenceTab: React.FC = () => {
                     <div className="corr-card-right">
                       {g.status === 'ended' ? (
                         <span className="corr-status-badge ended">
-                          {g.result === 'draw' ? '½-½' : g.result === g.myColor ? `${t('game.youWon')} ✓` : t('game.youLost')}
+                          {g.result === 'draw' ? 'Draw' : g.result === g.myColor ? t('game.youWon') : t('game.youLost')}
                         </span>
                       ) : g.status === 'waiting' ? (
-                        <span className="corr-status-badge waiting">⏳ {t('correspondence.waiting')}</span>
+                        <span className="corr-status-badge waiting">{t('correspondence.waiting')}</span>
                       ) : myTurn ? (
-                        <span className="corr-status-badge your-turn">🔔 {t('correspondence.yourTurn')}</span>
+                        <span className="corr-status-badge your-turn">{t('correspondence.yourTurn')}</span>
                       ) : (
                         <div>
-                          <div className="corr-status-badge waiting">⏳ {t('correspondence.theirTurn')}</div>
+                          <div className="corr-status-badge waiting">{t('correspondence.theirTurn')}</div>
                           <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2, textAlign: 'right' }}>
                             {timeLeft(g)}
                           </div>

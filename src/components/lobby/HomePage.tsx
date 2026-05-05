@@ -7,7 +7,7 @@ import { LobbyTab } from './LobbyTab';
 import { CorrespondenceTab } from './CorrespondenceTab';
 import { CustomGameModal } from './CustomGameModal';
 import { api, ApiLeaderboardEntry } from '../../lib/api';
-import { PlayerHoverCard, countryFlag } from '../common/PlayerHoverCard';
+import { PlayerHoverCard } from '../common/PlayerHoverCard';
 
 // ── Time controls ─────────────────────────────────────────────────────────────
 
@@ -258,7 +258,6 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
             className="pairing-custom-btn"
             onClick={() => setShowCustom(true)}
           >
-            <span style={{ fontSize: 15 }}>⚙</span>
             {t('lobby.custom')}
           </button>
 
@@ -266,7 +265,7 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
           <div style={{ marginTop: 28 }}>
             <div className="games-list-header" style={{ marginBottom: 14 }}>
               <span className="section-title">
-                🔴 {t('lobby.liveGames')}
+                {t('lobby.liveGames')}
                 {!liveGamesLoading && liveCount > 0 && (
                   <span style={{
                     marginLeft: 8, background: 'rgba(239,68,68,0.18)',
@@ -297,7 +296,7 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
           {/* ── Leaderboard ── */}
           <div style={{ marginTop: 28 }}>
             <div className="games-list-header" style={{ marginBottom: 10 }}>
-              <span className="section-title">🏆 {t('lobby.leaderboard')}</span>
+              <span className="section-title">{t('lobby.leaderboard')}</span>
               <span className="more-link">{t('lobby.morePlayers')}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -305,10 +304,8 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
                 Array.from({ length: 7 }).map((_, i) => (
                   <div key={i} className="skeleton-row" style={{ padding: '6px 0' }}>
                     <div className="skeleton skeleton-line" style={{ width: 20 }} />
-                    <div className="skeleton skeleton-circle" style={{ width: 22, height: 22 }} />
                     <div className="skeleton skeleton-line" style={{ width: `${55 + (i % 3) * 15}px` }} />
-                    <div className="skeleton skeleton-line-sm" style={{ width: 28, marginLeft: 'auto' }} />
-                    <div className="skeleton skeleton-line" style={{ width: 36 }} />
+                    <div className="skeleton skeleton-line" style={{ width: 36, marginLeft: 'auto' }} />
                   </div>
                 ))
               ) : leaderboard.length === 0 ? (
@@ -316,9 +313,6 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
               ) : leaderboard.map(entry => (
                 <div key={entry.rank} className="lb-item">
                   <span className={`lb-rank ${entry.rank <= 3 ? 'top-3' : ''}`}>{entry.rank}</span>
-                  {entry.country && (
-                    <span className="lb-flag" title={entry.country}>{countryFlag(entry.country)}</span>
-                  )}
                   <PlayerHoverCard
                     username={entry.name}
                     rating={entry.rating}
@@ -335,7 +329,6 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
                       {entry.name}
                     </span>
                   </PlayerHoverCard>
-                  <span className="lb-games text-muted">🕹{entry.games}</span>
                   <span className="lb-rating">{entry.rating}</span>
                 </div>
               ))}

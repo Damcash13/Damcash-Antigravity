@@ -20,6 +20,8 @@ export const OnlinePlayersList: React.FC<Props> = ({ onInvite }) => {
 
   const statusColor = (s: OnlinePlayer['status']) =>
     s === 'playing' ? '#f59e0b' : s === 'seeking' ? 'var(--accent)' : '#22c55e';
+  const statusText = (s: OnlinePlayer['status']) =>
+    s === 'playing' ? t('lobby.playing') : s === 'seeking' ? t('lobby.seeking') : t('lobby.idle');
 
   return (
     <div style={{ marginTop: 8 }}>
@@ -51,12 +53,6 @@ export const OnlinePlayersList: React.FC<Props> = ({ onInvite }) => {
             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-2)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
-            {/* Status dot */}
-            <div style={{
-              width: 8, height: 8, borderRadius: '50%',
-              background: statusColor(player.status), flexShrink: 0,
-            }} />
-
             {/* Name */}
             <span style={{
               flex: 1, fontSize: 13, color: 'var(--text-1)',
@@ -70,9 +66,10 @@ export const OnlinePlayersList: React.FC<Props> = ({ onInvite }) => {
             <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
               {universe === 'chess' ? player.rating.chess : player.rating.checkers}
             </span>
+            <span style={{ fontSize: 11, color: statusColor(player.status), fontWeight: 700, flexShrink: 0 }}>
+              {statusText(player.status)}
+            </span>
 
-            {/* Menu icon */}
-            <span style={{ fontSize: 13, flexShrink: 0, opacity: 0.6 }}>⋮</span>
           </div>
         </PlayerHoverCard>
       ))}

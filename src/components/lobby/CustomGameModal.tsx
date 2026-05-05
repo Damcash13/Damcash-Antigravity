@@ -42,11 +42,11 @@ const PieceSVG: React.FC<{ color: 'white' | 'black' | 'random'; universe: string
 
 // ── Time category helper ──────────────────────────────────────────────────────
 
-function getCategory(minutes: number): { labelKey: string; color: string; icon: string } {
-  if (minutes < 3)  return { labelKey: 'time.bullet',    color: '#ef4444', icon: '🔥' };
-  if (minutes < 8)  return { labelKey: 'time.blitz',     color: '#f59e0b', icon: '⚡' };
-  if (minutes < 25) return { labelKey: 'time.rapid',     color: '#22c55e', icon: '🐢' };
-  return             { labelKey: 'time.classical', color: '#3b82f6', icon: '🏛️' };
+function getCategory(minutes: number): { labelKey: string; color: string } {
+  if (minutes < 3)  return { labelKey: 'time.bullet',    color: '#ef4444' };
+  if (minutes < 8)  return { labelKey: 'time.blitz',     color: '#f59e0b' };
+  if (minutes < 25) return { labelKey: 'time.rapid',     color: '#22c55e' };
+  return             { labelKey: 'time.classical', color: '#3b82f6' };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ export const CustomGameModal: React.FC<Props> = ({ open, onClose, onConfirm }) =
               <div className="custom-slider-label">
                 {t('createGame.minutesPerSide')}: <strong>{minutes}</strong>
                 <span className="custom-cat-pill" style={{ background: cat.color + '25', color: cat.color }}>
-                  {cat.icon} {t(cat.labelKey)}
+                  {t(cat.labelKey)}
                 </span>
               </div>
               <div className="custom-slider-track-wrap">
@@ -179,7 +179,7 @@ export const CustomGameModal: React.FC<Props> = ({ open, onClose, onConfirm }) =
 
         {timeMode === 'correspondence' && (
           <div className="custom-corr-note">
-            ✉️ <strong>{t('lobby.correspondence')}</strong> — {t('correspondence.startNewGame')}
+            <strong>{t('lobby.correspondence')}</strong> - {t('correspondence.startNewGame')}
           </div>
         )}
 
@@ -204,10 +204,10 @@ export const CustomGameModal: React.FC<Props> = ({ open, onClose, onConfirm }) =
         {/* ── Actions ── */}
         <div className="custom-modal-actions">
           <button className="btn custom-btn-computer" onClick={handleComputer}>
-            🤖 {t('createGame.vsComputer')}
+            {t('createGame.vsComputer')}
           </button>
           <button className="btn custom-btn-online" onClick={handleConfirm}>
-            🔍 {t('createGame.findOpponent')}
+            {t('createGame.findOpponent')}
           </button>
         </div>
       </div>
