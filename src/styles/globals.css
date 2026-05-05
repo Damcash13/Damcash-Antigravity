@@ -763,6 +763,186 @@ body {
   color: #ef4444;
 }
 
+.admin-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+
+.admin-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.admin-panel-head h2 {
+  margin: 0;
+  color: var(--text-1);
+  font-size: 15px;
+}
+
+.admin-panel-head span {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-health-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+}
+
+.admin-health-grid div {
+  padding: 12px;
+  background: var(--bg-2);
+}
+
+.admin-health-grid span,
+.admin-health-grid strong {
+  display: block;
+}
+
+.admin-health-grid span {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.admin-health-grid strong {
+  color: var(--text-1);
+  font-size: 14px;
+}
+
+.admin-mini-table {
+  overflow-x: auto;
+}
+
+.admin-mini-table > div {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 12px;
+  min-width: 760px;
+}
+
+.admin-mini-table > div:last-child {
+  border-bottom: none;
+}
+
+.admin-mini-table .head {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(255,255,255,0.02);
+}
+
+.admin-mini-table.users > div {
+  grid-template-columns: minmax(140px, 1.2fr) 90px 80px 90px 100px;
+}
+
+.admin-mini-table.games > div {
+  grid-template-columns: minmax(180px, 1.5fr) minmax(120px, 1fr) 70px 80px 70px 80px;
+}
+
+.admin-mini-table.tournaments > div {
+  grid-template-columns: minmax(200px, 1.6fr) 90px 135px 70px 70px 80px;
+}
+
+.admin-mini-table.payments > div,
+.admin-mini-table.disputes > div,
+.admin-mini-table.flagged > div {
+  grid-template-columns: minmax(160px, 1.3fr) minmax(120px, 1fr) 90px minmax(130px, 1fr) 130px;
+}
+
+.admin-pill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-pill.idle,
+.admin-pill.running,
+.admin-pill.available {
+  background: rgba(34,197,94,0.14);
+  color: #22c55e;
+}
+
+.admin-pill.playing,
+.admin-pill.in_game {
+  background: rgba(239,68,68,0.14);
+  color: #ef4444;
+}
+
+.admin-pill.seeking,
+.admin-pill.upcoming,
+.admin-pill.searching {
+  background: rgba(245,158,11,0.14);
+  color: #f59e0b;
+}
+
+.admin-pill.finished {
+  background: rgba(148,163,184,0.14);
+  color: var(--text-3);
+}
+
+.admin-pill.failed {
+  background: rgba(239,68,68,0.14);
+  color: #ef4444;
+}
+
+.admin-error-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-error-list div {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.admin-error-list div:last-child {
+  border-bottom: none;
+}
+
+.admin-error-list strong {
+  color: #fca5a5;
+  font-size: 11px;
+}
+
+.admin-error-list span {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .game-item {
   display: flex;
   flex-direction: column;
@@ -2746,6 +2926,7 @@ html, body {
   .home-onboarding-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-safety-header { flex-direction: column; }
   .admin-safety-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dm-shell { grid-template-columns: 1fr; max-height: 78vh; }
   .dm-sidebar { max-height: 190px; border-right: none; border-bottom: 1px solid var(--border); }
   .tabs { overflow-x: auto; white-space: nowrap; }
@@ -2784,6 +2965,8 @@ html, body {
   .home-onboarding-item { min-height: 0; }
   .admin-safety-kpis { grid-template-columns: 1fr; }
   .admin-safety-actions { width: 100%; flex-direction: column; }
+  .admin-health-grid { grid-template-columns: 1fr; }
+  .admin-error-list div { grid-template-columns: 1fr; }
   .dm-compose { grid-template-columns: 1fr; }
   .dm-bubble { max-width: 92%; }
   .pairing-grid { grid-template-columns: repeat(2, 1fr); }

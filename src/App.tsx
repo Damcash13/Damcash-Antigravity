@@ -284,6 +284,7 @@ export default function App() {
             <Route path="/:universe/coordinates" element={<main className="main-content"><CoordinatesPage /></main>} />
             <Route path="/:universe/import" element={<main className="main-content"><GameImporterPage /></main>} />
             <Route path="/:universe/coming-soon/:feature" element={<main className="main-content"><ComingSoonPage /></main>} />
+            <Route path="/:universe/admin" element={<ProtectedRoute><main className="main-content"><AdminSafetyPage /></main></ProtectedRoute>} />
             <Route path="/:universe/admin/safety" element={<ProtectedRoute><main className="main-content"><AdminSafetyPage /></main></ProtectedRoute>} />
 
             <Route path="/:universe/puzzles"        element={<main className="main-content"><PuzzlesPage /></main>} />

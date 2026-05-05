@@ -232,6 +232,10 @@ export const api = {
       request<{ reports: ApiModerationReport[] }>(`/api/admin/moderation?limit=${encodeURIComponent(String(limit))}`),
   },
 
+  admin: {
+    dashboard: () => request<ApiAdminDashboard>('/api/admin/dashboard'),
+  },
+
   messages: {
     conversations: () =>
       request<{ conversations: ApiConversation[] }>('/api/messages/conversations'),
@@ -429,6 +433,99 @@ export interface ApiDirectMessage {
   recipientUsername: string;
   readAt: string | null;
   createdAt: string;
+}
+
+export interface ApiAdminDashboard {
+  health: {
+    ok: boolean;
+    db: string;
+    uptime: number;
+    checkedAt: string;
+    nodeEnv: string;
+    memory: { rss: number; heapTotal: number; heapUsed: number; external: number; arrayBuffers: number };
+    activeUsers: number;
+    activeGames: number;
+    openSeeks: number;
+    recentErrorCount: number;
+  };
+  activeUsers: Array<{
+    socketId: string;
+    name: string;
+    status: string;
+    universe: string;
+    rating: { chess: number; checkers: number };
+    country?: string;
+    connectedForMs: number | null;
+  }>;
+  activeGames: Array<{
+    roomId: string;
+    dbMatchId: string | null;
+    universe: string;
+    timeControl: string;
+    rated: boolean;
+    betAmount: number;
+    tournamentId: string | null;
+    tournamentName: string | null;
+    white: { name: string; rating: number } | null;
+    black: { name: string; rating: number } | null;
+    moveCount: number;
+    spectators: number;
+    durationMs: number | null;
+    walletStatus: string;
+  }>;
+  tournaments: {
+    summary: { upcoming: number; running: number; finished: number; [key: string]: number };
+    recent: Array<{
+      id: string;
+      name: string;
+      universe: string;
+      format: string;
+      status: string;
+      lifecycle: string;
+      startsAt: string;
+      durationMs: number;
+      playerCount: number;
+      matchCount: number;
+      prizePool: number;
+      betEntry: number;
+    }>;
+  };
+  failedPayments: {
+    transactions: Array<{
+      id: string;
+      userId: string | null;
+      username: string;
+      amount: number;
+      type: string;
+      status: string;
+      matchId: string | null;
+      stripeSessionId: string | null;
+      createdAt: string;
+    }>;
+    walletFailures: Array<{
+      id: string;
+      universe: string;
+      timeControl: string;
+      result: string | null;
+      resultReason: string | null;
+      white: string;
+      black: string;
+      betAmount: number;
+      walletStatus: string;
+      createdAt: string;
+      endedAt: string | null;
+    }>;
+  };
+  disputedGames: Array<ApiModerationReport & { reporterUsername: string | null }>;
+  flaggedUsers: Array<{
+    username: string;
+    reportCount: number;
+    openCount: number;
+    lastFlaggedAt: string;
+    reasons: string[];
+  }>;
+  recentReports: ApiModerationReport[];
+  recentErrors: Array<{ at: string; message: string }>;
 }
 
 export interface ApiWallet {

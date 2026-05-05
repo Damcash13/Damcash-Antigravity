@@ -39,6 +39,27 @@ const prisma = new PrismaClient({
 const { supabase } = require('./supabase.cjs');
 
 // ── Structured logger ─────────────────────────────────────────────────────────
+const recentErrors = [];
+const rawConsoleError = console.error.bind(console);
+function rememberError(args) {
+  const message = args.map((arg) => {
+    if (arg instanceof Error) return arg.stack || arg.message;
+    if (typeof arg === 'string') return arg;
+    try { return JSON.stringify(arg); }
+    catch { return String(arg); }
+  }).join(' ');
+  recentErrors.unshift({
+    at: new Date().toISOString(),
+    message: message.slice(0, 1200),
+  });
+  recentErrors.splice(50);
+}
+
+console.error = (...args) => {
+  rememberError(args);
+  rawConsoleError(...args);
+};
+
 const log = {
   info:  (...a) => console.log( `[${new Date().toISOString()}] INFO `, ...a),
   warn:  (...a) => console.warn(`[${new Date().toISOString()}] WARN `, ...a),
@@ -708,6 +729,7 @@ io.on('connection', (socket) => {
       status: 'idle',
       universe: universe || 'chess',
       country: country || '',
+      registeredAt: Date.now(),
     });
     broadcastPlayerList();
     socket.emit('players:online', Array.from(players.entries()).map(([id, info]) => ({ socketId: id, ...info })));
@@ -3295,6 +3317,207 @@ app.get('/api/admin/moderation', requireAuth, requireAdmin, async (req, res) => 
   } catch (err) {
     console.error('[Admin moderation] Error:', err);
     res.status(500).json({ error: 'Could not load moderation dashboard' });
+  }
+});
+
+app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    await ensureSafetySchema();
+    await ensureTournamentMatchSchema();
+
+    const now = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+
+    const activeUsers = Array.from(players.entries()).map(([socketId, player]) => ({
+      socketId,
+      name: player.name || 'Unknown',
+      status: player.status || 'idle',
+      universe: player.universe || 'chess',
+      rating: player.rating || { chess: 1500, checkers: 1450 },
+      country: player.country || '',
+      connectedForMs: player.registeredAt ? now - player.registeredAt : null,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    const activeGames = Array.from(rooms.entries()).map(([roomId, room]) => {
+      const white = players.get(room.players?.white);
+      const black = players.get(room.players?.black);
+      return {
+        roomId,
+        dbMatchId: room.dbMatchId || null,
+        universe: room.config?.universe || 'chess',
+        timeControl: room.config?.timeControl || '5+0',
+        rated: room.config?.rated !== false,
+        betAmount: Number(room.config?.betAmount || 0),
+        tournamentId: room.config?.tournamentId || null,
+        tournamentName: room.config?.tournamentName || null,
+        white: white ? { name: white.name, rating: white.rating?.[room.config?.universe || 'chess'] || 1500 } : null,
+        black: black ? { name: black.name, rating: black.rating?.[room.config?.universe || 'chess'] || 1500 } : null,
+        moveCount: room.moves?.length || 0,
+        spectators: room.spectators?.size || 0,
+        durationMs: room.createdAt ? now - room.createdAt : null,
+        walletStatus: room.escrowed ? 'escrowed' : 'none',
+      };
+    }).sort((a, b) => (b.durationMs || 0) - (a.durationMs || 0));
+
+    const tournaments = await prisma.tournament.findMany({
+      include: {
+        _count: { select: { players: true, matches: true } },
+      },
+      orderBy: { startsAt: 'desc' },
+      take: 30,
+    });
+    const tournamentRows = tournaments.map(tournament => ({
+      id: tournament.id,
+      name: tournament.name,
+      universe: tournament.universe,
+      format: tournament.format,
+      status: tournament.status,
+      lifecycle: getTournamentLifecycle(tournament),
+      startsAt: tournament.startsAt,
+      durationMs: tournament.durationMs,
+      playerCount: tournament._count.players,
+      matchCount: tournament._count.matches,
+      prizePool: Number(tournament.prizePool || 0),
+      betEntry: Number(tournament.betEntry || 0),
+    }));
+    const tournamentSummary = tournamentRows.reduce((acc, tournament) => {
+      acc[tournament.lifecycle] = (acc[tournament.lifecycle] || 0) + 1;
+      return acc;
+    }, { upcoming: 0, running: 0, finished: 0 });
+
+    const failedTransactions = await prisma.transaction.findMany({
+      where: { status: { not: 'COMPLETED' } },
+      include: {
+        wallet: {
+          include: {
+            user: { select: { id: true, username: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    const walletFailures = await prisma.match.findMany({
+      where: { walletStatus: 'failed' },
+      include: {
+        white: { select: { username: true } },
+        black: { select: { username: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    const disputedGames = await prisma.$queryRaw`
+      SELECT
+        r.id,
+        r.reason,
+        r.context,
+        r.notes,
+        r.status,
+        r."matchId",
+        r."paymentId",
+        r."createdAt",
+        reporter.username AS "reporterUsername",
+        COALESCE(target.username, r."targetUsername") AS "targetUsername"
+      FROM "ModerationReport" r
+      LEFT JOIN "User" reporter ON reporter.id = r."reporterId"
+      LEFT JOIN "User" target ON target.id = r."targetId"
+      WHERE r."matchId" IS NOT NULL
+        OR r.context = 'suspicious_review'
+        OR r.reason ILIKE '%suspicious%'
+      ORDER BY r."createdAt" DESC
+      LIMIT 25
+    `;
+
+    const flaggedUsers = await prisma.$queryRaw`
+      SELECT
+        COALESCE(target.username, r."targetUsername") AS username,
+        COUNT(*)::int AS "reportCount",
+        COUNT(*) FILTER (WHERE r.status = 'open')::int AS "openCount",
+        MAX(r."createdAt") AS "lastFlaggedAt",
+        ARRAY_AGG(DISTINCT r.reason) AS reasons
+      FROM "ModerationReport" r
+      LEFT JOIN "User" target ON target.id = r."targetId"
+      WHERE COALESCE(target.username, r."targetUsername") IS NOT NULL
+      GROUP BY COALESCE(target.username, r."targetUsername")
+      ORDER BY "openCount" DESC, "reportCount" DESC, "lastFlaggedAt" DESC
+      LIMIT 25
+    `;
+
+    const recentReports = await prisma.$queryRaw`
+      SELECT
+        r.id,
+        r.reason,
+        r.context,
+        r.notes,
+        r.status,
+        r."targetUsername",
+        r."matchId",
+        r."paymentId",
+        r."createdAt",
+        reporter.username AS "reporterUsername",
+        target.username AS "targetResolvedUsername"
+      FROM "ModerationReport" r
+      LEFT JOIN "User" reporter ON reporter.id = r."reporterId"
+      LEFT JOIN "User" target ON target.id = r."targetId"
+      ORDER BY r."createdAt" DESC
+      LIMIT 25
+    `;
+
+    res.json({
+      health: {
+        ok: true,
+        db: 'ok',
+        uptime: process.uptime(),
+        checkedAt: new Date().toISOString(),
+        nodeEnv: process.env.NODE_ENV || 'development',
+        memory: process.memoryUsage(),
+        activeUsers: activeUsers.length,
+        activeGames: activeGames.length,
+        openSeeks: seeks.size,
+        recentErrorCount: recentErrors.length,
+      },
+      activeUsers,
+      activeGames,
+      tournaments: {
+        summary: tournamentSummary,
+        recent: tournamentRows,
+      },
+      failedPayments: {
+        transactions: failedTransactions.map(tx => ({
+          id: tx.id,
+          userId: tx.wallet?.user?.id || null,
+          username: tx.wallet?.user?.username || 'Unknown',
+          amount: Number(tx.amount),
+          type: tx.type,
+          status: tx.status,
+          matchId: tx.matchId,
+          stripeSessionId: tx.stripeSessionId,
+          createdAt: tx.createdAt,
+        })),
+        walletFailures: walletFailures.map(match => ({
+          id: match.id,
+          universe: match.universe,
+          timeControl: match.timeControl,
+          result: match.result,
+          resultReason: match.resultReason,
+          white: match.white?.username || 'White',
+          black: match.black?.username || 'Black',
+          betAmount: Number(match.betAmount),
+          walletStatus: match.walletStatus,
+          createdAt: match.createdAt,
+          endedAt: match.endedAt,
+        })),
+      },
+      disputedGames,
+      flaggedUsers,
+      recentReports,
+      recentErrors,
+    });
+  } catch (err) {
+    console.error('[Admin dashboard] Error:', err);
+    res.status(500).json({ error: 'Could not load admin dashboard' });
   }
 });
 
