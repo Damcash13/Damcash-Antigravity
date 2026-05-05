@@ -387,7 +387,7 @@ const HamburgerMenu: React.FC<{
 export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlayer, onOpenCreateGame }) => {
   const { t, i18n } = useTranslation();
   const { universe, toggleUniverse } = useUniverseStore();
-  const { user, isLoggedIn, logout } = useUserStore();
+  const { user, isLoggedIn, logout, lastRatingChange } = useUserStore();
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(() => getSoundEnabled());
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -450,8 +450,20 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
                   className="header-avatar-btn"
                   onClick={() => navigate(`/${universe}/profile/${user.name}`)}
                   title={t('header.profileTitle', { name: user.name })}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, padding: '4px 8px', minWidth: 48 }}
                 >
                   <span className="header-avatar-letter">{user.name[0]?.toUpperCase()}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1 }}>
+                    {user.rating[universe]}
+                    {lastRatingChange && lastRatingChange.universe === universe && Date.now() - lastRatingChange.playedAt < 120_000 && (
+                      <span style={{
+                        marginLeft: 3, fontWeight: 800,
+                        color: lastRatingChange.delta >= 0 ? '#22c55e' : '#ef4444',
+                      }}>
+                        {lastRatingChange.delta >= 0 ? '+' : ''}{lastRatingChange.delta}
+                      </span>
+                    )}
+                  </span>
                 </button>
               )}
             </div>

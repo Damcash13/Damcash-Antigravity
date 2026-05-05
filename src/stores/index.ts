@@ -114,6 +114,7 @@ interface UserStore {
   isLoggedIn: boolean;
   gamesPlayed: { chess: number; checkers: number };
   ratingHistory: RatingEntry[];
+  lastRatingChange: RatingEntry | null;
   login:           (name: string, password?: string) => Promise<void> | void;
   logout:          () => void;
   updateBalance:   (amount: number) => void;
@@ -134,6 +135,7 @@ export const useUserStore = create<UserStore>()(
       isLoggedIn: false,
       gamesPlayed: { chess: 0, checkers: 0 },
       ratingHistory: [],
+      lastRatingChange: null,
       login: async (email, password) => {
         if (!supabase) throw new Error('Supabase not initialized');
         const { data, error } = await withTimeout<any>(
@@ -225,6 +227,7 @@ export const useUserStore = create<UserStore>()(
             user: { ...s.user, rating: { ...s.user.rating, [uv]: entry.after } },
             gamesPlayed: { ...s.gamesPlayed, [uv]: (s.gamesPlayed[uv] || 0) + 1 },
             ratingHistory: [entry, ...s.ratingHistory].slice(0, 200),
+            lastRatingChange: entry,
           };
         }),
       updateBetStats: (result) =>

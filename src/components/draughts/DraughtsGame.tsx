@@ -81,6 +81,7 @@ export const DraughtsGame: React.FC = () => {
   const [incomingTakeback, setIncomingTakeback] = useState(false);
   const [spectators, setSpectators] = useState<string[]>([]);
   const [savingResult, setSavingResult] = useState(false);
+  const [ratingChange, setRatingChange] = useState<{ delta: number; before: number; after: number } | null>(null);
   const [isOpponentDisconnected, setIsOpponentDisconnected] = useState(false);
   const [isBerserk, setIsBerserk] = useState(false);
   const [opponentBerserk, setOpponentBerserk] = useState(false);
@@ -508,7 +509,10 @@ export const DraughtsGame: React.FC = () => {
       }
     };
 
-    const handleRatingUpdate = () => setSavingResult(false);
+    const handleRatingUpdate = (entry: any) => {
+      setSavingResult(false);
+      setRatingChange({ delta: entry.delta, before: entry.before, after: entry.after });
+    };
 
     const handleBerserkEvent = (data: { socketId: string; color: 'white' | 'black' }) => {
       if (data.socketId !== socket.id) setOpponentBerserk(true);
@@ -680,12 +684,33 @@ export const DraughtsGame: React.FC = () => {
                 </div>
                 <div className="game-over-title">{t('game.gameOver')}</div>
                 <div className="game-over-subtitle">{result}</div>
-                {savingResult && (
-                  <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginBottom: 4 }}>
+
+                {/* Rating change */}
+                {ratingChange && isOnline && (
+                  <div style={{ margin: '12px 0 6px', textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: 42, fontWeight: 900, lineHeight: 1, letterSpacing: -1,
+                      color: ratingChange.delta >= 0 ? '#22c55e' : '#ef4444',
+                    }}>
+                      {ratingChange.delta >= 0 ? '+' : ''}{ratingChange.delta}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 4 }}>
+                      {ratingChange.before} → <strong style={{ color: 'var(--text-1)' }}>{ratingChange.after}</strong>
+                    </div>
+                  </div>
+                )}
+                {savingResult && !ratingChange && (
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', margin: '10px 0 4px' }}>
                     <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
                     {t('game.savingResult', 'Saving result…')}
                   </div>
                 )}
+                {isVsComputer && (
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', margin: '8px 0', padding: '3px 12px', background: 'var(--bg-2)', borderRadius: 20, display: 'inline-block' }}>
+                    ⚙ Unrated — computer game
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                   <button className="btn btn-primary" onClick={handleNewGame}>{t('game.rematch')}</button>
                   <button className="btn btn-secondary" onClick={() => navigate('/')}>
@@ -737,8 +762,13 @@ export const DraughtsGame: React.FC = () => {
                 {isBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
               </div>
             </PlayerPopover>
-            <div className="player-rating">
+            <div className="player-rating" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               ({user?.rating.checkers || 1450}) · {playerColor === 'white' ? whitePieces : blackPieces} pieces
+              {isVsComputer ? (
+                <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10, background: 'var(--bg-3)', color: 'var(--text-3)' }}>Unrated</span>
+              ) : (
+                <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10, background: 'rgba(56,189,248,0.12)', color: '#38bdf8' }}>Rated</span>
+              )}
             </div>
           </div>
           <Clock
