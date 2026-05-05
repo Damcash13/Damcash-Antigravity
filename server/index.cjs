@@ -2226,10 +2226,22 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 
     if (!user) {
       // Create local profile from Supabase user metadata
-      let username = req.user.user_metadata?.username || `user_${req.user.id.slice(0, 8)}`;
+      const metadata = req.user.user_metadata || {};
+      let username = metadata.username
+        || metadata.preferred_username
+        || metadata.name
+        || metadata.full_name
+        || (req.user.email ? req.user.email.split('@')[0] : '')
+        || `user_${req.user.id.slice(0, 8)}`;
 
       // Strip email addresses — some browsers autofill the username field with the email
+      username = String(username || '');
       if (username.includes('@')) username = username.split('@')[0];
+      username = sanitizeText(username, 30)
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zA-Z0-9_.-]/g, '')
+        .replace(/^[-_.]+|[-_.]+$/g, '')
+        .slice(0, 24);
       // Ensure username isn't empty after stripping
       if (!username) username = `user_${req.user.id.slice(0, 8)}`;
 
@@ -4079,10 +4091,11 @@ const APP_URL = process.env.APP_URL || `http://localhost:${process.env.PORT || 3
 app.post('/api/wallet/stripe/checkout', requireAuth, async (req, res) => {
   if (!stripe) return res.status(503).json({ error: 'Payment gateway not configured' });
   try {
-    const { amount } = req.body; // amount in USD (integer, e.g. 5)
-    if (!amount || amount < 5 || amount > 10000) return res.status(400).json({ error: 'Amount must be $5–$10,000' });
+    const amount = Number(req.body?.amount); // amount in USD
+    if (!Number.isFinite(amount) || amount < 5 || amount > 10000) return res.status(400).json({ error: 'Amount must be $5–$10,000' });
+    const metadata = { userId: req.user.id, amount: String(amount) };
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      // Leave payment_method_types unset so Checkout can surface dashboard-enabled wallets.
       line_items: [{
         price_data: {
           currency: 'usd',
@@ -4092,9 +4105,11 @@ app.post('/api/wallet/stripe/checkout', requireAuth, async (req, res) => {
         quantity: 1,
       }],
       mode: 'payment',
+      client_reference_id: req.user.id,
       success_url: `${APP_URL}/wallet/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${APP_URL}/wallet/cancel`,
-      metadata: { userId: req.user.id, amount: String(amount) },
+      metadata,
+      payment_intent_data: { metadata },
     });
     res.json({ url: session.url, sessionId: session.id });
   } catch (err) { res.status(500).json({ error: 'Failed to create checkout session' }); }

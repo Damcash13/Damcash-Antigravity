@@ -292,16 +292,19 @@ export const useUserStore = create<UserStore>()(
           } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             if (session?.access_token) {
               reconnectWithToken(session.access_token);
-              // Only fetch if we don't have a user or if it was a refresh
-              const { user } = useUserStore.getState();
-              if (!user || event === 'TOKEN_REFRESHED') {
-                try {
-                  const res = await api.auth.me();
-                  const u = apiUserToUser(res.user);
-                  set({ user: u, isLoggedIn: true });
-                } catch (err) {
-                  console.warn('[authListener] Failed to sync profile:', err);
-                }
+              try {
+                const res = await api.auth.me();
+                const u = apiUserToUser(res.user);
+                set({
+                  user: u,
+                  isLoggedIn: true,
+                  gamesPlayed: {
+                    chess:    res.user.chess?.games    ?? 0,
+                    checkers: res.user.checkers?.games ?? 0,
+                  },
+                });
+              } catch (err) {
+                console.warn('[authListener] Failed to sync profile:', err);
               }
             }
           }

@@ -119,7 +119,7 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="💰 Wallet" maxWidth={520}>
+    <Modal open={open} onClose={onClose} title="Wallet" maxWidth={520}>
       {/* Balance display */}
       <div style={{
         background: 'var(--bg-2)',
@@ -154,11 +154,11 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
         <button
           style={{ flex: 1, padding: '6px 12px', border: 'none', background: tab === 'balance' ? 'var(--bg-card)' : 'transparent', color: tab === 'balance' ? 'var(--text-1)' : 'var(--text-3)', fontWeight: tab === 'balance' ? 700 : 500, borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'all 0.15s', boxShadow: tab === 'balance' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none' }}
           onClick={() => setTab('balance')}
-        >💳 {t('betting.cashier')}</button>
+        >{t('betting.cashier')}</button>
         <button
           style={{ flex: 1, padding: '6px 12px', border: 'none', background: tab === 'history' ? 'var(--bg-card)' : 'transparent', color: tab === 'history' ? 'var(--text-1)' : 'var(--text-3)', fontWeight: tab === 'history' ? 700 : 500, borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'all 0.15s', boxShadow: tab === 'history' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none' }}
           onClick={() => setTab('history')}
-        >📜 {t('betting.historyTab')} ({transactions.length})</button>
+        >{t('betting.historyTab')} ({transactions.length})</button>
       </div>
 
       {tab === 'balance' && (
@@ -193,7 +193,7 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-primary" style={{ flex: 1, padding: '12px 0' }} onClick={handleDeposit} disabled={loading}>
-              {loading ? '…' : `↑ ${t('betting.deposit')}`}
+              {loading ? 'Processing...' : t('betting.deposit')}
             </button>
             <button
               className="btn btn-secondary"
@@ -201,11 +201,12 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
               onClick={handleWithdraw}
               disabled={loading}
             >
-              ↓ {t('betting.withdraw')}
+              {t('betting.withdraw')}
             </button>
           </div>
           <div style={{ marginTop: 12, display: 'grid', gap: 8, fontSize: 12, color: 'var(--text-3)', lineHeight: 1.45 }}>
-            <div>Deposits redirect to secure checkout and are credited only after payment verification.</div>
+            <div>Deposits redirect to Stripe Checkout and are credited only after payment verification.</div>
+            <div>Apple Pay and Google Pay appear there when they are available on the player's device and enabled for this domain.</div>
             <div>Withdrawals are recorded immediately in the ledger; external payout processing must be reviewed before public real-money scale.</div>
             <div>Money games use escrow: both stakes are locked at game start, winner receives the settled payout, and draws/cancelled games refund the stake.</div>
           </div>
@@ -227,7 +228,6 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
             </div>
           ) : transactions.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '30px 12px', color: 'var(--text-3)', fontSize: 13, lineHeight: 1.5 }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>📜</div>
               <strong style={{ color: 'var(--text-2)' }}>No wallet activity yet.</strong>
               <div>Deposits, withdrawals, bet escrow, payouts, refunds, and tournament entry fees will appear here with timestamps.</div>
             </div>

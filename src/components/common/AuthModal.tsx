@@ -26,6 +26,30 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
   const reset = () => { setUsername(''); setEmail(''); setPassword(''); setConfirmPassword(''); setCountry(''); setError(''); setInfo(''); };
   const switchTab = (t_: 'login' | 'register' | 'forgot') => { setTab(t_); setError(''); setInfo(''); };
 
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setInfo('');
+    if (!supabase) { setError(t('auth.supabaseError')); return; }
+    setLoading(true);
+    try {
+      const { error: oauthError } = await withTimeout<any>(
+        supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/`,
+            queryParams: { prompt: 'select_account' },
+          },
+        }),
+        12_000,
+        'Google sign-in',
+      );
+      if (oauthError) throw oauthError;
+    } catch (err: any) {
+      setError(err?.message || t('auth.somethingWentWrong'));
+      setLoading(false);
+    }
+  };
+
   // ── Forgot password handler ───────────────────────────────────────────────
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,6 +206,7 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
             {(['register', 'login'] as const).map(t_ => (
               <button
+                type="button"
                 key={t_}
                 className={`tab-btn ${tab === t_ ? 'active' : ''}`}
                 onClick={() => switchTab(t_)}
@@ -189,6 +214,20 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
                 {t_ === 'register' ? t('nav.register') : t('nav.signIn')}
               </button>
             ))}
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-full"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            style={{ marginBottom: 12 }}
+          >
+            Continue with Google
+          </button>
+
+          <div style={{ textAlign: 'center', margin: '0 0 16px', color: 'var(--text-3)', fontSize: 12 }}>
+            {t('common.or')} use email
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -286,7 +325,7 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
             className="btn btn-secondary btn-full"
             onClick={() => { guestLogin(); onClose(); }}
           >
-            🎮 {t('auth.playAsGuest')}
+            {t('auth.playAsGuest')}
           </button>
         </>
       )}
