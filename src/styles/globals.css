@@ -1515,14 +1515,19 @@ button,
   background: rgba(128, 0, 255, 0.42) !important;
 }
 
-.chess-cell:hover { filter: brightness(1.1); }
+.chess-cell:hover { filter: brightness(1.04); }
+
+.chess-piece-el-container {
+  transition: opacity 80ms ease-out;
+  will-change: opacity;
+}
 
 .chess-piece-el {
   font-size: 52px;
   line-height: 1;
   cursor: grab;
   user-select: none;
-  transition: transform 0.1s ease;
+  transition: transform 80ms ease-out;
   position: relative;
   z-index: 1;
 }
@@ -1539,7 +1544,7 @@ button,
   filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
 }
 
-.chess-piece-el:active { cursor: grabbing; transform: scale(1.1); }
+.chess-piece-el:active { cursor: grabbing; transform: scale(1.03); }
 
 .board-coords {
   position: absolute;
@@ -3096,11 +3101,11 @@ html, body {
 
 /* ===== ANIMATIONS ===== */
 .piece-move {
-  animation: pieceMove 0.15s ease;
+  animation: pieceMove 80ms ease-out;
 }
 
 @keyframes pieceMove {
-  from { transform: scale(1.15); }
+  from { transform: scale(1.03); }
   to { transform: scale(1); }
 }
 

@@ -1414,6 +1414,7 @@ io.on('connection', (socket) => {
     // Attach times to payload for client synchronization
     payload.whiteTime = room.whiteTime;
     payload.blackTime = room.blackTime;
+    payload.by = socket.id;
 
     // ── Chess: server-side move validation via chess.js ──────────────────
     if (room.chessEngine) {
@@ -1432,6 +1433,7 @@ io.on('connection', (socket) => {
       payload.san = moveResult.san;
       payload.fen = room.chessEngine.fen();
     }
+    payload.moveNumber = room.moves.length + 1;
 
     room.moves.push({ ...payload, player: socket.id });
     socket.to(payload.roomId).emit('move', payload);

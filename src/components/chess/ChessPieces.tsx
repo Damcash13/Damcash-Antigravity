@@ -19,7 +19,7 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({ type, color }) => {
         justifyContent: 'center',
         cursor: 'grab',
         userSelect: 'none',
-        transition: 'transform 0.1s ease',
+        transition: 'transform 80ms ease-out',
       }}
       className="chess-piece-wrapper"
     >

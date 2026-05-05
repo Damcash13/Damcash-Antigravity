@@ -94,6 +94,8 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const chatRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef(game);
   gameRef.current = game;
+  const moveHistoryRef = useRef(moveHistory);
+  moveHistoryRef.current = moveHistory;
   const userRef = useRef(user);
   userRef.current = user;
   const premoveRef = useRef(premove);
@@ -399,22 +401,35 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     if (!isOnline) return;
 
     const handleSocketMove = (payload: any) => {
-      const { from, to, promotion, fen, san } = payload;
+      const { from, to, promotion, fen, san, by } = payload;
       const g = gameRef.current;
-      // Skip if it's already our turn (echo of our own move)
-      if (g.turn() === playerColor) return;
+      if (by && by === socket.id) return;
+      if (!from || !to) {
+        if (fen) {
+          try {
+            setGame(new Chess(fen));
+          } catch {
+            console.warn('[Game] Ignored invalid server FEN in move payload.');
+          }
+        }
+        return;
+      }
 
       const newGame = new Chess(g.fen());
       const res = newGame.move({ from, to, promotion: promotion || 'q' });
 
       if (!res && fen) {
+        if (fen === g.fen()) return;
         // If the move failed locally (e.g. state out of sync), force-sync with server FEN
         console.warn('[Game] Chess state out of sync. Force-syncing with server FEN.');
         const syncGame = new Chess(fen);
         setGame(syncGame);
-        setMoveHistory(syncGame.history());
+        setMoveHistory(san ? [...moveHistoryRef.current, san] : moveHistoryRef.current);
         const lastM = syncGame.history({ verbose: true }).pop();
         if (lastM) setLastMove({ from: lastM.from, to: lastM.to });
+        else setLastMove({ from: from as Square, to: to as Square });
+        if (payload.whiteTime !== undefined) setWhiteTime(payload.whiteTime);
+        if (payload.blackTime !== undefined) setBlackTime(payload.blackTime);
         return;
       }
 

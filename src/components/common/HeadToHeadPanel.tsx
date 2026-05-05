@@ -33,39 +33,58 @@ export const HeadToHeadPanel: React.FC<Props> = ({ playerA, playerB, universe })
     const bW  = tot > 0 ? (score.b / tot) * 100 : 33.3;
 
     return (
-      <div style={{ marginBottom: 6 }}>
+      <div style={{
+        display: 'grid',
+        gap: 7,
+        padding: '9px 0',
+        borderTop: '1px solid var(--border)',
+      }}>
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          fontSize: 10, color: 'var(--text-3)', marginBottom: 3,
+          gap: 12,
         }}>
-          <span style={{ fontWeight: 700, color: 'var(--accent)', minWidth: 16, textAlign: 'center' }}>
-            {score.a}
+          <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {label}
           </span>
-          <span style={{ letterSpacing: '0.05em', textTransform: 'uppercase' }}>{label}</span>
-          <span style={{ fontWeight: 700, color: 'var(--text-2)', minWidth: 16, textAlign: 'center' }}>
-            {score.b}
+          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+            {tot} {tot === 1 ? t('game.game', 'game') : t('game.games', 'games')}
           </span>
         </div>
-        {/* Progress bar: me | draws | opponent */}
+
         <div style={{
-          display: 'flex', height: 5, borderRadius: 3, overflow: 'hidden',
+          display: 'grid',
+          gridTemplateColumns: '1fr auto 1fr',
+          alignItems: 'center',
+          gap: 8,
+          fontSize: 12,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
+            <span style={{ color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerA}</span>
+            <strong style={{ color: 'var(--accent)' }}>{score.a}</strong>
+          </div>
+          <div style={{ color: 'var(--text-3)' }}>
+            Draws <strong style={{ color: 'var(--text-2)' }}>{score.draws}</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
+            <strong style={{ color: 'var(--text-2)' }}>{score.b}</strong>
+            <span style={{ color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{playerB}</span>
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex', height: 6, borderRadius: 6, overflow: 'hidden',
           background: 'var(--bg-3)',
         }}>
           {aW > 0 && (
-            <div style={{ width: `${aW}%`, background: 'var(--accent)', transition: 'width 0.4s' }} />
+            <div style={{ width: `${aW}%`, background: 'var(--accent)', transition: 'width 160ms ease-out' }} />
           )}
           {dW > 0 && (
-            <div style={{ width: `${dW}%`, background: 'var(--text-3)', transition: 'width 0.4s' }} />
+            <div style={{ width: `${dW}%`, background: 'var(--text-3)', transition: 'width 160ms ease-out' }} />
           )}
           {bW > 0 && (
-            <div style={{ width: `${bW}%`, background: 'var(--text-2)', transition: 'width 0.4s' }} />
+            <div style={{ width: `${bW}%`, background: 'var(--text-2)', transition: 'width 160ms ease-out' }} />
           )}
         </div>
-        {score.draws > 0 && (
-          <div style={{ fontSize: 9, color: 'var(--text-3)', textAlign: 'center', marginTop: 1 }}>
-            {score.draws} {t('game.draw').toLowerCase()}
-          </div>
-        )}
       </div>
     );
   };
@@ -76,23 +95,31 @@ export const HeadToHeadPanel: React.FC<Props> = ({ playerA, playerB, universe })
 
   return (
     <div style={{
-      padding: '8px 12px',
-      borderTop: '1px solid var(--border)',
-      borderBottom: '1px solid var(--border)',
-      background: 'var(--bg-2)',
+      marginTop: 10,
+      padding: '12px 14px 5px',
+      border: '1px solid var(--border)',
+      borderRadius: 8,
+      background: 'var(--bg-card)',
+      boxShadow: '0 10px 24px rgba(0,0,0,0.14)',
     }}>
-      {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: 6,
+        gap: 12,
+        marginBottom: 2,
       }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          ⚔️ {t('game.h2hTitle')}
+        <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          {t('game.h2hTitle')}
         </span>
-        <div style={{ display: 'flex', gap: 10, fontSize: 10 }}>
-          <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{playerA}</span>
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          minWidth: 0,
+          fontSize: 12,
+          alignItems: 'center',
+        }}>
+          <span style={{ color: 'var(--accent)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerA}</span>
           <span style={{ color: 'var(--text-3)' }}>vs</span>
-          <span style={{ color: 'var(--text-2)', fontWeight: 700 }}>{playerB}</span>
+          <span style={{ color: 'var(--text-2)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerB}</span>
         </div>
       </div>
 
