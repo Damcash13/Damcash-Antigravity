@@ -242,7 +242,9 @@ interface Props {
 }
 
 export const LiveGamesSection: React.FC<Props> = ({ games, universe, onClickGame }) => {
-  const visible = games.filter((g) => g.universe === universe && g.status === 'playing');
+  const visible = games
+    .filter((g) => g.universe === universe && g.status === 'playing')
+    .slice(0, 10);
 
   if (visible.length === 0) return (
     <div style={{

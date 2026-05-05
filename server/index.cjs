@@ -2071,25 +2071,54 @@ app.get('/api/supabase/todos', async (_req, res) => {
 });
 
 // Live rooms (for the lobby live-games feed)
-app.get('/api/rooms/live', (_req, res) => {
+app.get('/api/rooms/live', (req, res) => {
+  const requestedUniverse = typeof req.query.universe === 'string' ? req.query.universe : '';
+  const universeFilter = ['chess', 'checkers'].includes(requestedUniverse) ? requestedUniverse : null;
+  const requestedLimit = Number.parseInt(String(req.query.limit || '10'), 10);
+  const limit = Math.max(1, Math.min(Number.isFinite(requestedLimit) ? requestedLimit : 10, 10));
+
   const live = Array.from(rooms.entries())
-    .filter(([, room]) => room.players?.white && room.players?.black)
     .map(([roomId, room]) => {
+      if (!room.players?.white || !room.players?.black || room.settling) return null;
+      const uv = room.config?.universe || 'chess';
+      if (universeFilter && uv !== universeFilter) return null;
+
       const wp = players.get(room.players.white);
       const bp = players.get(room.players.black);
-      const uv = room.config?.universe || 'chess';
+      if (!wp || !bp) return null;
+
+      const whiteRating = Number(wp.rating?.[uv]) || 1500;
+      const blackRating = Number(bp.rating?.[uv]) || 1500;
+      const lastMove = room.moves[room.moves.length - 1];
+      const spectators = room.spectators?.size || 0;
+
       return {
         id: roomId,
         universe: uv,
-        white: { name: wp?.name || 'Player', rating: wp?.rating?.[uv] || 1500 },
-        black: { name: bp?.name || 'Player', rating: bp?.rating?.[uv] || 1500 },
+        white: { name: wp.name || 'White', rating: whiteRating },
+        black: { name: bp.name || 'Black', rating: blackRating },
         tc: room.config?.timeControl || '5+0',
         bet: room.config?.betAmount || 0,
         moveCount: room.moves.length,
-        spectators: room.spectators?.size || 0,
-        fen: uv !== 'checkers' && room.moves.length > 0 ? room.moves[room.moves.length - 1]?.fen : undefined,
+        spectators,
+        startedAt: room.createdAt || Date.now(),
+        strength: whiteRating + blackRating,
+        fen: uv !== 'checkers'
+          ? (lastMove?.fen || room.chessEngine?.fen?.() || new Chess().fen())
+          : undefined,
+        draughtsBoard: uv === 'checkers' ? lastMove?.board : undefined,
       };
-    });
+    })
+    .filter(Boolean)
+    .sort((a, b) =>
+      (b.strength - a.strength) ||
+      (b.spectators - a.spectators) ||
+      (b.moveCount - a.moveCount) ||
+      (b.startedAt - a.startedAt)
+    )
+    .slice(0, limit)
+    .map(({ strength, ...room }) => room);
+
   res.json(live);
 });
 

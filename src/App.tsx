@@ -32,6 +32,7 @@ const PuzzleStreakPage = lazy(() => import('./components/puzzles/PuzzleStreakPag
 const PuzzleStormPage = lazy(() => import('./components/puzzles/PuzzleStormPage').then(m => ({ default: m.PuzzleStormPage })));
 const BoardEditorPage = lazy(() => import('./components/tools/BoardEditorPage').then(m => ({ default: m.BoardEditorPage })));
 const GameReplayPage = lazy(() => import('./components/games/GameReplayPage').then(m => ({ default: m.GameReplayPage })));
+const SpectateGame = lazy(() => import('./components/spectate/SpectateGame').then(m => ({ default: m.SpectateGame })));
 const OpeningExplorerPage = lazy(() => import('./components/tools/OpeningExplorerPage').then(m => ({ default: m.OpeningExplorerPage })));
 const MyStudiesPage = lazy(() => import('./components/tools/MyStudiesPage').then(m => ({ default: m.MyStudiesPage })));
 const EndgameTrainingPage = lazy(() => import('./components/tools/EndgameTrainingPage').then(m => ({ default: m.EndgameTrainingPage })));
@@ -291,6 +292,7 @@ export default function App() {
             <Route path="/:universe/puzzle-streak" element={<main className="main-content"><PuzzleStreakPage /></main>} />
             <Route path="/:universe/puzzle-storm"  element={<main className="main-content"><PuzzleStormPage /></main>} />
 
+            <Route path="/:universe/watch/:id" element={<main className="main-content"><SpectateGame /></main>} />
             <Route path="/game/:id" element={<main className="main-content"><GameReplayPage /></main>} />
             <Route path="/join/:code" element={<JoinByCodeRedirect />} />
             <Route path="/wallet/success" element={<WalletReturn status="success" />} />

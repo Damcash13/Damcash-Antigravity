@@ -92,7 +92,7 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
   const navigate = useNavigate();
   const universe = useUniverseStore(s => s.universe);
   const games = useLiveGamesStore(s => s.games);
-  const registerGame = useLiveGamesStore(s => s.registerGame);
+  const syncServerGames = useLiveGamesStore(s => s.syncServerGames);
   const addNotification = useNotificationStore(s => s.addNotification);
   const [activeTab, setActiveTab] = useState<'quick' | 'lobby' | 'correspondence'>('quick');
   const [showCustom, setShowCustom] = useState(false);
@@ -132,51 +132,47 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
       .finally(() => setLeaderboardLoading(false));
   }, [universe]);
 
-  // Fetch real live rooms from API and push into store
+  // Fetch real live rooms from API and keep the home feed server-authoritative.
   useEffect(() => {
-    api.rooms.live()
-      .then(rooms => {
-        rooms.forEach(r => {
-          registerGame({
+    let cancelled = false;
+    const refreshLiveGames = (showError: boolean) =>
+      api.rooms.live({ universe, limit: 10 })
+        .then(rooms => {
+          if (cancelled) return;
+          syncServerGames(rooms.map(r => ({
             id: r.id,
-            universe: r.universe as 'chess' | 'checkers',
+            universe: r.universe,
             white: r.white,
             black: r.black,
             tc: r.tc,
             bet: r.bet,
             fen: r.fen,
+            draughtsBoard: r.draughtsBoard,
             moveCount: r.moveCount,
-            startedAt: Date.now(),
+            startedAt: r.startedAt,
             status: 'playing',
-          } as LiveGame);
+            source: 'server',
+          } as LiveGame)));
+        })
+        .catch(() => {
+          if (showError) addNotification(t('errors.liveGamesLoad', 'Could not load live games'), 'error');
         });
-      })
-      .catch(() => { addNotification(t('errors.liveGamesLoad', 'Could not load live games'), 'error'); })
-      .finally(() => setLiveGamesLoading(false));
-    // Poll every 10s, but only when the tab is visible
+
+    setLiveGamesLoading(true);
+    refreshLiveGames(true).finally(() => {
+      if (!cancelled) setLiveGamesLoading(false);
+    });
+
+    // Poll often enough that ended games disappear and the next strongest game rotates in.
     const interval = setInterval(() => {
       if (document.visibilityState === 'hidden') return;
-      api.rooms.live()
-        .then(rooms => {
-          rooms.forEach(r => {
-            registerGame({
-              id: r.id,
-              universe: r.universe as 'chess' | 'checkers',
-              white: r.white,
-              black: r.black,
-              tc: r.tc,
-              bet: r.bet,
-              fen: r.fen,
-              moveCount: r.moveCount,
-              startedAt: Date.now(),
-              status: 'playing',
-            } as LiveGame);
-          });
-        })
-        .catch(() => { /* Silent on poll — avoid spamming notifications */ });
-    }, 10_000);
-    return () => clearInterval(interval);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      refreshLiveGames(false);
+    }, 5_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [addNotification, syncServerGames, t, universe]);
 
   const timeControls = universe === 'chess' ? CHESS_TC : CHECKERS_TC;
   const liveCount    = games.filter(g => g.universe === universe && g.status === 'playing').length;

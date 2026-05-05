@@ -298,7 +298,13 @@ export const api = {
   },
 
   rooms: {
-    live: () => request<ApiLiveRoom[]>('/api/rooms/live'),
+    live: (params: { universe?: string; limit?: number } = {}) => {
+      const q = new URLSearchParams();
+      if (params.universe) q.set('universe', params.universe);
+      if (params.limit) q.set('limit', String(params.limit));
+      const qs = q.toString();
+      return request<ApiLiveRoom[]>(`/api/rooms/live${qs ? `?${qs}` : ''}`);
+    },
   },
 };
 
@@ -596,14 +602,16 @@ export interface ApiUserStats {
 
 export interface ApiLiveRoom {
   id: string;
-  universe: string;
+  universe: 'chess' | 'checkers';
   white: { name: string; rating: number };
   black: { name: string; rating: number };
   tc: string;
   bet: number;
   moveCount: number;
   spectators: number;
+  startedAt: number;
   fen?: string;
+  draughtsBoard?: import('../types').DraughtsBoard;
 }
 
 export interface ApiFullStats {

@@ -107,6 +107,7 @@ export const SpectateGame: React.FC = () => {
   const [chat,     setChat]     = useState<{ username: string; message: string }[]>([]);
   const [chatMsg,  setChatMsg]  = useState('');
   const [ended,    setEnded]    = useState(false);
+  const [error,    setError]    = useState('');
   const [viewers,  setViewers]  = useState(1);
 
   useEffect(() => {
@@ -133,12 +134,16 @@ export const SpectateGame: React.FC = () => {
 
     const onGameOver = () => setEnded(true);
     const onViewers  = (count: number) => setViewers(count);
+    const onRoomError = (data: { message?: string }) => {
+      setError(data.message || 'This live game is no longer available.');
+    };
 
     socket.on('spectate:state',    onState);
     socket.on('spectate:move',     onMove);
     socket.on('chat',              onChat);
     socket.on('game-over',         onGameOver);
     socket.on('spectate:viewers',  onViewers);
+    socket.on('room:error',        onRoomError);
 
     // Join as spectator AFTER listeners are attached
     socket.emit('spectate:join', { roomId: id });
@@ -150,6 +155,7 @@ export const SpectateGame: React.FC = () => {
       socket.off('chat',             onChat);
       socket.off('game-over',        onGameOver);
       socket.off('spectate:viewers', onViewers);
+      socket.off('room:error',       onRoomError);
     };
   }, [id]);
 
@@ -158,6 +164,17 @@ export const SpectateGame: React.FC = () => {
   const movePairs: [string, string?][] = [];
   for (let i = 0; i < moves.length; i += 2) {
     movePairs.push([moves[i], moves[i + 1]]);
+  }
+
+  if (error) {
+    return (
+      <div style={{ maxWidth: 520, margin: '72px auto', padding: 20, textAlign: 'center', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8 }}>
+        <div style={{ fontSize: 34, marginBottom: 10 }}>📺</div>
+        <h1 style={{ margin: '0 0 8px', fontSize: 22, color: 'var(--text-1)' }}>Live game unavailable</h1>
+        <p style={{ margin: '0 0 18px', color: 'var(--text-3)', lineHeight: 1.45 }}>{error}</p>
+        <button className="btn btn-primary" onClick={() => navigate(`/${universe}`)}>Back to live games</button>
+      </div>
+    );
   }
 
   return (

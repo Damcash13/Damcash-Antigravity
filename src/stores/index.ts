@@ -21,11 +21,13 @@ export interface LiveGame {
   moveCount: number;
   startedAt: number;
   status: 'playing' | 'ended';
+  source?: 'server' | 'local';
 }
 
 interface LiveGamesStore {
   games: LiveGame[];
   registerGame: (game: LiveGame) => void;
+  syncServerGames: (games: LiveGame[]) => void;
   updateGame: (id: string, patch: Partial<LiveGame>) => void;
   removeGame: (id: string) => void;
 }
@@ -33,10 +35,22 @@ interface LiveGamesStore {
 export const useLiveGamesStore = create<LiveGamesStore>((set) => ({
   games: [],
   registerGame: (game) =>
-    // Idempotent: skip if already registered
     set((s) => {
-      if (s.games.find(g => g.id === game.id)) return s;
-      return { games: [game, ...s.games].slice(0, 20) };
+      const nextGame = { ...game, source: game.source || 'local' };
+      const existing = s.games.findIndex(g => g.id === game.id);
+      if (existing !== -1) {
+        const next = [...s.games];
+        next[existing] = { ...next[existing], ...nextGame };
+        return { games: next };
+      }
+      return { games: [nextGame, ...s.games].slice(0, 30) };
+    }),
+  syncServerGames: (games) =>
+    set((s) => {
+      const serverGames = games.map(game => ({ ...game, source: 'server' as const }));
+      const serverIds = new Set(serverGames.map(game => game.id));
+      const localGames = s.games.filter(game => game.source !== 'server' && !serverIds.has(game.id));
+      return { games: [...serverGames, ...localGames].slice(0, 30) };
     }),
   updateGame: (id, patch) =>
     set((s) => ({
