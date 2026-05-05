@@ -4,7 +4,7 @@
  * player on mount with their current rating + gamesPlayed.
  */
 import { useEffect } from 'react';
-import { socket } from '../lib/socket';
+import { clientId, socket } from '../lib/socket';
 import { useUserStore, RatingEntry } from '../stores';
 import { useNotificationStore, useUniverseStore } from '../stores';
 
@@ -15,15 +15,22 @@ export function useRatingUpdates() {
   // Register player info when logged in (so server knows their rating + games played)
   useEffect(() => {
     if (!user) return;
-    socket.emit('player:register', {
-      name:        user.name,
-      rating:      user.rating,
-      gamesPlayed: gamesPlayed,
-      universe:    useUniverseStore.getState().universe,
-      country:     user.country || '',
-    });
+    const register = () => {
+      socket.emit('player:register', {
+        name:        user.name,
+        rating:      user.rating,
+        gamesPlayed: gamesPlayed,
+        universe:    useUniverseStore.getState().universe,
+        country:     user.country || '',
+        clientId,
+      });
+    };
+
+    register();
+    socket.on('connect', register);
+    return () => socket.off('connect', register);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.name, user?.country, gamesPlayed.chess, gamesPlayed.checkers, socket.id]);
+  }, [user?.id, user?.name, user?.country, gamesPlayed.chess, gamesPlayed.checkers]);
 
   // Listen for ELO updates
   useEffect(() => {

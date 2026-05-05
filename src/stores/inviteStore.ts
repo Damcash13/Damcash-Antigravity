@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Universe } from '../types';
 import { supabase } from '../lib/supabase';
-import { socket } from '../lib/socket';
+import { clientId, socket } from '../lib/socket';
 import { useUniverseStore, useUserStore } from './index';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -24,6 +24,8 @@ export const DEFAULT_CONFIG: GameConfig = {
 
 export interface OnlinePlayer {
   socketId: string;
+  userId?: string;
+  clientId?: string;
   name: string;
   rating: { chess: number; checkers: number };
   status: 'idle' | 'playing' | 'seeking';
@@ -70,16 +72,46 @@ interface InviteStore {
   updatePresenceUniverse: (universe: Universe) => void;
 }
 
+const statusRank: Record<OnlinePlayer['status'], number> = {
+  playing: 3,
+  seeking: 2,
+  idle: 1,
+};
+
+function sameOnlineIdentity(a: OnlinePlayer, b: OnlinePlayer) {
+  return Boolean(
+    (a.userId && b.userId && a.userId === b.userId) ||
+    (a.clientId && b.clientId && a.clientId === b.clientId) ||
+    (a.socketId && b.socketId && a.socketId === b.socketId)
+  );
+}
+
+function preferredOnlinePlayer(a: OnlinePlayer, b: OnlinePlayer) {
+  if (Boolean(a.userId) !== Boolean(b.userId)) return a.userId ? a : b;
+  if (statusRank[a.status] !== statusRank[b.status]) return statusRank[a.status] > statusRank[b.status] ? a : b;
+  return b;
+}
+
+function uniqueOnlinePlayers(players: OnlinePlayer[]) {
+  return players.reduce<OnlinePlayer[]>((acc, player) => {
+    const existingIndex = acc.findIndex((item) => sameOnlineIdentity(item, player));
+    if (existingIndex === -1) return [...acc, player];
+    const copy = [...acc];
+    copy[existingIndex] = preferredOnlinePlayer(copy[existingIndex], player);
+    return copy;
+  }, []);
+}
+
 export const useInviteStore = create<InviteStore>((set) => ({
   onlinePlayers: [],
-  setOnlinePlayers: (onlinePlayers) => set({ onlinePlayers }),
+  setOnlinePlayers: (onlinePlayers) => set({ onlinePlayers: uniqueOnlinePlayers(onlinePlayers) }),
   upsertPlayer: (p) =>
     set((s) => {
-      const exists = s.onlinePlayers.find((x) => x.socketId === p.socketId);
+      const exists = s.onlinePlayers.find((x) => sameOnlineIdentity(x, p));
       return {
         onlinePlayers: exists
-          ? s.onlinePlayers.map((x) => (x.socketId === p.socketId ? p : x))
-          : [p, ...s.onlinePlayers].slice(0, 100),
+          ? uniqueOnlinePlayers(s.onlinePlayers.map((x) => (sameOnlineIdentity(x, p) ? preferredOnlinePlayer(x, p) : x)))
+          : uniqueOnlinePlayers([p, ...s.onlinePlayers]).slice(0, 100),
       };
     }),
   removePlayer: (socketId) =>
@@ -128,11 +160,15 @@ export const useInviteStore = create<InviteStore>((set) => ({
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         const players: OnlinePlayer[] = [];
+        const currentUser = useUserStore.getState().user;
+        const currentName = currentUser?.name?.trim().toLowerCase();
 
         for (const key in state) {
           const p = (state[key] as any)[0];
           players.push({
             socketId: p.socketId || key,
+            userId: p.userId || undefined,
+            clientId: p.clientId || undefined,
             name: p.username || key,
             rating: p.rating || { chess: 1500, checkers: 1450 },
             status: p.status || 'idle',
@@ -140,7 +176,15 @@ export const useInviteStore = create<InviteStore>((set) => ({
             currentTC: p.currentTC || undefined,
           });
         }
-        set({ onlinePlayers: players });
+        set({
+          onlinePlayers: uniqueOnlinePlayers(players).filter((p) => {
+            if (p.socketId === socket.id) return false;
+            if (p.clientId && p.clientId === clientId) return false;
+            if (p.userId && currentUser?.id && p.userId === currentUser.id) return false;
+            if (currentName && p.name.trim().toLowerCase() === currentName) return false;
+            return true;
+          }),
+        });
       })
       .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
@@ -148,8 +192,10 @@ export const useInviteStore = create<InviteStore>((set) => ({
           await channel.track({
             online_at: new Date().toISOString(),
             username,
+            userId,
             rating,
             socketId: sId,
+            clientId,
             universe: useUniverseStore.getState().universe,
           });
         }
@@ -166,8 +212,10 @@ export const useInviteStore = create<InviteStore>((set) => ({
     channel.track({
       online_at: new Date().toISOString(),
       username: user.name,
+      userId: user.id,
       rating: user.rating,
       socketId: socket.id,
+      clientId,
       universe,
     });
   },

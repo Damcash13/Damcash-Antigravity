@@ -12,7 +12,7 @@ import { useUniverseStore, useUserStore, useNotificationStore } from './stores';
 import { useInviteStore, OnlinePlayer } from './stores/inviteStore';
 import { useFriendsStore } from './stores/friendsStore';
 import { useRatingUpdates } from './hooks/useRatingUpdates';
-import { socket } from './lib/socket';
+import { clientId, socket } from './lib/socket';
 import { api } from './lib/api';
 import { useSafetyStore } from './stores/safetyStore';
 import { useDirectMessageStore } from './stores/directMessageStore';
@@ -141,7 +141,14 @@ export default function App() {
 
   useEffect(() => {
     const handlePlayersOnline = (list: OnlinePlayer[]) => {
-      const others = list.filter((p) => p.socketId !== socket.id);
+      const currentName = user?.name?.trim().toLowerCase();
+      const others = list.filter((p) => {
+        if (p.socketId === socket.id) return false;
+        if (p.userId && user?.id && p.userId === user.id) return false;
+        if (p.clientId && p.clientId === clientId) return false;
+        if (currentName && p.name.trim().toLowerCase() === currentName) return false;
+        return true;
+      });
       setOnlinePlayers(others);
       syncOnlinePlayers(others);
     };
@@ -204,7 +211,7 @@ export default function App() {
       socket.off('wallet:update', handleWalletUpdate);
       socket.off('direct-message:new', handleDirectMessage);
     };
-  }, [bumpMessageUnreadCount, navigate, pushCenterNotification, setOnlinePlayers, setWalletBalance, syncOnlinePlayers]);
+  }, [bumpMessageUnreadCount, navigate, pushCenterNotification, setOnlinePlayers, setWalletBalance, syncOnlinePlayers, user?.id, user?.name]);
 
   const handleCreateGame = (tc: string, mode: 'online' | 'computer') => {
     if (!user) { setShowAuth(true); return; }

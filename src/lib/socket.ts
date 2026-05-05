@@ -3,6 +3,23 @@
 // @ts-ignore
 const SOCKET_URL: string = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SOCKET_URL) || '';
 
+const CLIENT_ID_KEY = 'damcash_client_id';
+
+function getClientId(): string {
+  try {
+    let value = localStorage.getItem(CLIENT_ID_KEY);
+    if (!value) {
+      value = `client_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+      localStorage.setItem(CLIENT_ID_KEY, value);
+    }
+    return value;
+  } catch {
+    return `client_${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+export const clientId = getClientId();
+
 // Socket.io is loaded via CDN in index.html
 // @ts-ignore
 const _io = (typeof window !== 'undefined' && (window as any).io) ? (window as any).io : null;
@@ -18,12 +35,14 @@ function getStoredToken(): string | null {
   } catch { return null; }
 }
 
+const win = typeof window !== 'undefined' ? (window as any) : {};
+
 export const socket: any = _io
-  ? _io(SOCKET_URL, {
+  ? (win.__damcashSocket || (win.__damcashSocket = _io(SOCKET_URL, {
       autoConnect: true,
       transports: ['websocket', 'polling'],
-      auth: { token: getStoredToken() },
-    })
+      auth: { token: getStoredToken(), clientId },
+    })))
   : {
       id: `local-${Math.random().toString(36).slice(2, 8)}`,
       connected: false,
@@ -39,7 +58,7 @@ export const socket: any = _io
  */
 export function reconnectWithToken(token: string | null): void {
   if (!_io || !socket?.auth) return;
-  socket.auth = { token };
+  socket.auth = { token, clientId };
   socket.disconnect().connect();
 }
 

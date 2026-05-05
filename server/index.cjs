@@ -479,10 +479,55 @@ async function resetStaleTournamentPairingStatuses() {
   }
 }
 
-function broadcastPlayerList() {
-  const list = Array.from(players.entries()).map(([socketId, info]) => ({
-    socketId, ...info,
+function playerStatusRank(status) {
+  return status === 'playing' ? 3 : status === 'seeking' ? 2 : 1;
+}
+
+function samePlayerIdentity(a, b) {
+  const nameA = String(a.info.name || '').trim().toLowerCase();
+  const nameB = String(b.info.name || '').trim().toLowerCase();
+  return Boolean(
+    (a.info.userId && b.info.userId && a.info.userId === b.info.userId) ||
+    (a.info.clientId && b.info.clientId && a.info.clientId === b.info.clientId) ||
+    (nameA && nameA === nameB && !nameA.startsWith('guest_')) ||
+    a.socketId === b.socketId
+  );
+}
+
+function preferredPlayerEntry(a, b) {
+  if (Boolean(a.info.userId) !== Boolean(b.info.userId)) return a.info.userId ? a : b;
+  const rankA = playerStatusRank(a.info.status);
+  const rankB = playerStatusRank(b.info.status);
+  if (rankA !== rankB) return rankA > rankB ? a : b;
+  return (a.info.registeredAt || 0) > (b.info.registeredAt || 0) ? a : b;
+}
+
+function buildPublicPlayerList() {
+  const unique = [];
+  for (const [socketId, info] of players.entries()) {
+    const name = String(info.name || '').trim().toLowerCase();
+    if (!info.userId && !info.clientId && name.startsWith('guest_')) continue;
+    const entry = { socketId, info };
+    const index = unique.findIndex((item) => samePlayerIdentity(item, entry));
+    if (index === -1) unique.push(entry);
+    else unique[index] = preferredPlayerEntry(unique[index], entry);
+  }
+  return unique.map(({ socketId, info }) => ({
+    socketId,
+    userId: info.userId || undefined,
+    clientId: info.clientId || undefined,
+    name: info.name,
+    rating: info.rating,
+    gamesPlayed: info.gamesPlayed,
+    status: info.status,
+    universe: info.universe,
+    country: info.country,
+    currentTC: info.currentTC || undefined,
   }));
+}
+
+function broadcastPlayerList() {
+  const list = buildPublicPlayerList();
   io.emit('players:online', list);
 }
 
@@ -716,8 +761,9 @@ io.on('connection', (socket) => {
   console.log(`[+] ${socket.id}`);
 
   // ── Register player ──────────────────────────────────────────────────────
-  socket.on('player:register', async ({ name, rating, universe, gamesPlayed, country }) => {
+  socket.on('player:register', async ({ name, rating, universe, gamesPlayed, country, clientId }) => {
     const safeUniverse = normalizeUniverse(universe);
+    const safeClientId = sanitizeText(clientId || socket.handshake.auth?.clientId || '', 80) || null;
     if (socket.user) {
       socketToUserId.set(socket.id, socket.user.id);
       userIdToSocketId.set(socket.user.id, socket.id);
@@ -736,6 +782,8 @@ io.on('connection', (socket) => {
     }
 
     players.set(socket.id, {
+      userId: socket.user?.id || null,
+      clientId: safeClientId,
       name: authProfile ? authProfile.username : (name || `Guest_${socket.id.slice(0, 4)}`),
       rating: authProfile
         ? { chess: authProfile.chessRating, checkers: authProfile.checkersRating }
@@ -749,7 +797,7 @@ io.on('connection', (socket) => {
       registeredAt: Date.now(),
     });
     broadcastPlayerList();
-    socket.emit('players:online', Array.from(players.entries()).map(([id, info]) => ({ socketId: id, ...info })));
+    socket.emit('players:online', buildPublicPlayerList());
     socket.emit('seeks:list', Array.from(seeks.entries()).map(([seekId, s]) => ({ seekId, ...s })));
   });
 
@@ -2117,7 +2165,7 @@ io.on('connection', (socket) => {
     }
 
     const uid = socketToUserId.get(socket.id);
-    if (uid) userIdToSocketId.delete(uid);
+    if (uid && userIdToSocketId.get(uid) === socket.id) userIdToSocketId.delete(uid);
     socketToUserId.delete(socket.id);
 
     // Notify rooms
@@ -2137,7 +2185,13 @@ io.on('connection', (socket) => {
 app.get('/api/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ ok: true, players: players.size, rooms: rooms.size, uptime: process.uptime() });
+    res.json({
+      ok: true,
+      players: buildPublicPlayerList().length,
+      playerConnections: players.size,
+      rooms: rooms.size,
+      uptime: process.uptime(),
+    });
   } catch (e) {
     res.status(503).json({ ok: false, error: 'Database unavailable' });
   }
