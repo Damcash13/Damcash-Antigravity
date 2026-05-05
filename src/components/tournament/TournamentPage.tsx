@@ -10,6 +10,7 @@ import '../../styles/tournaments.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const JOIN_WINDOW_MS = 3 * 60_000;
+const PAIRING_CUTOFF_MS = 2 * 60_000;
 
 function formatCountdown(ms: number): string {
   if (ms <= 0) return '00:00:00';
@@ -182,6 +183,10 @@ export const TournamentPage: React.FC = () => {
   const handlePair = async () => {
     if (!user) { addNotification('Sign in to play tournament games', 'error'); return; }
     if (!hasJoined) { addNotification('Join the tournament before pairing', 'error'); return; }
+    if (endsAt - Date.now() <= PAIRING_CUTOFF_MS) {
+      addNotification('Pairing is closed for the final 2 minutes', 'info');
+      return;
+    }
     setPairing(true);
     try {
       const result = await pairTournament(tournament.id);
@@ -209,7 +214,9 @@ export const TournamentPage: React.FC = () => {
   const isUpcoming = status === 'upcoming';
   const isFinished = status === 'finished';
   const startsIn = tournament.startsAt - now;
+  const timeLeft = endsAt - now;
   const waitingRoomOpen = isUpcoming && startsIn <= JOIN_WINDOW_MS;
+  const pairingOpen = isRunning && timeLeft > PAIRING_CUTOFF_MS;
   const waitingRoomOpensAt = tournament.startsAt - JOIN_WINDOW_MS;
   const joinCta = hasJoined
     ? isRunning ? `🏳 ${t('tournament.withdraw')}` : `✕ ${t('common.cancel')}`
@@ -265,7 +272,7 @@ export const TournamentPage: React.FC = () => {
               {joining ? '…' : joinCta}
             </button>
           )}
-          {isRunning && hasJoined && (
+          {isRunning && hasJoined && pairingOpen && (
             <button
               className="btn tp-btn-join"
               onClick={handlePair}
@@ -288,7 +295,9 @@ export const TournamentPage: React.FC = () => {
           </strong>
           <span>
             {isRunning
-              ? 'Late joining is open, so new players can still enter and catch up.'
+              ? pairingOpen
+                ? 'Late joining is open, so new players can still enter and catch up.'
+                : 'Pairing is closed for the final 2 minutes. Current games can finish.'
               : `Starts ${formatStartTime(tournament.startsAt)}. Players can wait from H-3 until the tournament begins.`}
           </span>
         </div>
@@ -348,7 +357,7 @@ export const TournamentPage: React.FC = () => {
                   {waitingRoomOpen ? '✓ Join waiting room' : `✓ ${t('tournament.registerNow')}`}
                 </button>
               )}
-              {isRunning && hasJoined && (
+              {isRunning && hasJoined && pairingOpen && (
                 <button className="btn tp-btn-join" style={{ marginTop: 16 }} onClick={handlePair} disabled={pairing}>
                   {pairing ? 'Pairing…' : '⚔ Find tournament game'}
                 </button>

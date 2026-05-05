@@ -2001,12 +2001,20 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 // ── REST: Tournaments ────────────────────────────────────────────────────────
+const TOURNAMENT_PAIRING_CUTOFF_MS = 2 * 60_000;
+
 function getTournamentLifecycle(tournament, nowMs = Date.now()) {
   const startsAt = new Date(tournament.startsAt).getTime();
   const endsAt = startsAt + (Number(tournament.durationMs) || 0);
   if (nowMs >= endsAt) return 'finished';
   if (nowMs >= startsAt) return 'running';
   return 'upcoming';
+}
+
+function getTournamentPairingCutoff(tournament) {
+  return new Date(tournament.startsAt).getTime()
+    + (Number(tournament.durationMs) || 0)
+    - TOURNAMENT_PAIRING_CUTOFF_MS;
 }
 
 app.get('/api/tournaments', async (req, res) => {
@@ -2754,6 +2762,9 @@ app.post('/api/tournaments/:id/pair', requireAuth, async (req, res) => {
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
     if (getTournamentLifecycle(tournament) !== 'running') {
       return res.status(400).json({ error: 'Tournament games can only be paired while the tournament is running' });
+    }
+    if (Date.now() >= getTournamentPairingCutoff(tournament)) {
+      return res.status(400).json({ error: 'Pairing is closed for the final 2 minutes of the tournament' });
     }
 
     const me = tournament.players.find(p => p.userId === userId);
