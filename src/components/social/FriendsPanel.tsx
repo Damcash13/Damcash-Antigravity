@@ -4,10 +4,12 @@ import { useFriendsStore, Friend } from '../../stores/friendsStore';
 import { useUniverseStore } from '../../stores';
 import { socket } from '../../lib/socket';
 import { api } from '../../lib/api';
+import { countryFlag, countryName } from '../../lib/countries';
 
 // ── Friend row ────────────────────────────────────────────────────────────────
 const FriendRow: React.FC<{ f: Friend; canChallenge: boolean; onChallenge: () => void; onRemove: () => void }> = ({ f, canChallenge, onChallenge, onRemove }) => {
   const { t } = useTranslation();
+  const universe = useUniverseStore(s => s.universe);
   const [hover, setHover] = useState(false);
 
   return (
@@ -37,12 +39,17 @@ const FriendRow: React.FC<{ f: Friend; canChallenge: boolean; onChallenge: () =>
           fontSize: 13, fontWeight: 600, color: f.online ? 'var(--text-1)' : 'var(--text-3)',
           display: 'flex', alignItems: 'center', gap: 5,
         }}>
+          {f.country && (
+            <span className="player-inline-flag" title={countryName(f.country)}>
+              {countryFlag(f.country)}
+            </span>
+          )}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {f.name}
           </span>
         </div>
         <div style={{ fontSize: 10, color: 'var(--text-3)' }}>
-          {f.online
+          Elo {f.rating[universe]} · {f.online
             ? f.status === 'playing'
               ? `${t('social.inGame')}${f.currentTC ? ` · ${f.currentTC}` : ''}`
             : f.status === 'seeking'

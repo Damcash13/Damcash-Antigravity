@@ -1381,6 +1381,21 @@ button,
   color: var(--text-1);
   font-size: 12px;
   font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-profile-flag {
+  flex-shrink: 0;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.header-profile-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-profile-rating {
@@ -2726,6 +2741,14 @@ html, body {
 }
 
 .lb-flag {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.player-inline-flag {
+  display: inline-flex;
+  align-items: center;
   font-size: 14px;
   line-height: 1;
   flex-shrink: 0;

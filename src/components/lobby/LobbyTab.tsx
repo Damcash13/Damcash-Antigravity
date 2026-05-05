@@ -7,6 +7,7 @@ import { useInviteStore, OnlinePlayer } from '../../stores/inviteStore';
 import { useSafetyStore } from '../../stores/safetyStore';
 import { supabase } from '../../lib/supabase';
 import { PlayerHoverCard } from '../common/PlayerHoverCard';
+import { countryFlag, countryName } from '../../lib/countries';
 
 const MAX_CHAT_LEN = 300;
 function sanitizeChat(str: unknown, maxLen = MAX_CHAT_LEN): string {
@@ -21,6 +22,7 @@ export interface PublicSeek {
   name: string;
   avatarUrl?: string;
   rating: { chess: number; checkers: number };
+  country?: string;
   timeControl: string;
   universe: 'chess' | 'checkers';
   betAmount: number;
@@ -399,6 +401,11 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                     </div>
                     <div>
                       <div className="lobby-seek-name">
+                        {seek.country && (
+                          <span className="player-inline-flag" title={countryName(seek.country)}>
+                            {countryFlag(seek.country)}
+                          </span>
+                        )}
                         {seek.name}
                         {isMine && <span className="lobby-you-badge">{t('lobby.you')}</span>}
                       </div>
@@ -525,11 +532,16 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                     </div>
                     <div className="lobby-player-info">
                       <div className="lobby-player-name">
+                        {player.country && (
+                          <span className="player-inline-flag" title={countryName(player.country)}>
+                            {countryFlag(player.country)}
+                          </span>
+                        )}
                         {player.name}
                         {isMe && <span className="lobby-you-badge">{t('lobby.you')}</span>}
                       </div>
                       <div className="lobby-player-sub">
-                        {myRating}
+                        Elo {myRating}
                         {theirSeek && (
                           <span className="lobby-seeking-pill">
                             {t('lobby.seeking')} {theirSeek.timeControl}
@@ -598,6 +610,11 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                             games={0}
                             country={chatPlayer?.country}
                           >
+                            {chatPlayer?.country && (
+                              <span className="player-inline-flag" title={countryName(chatPlayer.country)}>
+                                {countryFlag(chatPlayer.country)}
+                              </span>
+                            )}
                             <span className="lobby-chat-name">{msg.senderName}</span>
                           </PlayerHoverCard>
                           <button

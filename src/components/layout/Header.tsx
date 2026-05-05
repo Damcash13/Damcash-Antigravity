@@ -6,6 +6,7 @@ import { PlayerSearchBar } from '../invite/PlayerSearchBar';
 import { OnlinePlayer } from '../../stores/inviteStore';
 import { getSoundEnabled, toggleSoundGlobal } from '../../hooks/useSound';
 import { useDirectMessageStore } from '../../stores/directMessageStore';
+import { countryFlag, countryName } from '../../lib/countries';
 import '../../styles/nav-dropdown.css';
 
 interface Props {
@@ -380,9 +381,16 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
                 >
                   <span className="header-profile-initial">{user.name[0]?.toUpperCase()}</span>
                   <span className="header-profile-meta">
-                    <span className="header-profile-name">{user.name}</span>
+                    <span className="header-profile-name">
+                      {user.country && (
+                        <span className="header-profile-flag" title={countryName(user.country)}>
+                          {countryFlag(user.country)}
+                        </span>
+                      )}
+                      <span className="header-profile-name-text">{user.name}</span>
+                    </span>
                     <span className="header-profile-rating">
-                      {user.rating[universe]}
+                      Elo {user.rating[universe]}
                     {lastRatingChange && lastRatingChange.universe === universe && Date.now() - lastRatingChange.playedAt < 120_000 && (
                       <span className={lastRatingChange.delta >= 0 ? 'rating-delta-up' : 'rating-delta-down'}>
                         {lastRatingChange.delta >= 0 ? '+' : ''}{lastRatingChange.delta}

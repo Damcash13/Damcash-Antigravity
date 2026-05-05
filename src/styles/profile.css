@@ -136,6 +136,53 @@
   letter-spacing: 0.04em;
 }
 
+.pf-player-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pf-rating-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.pf-setting-flag {
+  margin-left: 6px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.pf-player-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.pf-inline-flag {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pf-inline-rating {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .pf-country-code {
   display: inline-flex;
   align-items: center;

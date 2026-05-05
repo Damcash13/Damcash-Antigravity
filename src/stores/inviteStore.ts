@@ -173,6 +173,7 @@ export const useInviteStore = create<InviteStore>((set) => ({
             rating: p.rating || { chess: 1500, checkers: 1450 },
             status: p.status || 'idle',
             universe: p.universe || 'chess',
+            country: p.country || '',
             currentTC: p.currentTC || undefined,
           });
         }
@@ -194,6 +195,7 @@ export const useInviteStore = create<InviteStore>((set) => ({
             username,
             userId,
             rating,
+            country: useUserStore.getState().user?.country || '',
             socketId: sId,
             clientId,
             universe: useUniverseStore.getState().universe,
@@ -214,6 +216,7 @@ export const useInviteStore = create<InviteStore>((set) => ({
       username: user.name,
       userId: user.id,
       rating: user.rating,
+      country: user.country || '',
       socketId: socket.id,
       clientId,
       universe,

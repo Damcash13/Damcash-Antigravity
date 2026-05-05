@@ -11,6 +11,7 @@ import { useInviteStore } from '../../stores/inviteStore';
 import { useSafetyStore } from '../../stores/safetyStore';
 import { useDirectMessageStore } from '../../stores/directMessageStore';
 import { AvatarUpload } from './AvatarUpload';
+import { countryFlag, countryName } from '../../lib/countries';
 import '../../styles/profile.css';
 
 // ── Sparkline ─────────────────────────────────────────────────────────────────
@@ -48,6 +49,16 @@ type ProfileRatingEntry = RatingEntry & {
 };
 
 type ActivityEntry = { playedAt: number };
+
+const PlayerFlag: React.FC<{ country?: string; className?: string }> = ({ country, className }) => {
+  const flag = countryFlag(country || '');
+  if (!flag) return null;
+  return (
+    <span className={className || 'pf-player-flag'} title={countryName(country || '')}>
+      {flag}
+    </span>
+  );
+};
 
 const ActivityHeatmap: React.FC<{ history: ActivityEntry[] }> = ({ history }) => {
   const WEEKS = 26;
@@ -232,8 +243,29 @@ const SocialLinksRow: React.FC<{ links?: SocialLinks }> = ({ links }) => {
 const getStoredRatingHistory = (fullStats: ApiFullStats | null, fallback: RatingEntry[] = []): ProfileRatingEntry[] =>
   fullStats?.ratingHistory?.length ? fullStats.ratingHistory : fallback;
 
-const matchOpponentName = (match: ApiMatch, username: string) =>
-  match.white.username === username ? match.black.username : match.white.username;
+const matchOpponent = (match: ApiMatch, username: string) =>
+  match.white.username === username ? match.black : match.white;
+
+const matchOpponentRating = (match: ApiMatch, username: string) => {
+  const isWhite = match.white.username === username;
+  const rating = isWhite
+    ? match.blackRatingAfter ?? match.blackRatingBefore ?? match.black?.[match.universe === 'checkers' ? 'checkersRating' : 'chessRating']
+    : match.whiteRatingAfter ?? match.whiteRatingBefore ?? match.white?.[match.universe === 'checkers' ? 'checkersRating' : 'chessRating'];
+  return typeof rating === 'number' ? rating : null;
+};
+
+const MatchOpponentIdentity: React.FC<{ match: ApiMatch; username: string; showPrefix?: boolean }> = ({ match, username, showPrefix }) => {
+  const opp = matchOpponent(match, username);
+  const rating = matchOpponentRating(match, username);
+  return (
+    <span className="pf-player-inline">
+      {showPrefix && <span>vs</span>}
+      <PlayerFlag country={opp.country} className="pf-inline-flag" />
+      <span>{opp.username}</span>
+      {rating != null && <span className="pf-inline-rating">Elo {rating}</span>}
+    </span>
+  );
+};
 
 const matchResultForUser = (match: ApiMatch, username: string): 'win' | 'draw' | 'loss' | null => {
   const isWhite = match.white.username === username;
@@ -445,12 +477,9 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
           </div>
           <div className="pf-hero-info">
             <div className="pf-hero-name-row">
-              {profile.country && (
-                <span className="pf-country-code" title={profile.country}>
-                  {profile.country.toUpperCase()}
-                </span>
-              )}
+              <PlayerFlag country={profile.country} />
               <h1 className="pf-hero-name">{profile.username}</h1>
+              <span className="pf-rating-chip">Elo {rating}</span>
               <span className="pf-rank-badge" style={{ background: band.color + '28', color: band.color }}>{band.label}</span>
               {me && me.name !== profile.username && (
                 <button className="btn btn-secondary btn-sm" style={{ marginLeft: 8 }}>Follow</button>
@@ -599,12 +628,11 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
                 </div>
                 {publicRecentGames.map(g => {
                   const isWhite = g.white.username === profile.username;
-                  const opp = matchOpponentName(g, profile.username);
                   const myResult = matchResultForUser(g, profile.username);
                   const rc = myResult ?? '';
                   return (
                     <div key={g.id} className="pf-hist-row pf-public-games">
-                      <span className="pf-hist-opp">vs {opp}</span>
+                      <span className="pf-hist-opp"><MatchOpponentIdentity match={g} username={profile.username} showPrefix /></span>
                       <span className="c pf-dim">{isWhite ? 'White' : 'Black'}</span>
                       <span className={`c pf-result ${rc}`}>
                         {resultLabel(myResult)}
@@ -782,11 +810,7 @@ export const ProfilePage: React.FC = () => {
           </div>
           <div className="pf-hero-info">
             <div className="pf-hero-name-row">
-              {user.country && (
-                <span className="pf-country-code" title={user.country}>
-                  {user.country.toUpperCase()}
-                </span>
-              )}
+              <PlayerFlag country={user.country} />
               {editName ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <input
@@ -819,6 +843,7 @@ export const ProfilePage: React.FC = () => {
                   {user.name} <span className="pf-edit-icon">Edit</span>
                 </h1>
               )}
+              <span className="pf-rating-chip">Elo {rating}</span>
               <span className="pf-rank-badge" style={{ background: band.color + '28', color: band.color }}>
                 {band.label}
               </span>
@@ -1044,7 +1069,7 @@ export const ProfilePage: React.FC = () => {
                     <div key={g.id} className="pf-recent-row">
                       <span className={`pf-result-dot ${result ?? ''}`} />
                       <div className="pf-recent-info">
-                        <div className="pf-recent-opp">vs {matchOpponentName(g, user.name)}</div>
+                        <div className="pf-recent-opp"><MatchOpponentIdentity match={g} username={user.name} showPrefix /></div>
                         <div className="pf-recent-tc">{profileUniverseLabel(g.universe, t)} · {g.timeControl}</div>
                       </div>
                       <div className={`pf-recent-delta ${delta == null || delta >= 0 ? 'pos' : 'neg'}`}>
@@ -1177,14 +1202,13 @@ export const ProfilePage: React.FC = () => {
                         </div>
                         {paged.map((g, idx) => {
                           const isWhite  = g.white.username === user.name;
-                          const opp      = matchOpponentName(g, user.name);
                           const myResult = matchResultForUser(g, user.name);
                           const delta    = matchRatingDeltaForUser(g, user.name);
                           const rc = myResult ?? '';
                           return (
                             <div key={g.id} className="pf-hist-row pf-game-history">
                               <span className="pf-hist-num">{filtered.length - (historyPage * HISTORY_PAGE_SIZE + idx)}</span>
-                              <span className="pf-hist-opp">{opp}</span>
+                              <span className="pf-hist-opp"><MatchOpponentIdentity match={g} username={user.name} /></span>
                               <span className="c pf-dim" style={{ fontSize: 11 }}>{isWhite ? 'White' : 'Black'}</span>
                               <span className={`c pf-result ${rc}`} title={g.resultReason ?? undefined}>
                                 {resultLabel(myResult)}
@@ -1377,7 +1401,7 @@ export const ProfilePage: React.FC = () => {
             <div className="pf-section-title">{t('profile.editProfile')}</div>
             <div className="pf-settings-grid">
               <div className="pf-setting-row">
-                <span className="pf-setting-label">{t('profile.flagPreview')}</span>
+                <span className="pf-setting-label">Avatar</span>
                 <div className="pf-setting-val">
                   <AvatarUpload />
                 </div>
@@ -1427,7 +1451,7 @@ export const ProfilePage: React.FC = () => {
               </div>
               <div className="pf-setting-row">
                 <span className="pf-setting-label">
-                  {t('profile.country')} {countryCode && <span className="pf-country-code">{countryCode}</span>}
+                  {t('profile.country')} {countryCode && <PlayerFlag country={countryCode} className="pf-setting-flag" />}
                 </span>
                 <div className="pf-setting-val">
                   <input

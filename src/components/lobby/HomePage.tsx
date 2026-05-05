@@ -8,6 +8,7 @@ import { CorrespondenceTab } from './CorrespondenceTab';
 import { CustomGameModal } from './CustomGameModal';
 import { api, ApiLeaderboardEntry } from '../../lib/api';
 import { PlayerHoverCard } from '../common/PlayerHoverCard';
+import { countryFlag, countryName } from '../../lib/countries';
 
 // ── Time controls ─────────────────────────────────────────────────────────────
 
@@ -313,6 +314,11 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
               ) : leaderboard.map(entry => (
                 <div key={entry.rank} className="lb-item">
                   <span className={`lb-rank ${entry.rank <= 3 ? 'top-3' : ''}`}>{entry.rank}</span>
+                  {entry.country && (
+                    <span className="lb-flag" title={countryName(entry.country)}>
+                      {countryFlag(entry.country)}
+                    </span>
+                  )}
                   <PlayerHoverCard
                     username={entry.name}
                     rating={entry.rating}

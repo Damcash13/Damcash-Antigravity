@@ -6,16 +6,7 @@ import { useLiveGamesStore } from '../../stores';
 import { useSafetyStore } from '../../stores/safetyStore';
 import { useDirectMessageStore } from '../../stores/directMessageStore';
 import { api } from '../../lib/api';
-
-// Convert ISO 3166-1 alpha-2 code → emoji flag (e.g. "US" → 🇺🇸)
-export function countryFlag(code: string): string {
-  if (!code || code.length !== 2) return '';
-  const base = 0x1F1E6 - 65;
-  return String.fromCodePoint(
-    code.toUpperCase().charCodeAt(0) + base,
-    code.toUpperCase().charCodeAt(1) + base,
-  );
-}
+import { countryFlag } from '../../lib/countries';
 
 interface Props {
   username: string;

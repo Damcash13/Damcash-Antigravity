@@ -774,7 +774,7 @@ io.on('connection', (socket) => {
       try {
         authProfile = await prisma.user.findUnique({
           where: { id: socket.user.id },
-          select: { username: true, chessRating: true, checkersRating: true, chessGames: true, checkersGames: true },
+          select: { username: true, country: true, chessRating: true, checkersRating: true, chessGames: true, checkersGames: true },
         });
       } catch (_) {
         // DB outage — fall back to client payload
@@ -793,7 +793,7 @@ io.on('connection', (socket) => {
         : (gamesPlayed || { chess: 0, checkers: 0 }),
       status: 'idle',
       universe: safeUniverse,
-      country: country || '',
+      country: authProfile ? (authProfile.country || '') : (country || ''),
       registeredAt: Date.now(),
     });
     broadcastPlayerList();
@@ -2351,6 +2351,19 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
       }
     }
 
+    const metadataCountry = req.user.user_metadata?.country;
+    if (user && !user.country && typeof metadataCountry === 'string' && metadataCountry.trim()) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { country: metadataCountry.toUpperCase().slice(0, 2) },
+        include: {
+          wallet: true,
+          matchesAsWhite: true,
+          matchesAsBlack: true,
+        },
+      });
+    }
+
     res.json({
       user: {
         id: user.id,
@@ -2889,8 +2902,8 @@ app.get('/api/users/:username/games', async (req, res) => {
     const matches = await prisma.match.findMany({
       where: { OR: [{ whiteId: u.id }, { blackId: u.id }], status: 'ended' },
       include: {
-        white: { select: { id: true, username: true } },
-        black: { select: { id: true, username: true } },
+        white: { select: { id: true, username: true, country: true, chessRating: true, checkersRating: true } },
+        black: { select: { id: true, username: true, country: true, chessRating: true, checkersRating: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -3321,8 +3334,8 @@ app.get('/api/friends', requireAuth, async (req, res) => {
     const all = await prisma.friend.findMany({
       where: { OR: [{ requesterId: req.user.id }, { addresseeId: req.user.id }] },
       include: {
-        requester: { select: { id: true, username: true } },
-        addressee: { select: { id: true, username: true } },
+        requester: { select: { id: true, username: true, country: true, chessRating: true, checkersRating: true } },
+        addressee: { select: { id: true, username: true, country: true, chessRating: true, checkersRating: true } },
       },
     });
     const friends  = all.filter(f => f.status === 'accepted');
@@ -3343,8 +3356,8 @@ app.post('/api/friends/request', requireAuth, async (req, res) => {
       update: { status: 'pending' },
       create: { requesterId: req.user.id, addresseeId: target.id, status: 'pending' },
       include: {
-        requester: { select: { id: true, username: true } },
-        addressee: { select: { id: true, username: true } },
+        requester: { select: { id: true, username: true, country: true, chessRating: true, checkersRating: true } },
+        addressee: { select: { id: true, username: true, country: true, chessRating: true, checkersRating: true } },
       },
     });
     res.json(friend);
@@ -3360,8 +3373,8 @@ app.post('/api/friends/accept', requireAuth, async (req, res) => {
       where: { id: requestId },
       data: { status: 'accepted' },
       include: {
-        requester: { select: { id: true, username: true } },
-        addressee: { select: { id: true, username: true } },
+        requester: { select: { id: true, username: true, country: true, chessRating: true, checkersRating: true } },
+        addressee: { select: { id: true, username: true, country: true, chessRating: true, checkersRating: true } },
       },
     });
     res.json(updated);

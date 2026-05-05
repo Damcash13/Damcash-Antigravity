@@ -9,6 +9,7 @@ import type { Universe } from '../types';
 export interface Friend {
   id: string;           // their socket ID (ephemeral) or persistent username
   name: string;
+  country?: string;
   rating: { chess: number; checkers: number };
   online: boolean;
   status: 'idle' | 'playing' | 'seeking';
@@ -34,7 +35,7 @@ interface FriendsStore {
   addFriend: (f: Friend) => void;
   removeFriend: (name: string) => void;
   updateOnline: (socketId: string, online: boolean, status?: Friend['status']) => void;
-  syncOnlinePlayers: (players: Array<{ socketId: string; name: string; rating: any; status: string; universe?: Universe; currentTC?: string }>) => void;
+  syncOnlinePlayers: (players: Array<{ socketId: string; name: string; rating: any; status: string; universe?: Universe; country?: string; currentTC?: string }>) => void;
   addRequest: (r: FriendRequest) => void;
   removeRequest: (id: string) => void;
   initialize: () => Promise<void>;
@@ -71,7 +72,7 @@ export const useFriendsStore = create<FriendsStore>()(
           friends: s.friends.map(f => {
             const match = players.find(p => p.name === f.name);
             return match
-              ? { ...f, online: true, socketId: match.socketId, status: match.status as Friend['status'], universe: match.universe, currentTC: match.currentTC || undefined }
+              ? { ...f, online: true, socketId: match.socketId, status: match.status as Friend['status'], universe: match.universe, country: match.country || f.country, rating: match.rating || f.rating, currentTC: match.currentTC || undefined }
               : { ...f, online: false, socketId: undefined, universe: undefined, currentTC: undefined };
           }),
         })),
@@ -101,7 +102,8 @@ export const useFriendsStore = create<FriendsStore>()(
               return {
                 id: friendUser.id,
                 name: friendUser.username,
-                rating: { chess: 1500, checkers: 1450 },
+                country: friendUser.country || '',
+                rating: { chess: friendUser.chessRating ?? 1500, checkers: friendUser.checkersRating ?? 1450 },
                 online: false,
                 status: 'idle',
                 addedAt: new Date(f.createdAt).getTime(),
@@ -112,7 +114,7 @@ export const useFriendsStore = create<FriendsStore>()(
                 id: r.id,
                 fromName: r.requester.username,
                 fromSocketId: '',
-                fromRating: { chess: 1500, checkers: 1450 },
+                fromRating: { chess: r.requester.chessRating ?? 1500, checkers: r.requester.checkersRating ?? 1450 },
                 sentAt: new Date(r.createdAt).getTime(),
                 direction: 'incoming' as const
               })),
@@ -120,7 +122,7 @@ export const useFriendsStore = create<FriendsStore>()(
                 id: r.id,
                 fromName: r.addressee.username,
                 fromSocketId: '',
-                fromRating: { chess: 1500, checkers: 1450 },
+                fromRating: { chess: r.addressee.chessRating ?? 1500, checkers: r.addressee.checkersRating ?? 1450 },
                 sentAt: new Date(r.createdAt).getTime(),
                 direction: 'outgoing' as const
               }))

@@ -395,8 +395,8 @@ export interface ApiFriend {
   addresseeId: string;
   status: string;
   createdAt: string;
-  requester: { id: string; username: string };
-  addressee: { id: string; username: string };
+  requester: { id: string; username: string; country?: string; chessRating?: number; checkersRating?: number };
+  addressee: { id: string; username: string; country?: string; chessRating?: number; checkersRating?: number };
 }
 
 export interface ApiFriendsResponse {
@@ -692,8 +692,8 @@ export interface ApiMatch {
   walletSettledAt?: string | null;
   whiteId: string;
   blackId: string;
-  white: { id: string; username: string };
-  black: { id: string; username: string };
+  white: { id: string; username: string; country?: string; chessRating?: number; checkersRating?: number };
+  black: { id: string; username: string; country?: string; chessRating?: number; checkersRating?: number };
   createdAt: string;
   startedAt: string;
   endedAt: string | null;

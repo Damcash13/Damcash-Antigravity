@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useInviteStore, OnlinePlayer } from '../../stores/inviteStore';
 import { useUniverseStore } from '../../stores';
 import { PlayerHoverCard } from '../common/PlayerHoverCard';
+import { countryFlag, countryName } from '../../lib/countries';
 
 interface Props {
   onInvite: (player: OnlinePlayer) => void;
@@ -57,14 +58,19 @@ export const OnlinePlayersList: React.FC<Props> = ({ onInvite }) => {
             <span style={{
               flex: 1, fontSize: 13, color: 'var(--text-1)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              fontWeight: 500
+              fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 5,
             }}>
+              {player.country && (
+                <span className="player-inline-flag" title={countryName(player.country)}>
+                  {countryFlag(player.country)}
+                </span>
+              )}
               {player.name}
             </span>
 
             {/* Rating */}
             <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
-              {universe === 'chess' ? player.rating.chess : player.rating.checkers}
+              Elo {universe === 'chess' ? player.rating.chess : player.rating.checkers}
             </span>
             <span style={{ fontSize: 11, color: statusColor(player.status), fontWeight: 700, flexShrink: 0 }}>
               {statusText(player.status)}
