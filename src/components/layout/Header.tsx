@@ -317,7 +317,7 @@ const HamburgerMenu: React.FC<{
 export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlayer, onOpenCreateGame }) => {
   const { t, i18n } = useTranslation();
   const { universe, toggleUniverse } = useUniverseStore();
-  const { user, isLoggedIn, logout, lastRatingChange } = useUserStore();
+  const { user, logout, lastRatingChange } = useUserStore();
   const openMessages = useDirectMessageStore(s => s.openInbox);
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(() => getSoundEnabled());
@@ -358,49 +358,33 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
             <PlayerSearchBar onInvite={handleInviteOrCode} />
           </div>
 
-          <button
-            className="btn btn-secondary btn-sm header-play-wrap"
-            onClick={onOpenCreateGame}
-            title={t('header.createRoomTitle')}
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            Play
-          </button>
-
           {/* Wallet / Auth */}
           {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button className="wallet-display" onClick={onOpenWallet}>
-                <span className="wallet-amount">${Number(user.walletBalance).toFixed(2)}</span>
-              </button>
-              {isLoggedIn && (
-                <button
-                  className="header-profile-btn"
-                  onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`)}
-                  title={t('header.profileTitle', { name: user.name })}
-                >
-                  <span className="header-profile-initial">{user.name[0]?.toUpperCase()}</span>
-                  <span className="header-profile-meta">
-                    <span className="header-profile-name">
-                      {user.country && (
-                        <span className="header-profile-flag" title={countryName(user.country)}>
-                          {countryFlag(user.country)}
-                        </span>
-                      )}
-                      <span className="header-profile-name-text">{user.name}</span>
+            <button
+              className="header-profile-btn"
+              onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`)}
+              title={t('header.profileTitle', { name: user.name })}
+            >
+              <span className="header-profile-initial">{user.name[0]?.toUpperCase()}</span>
+              <span className="header-profile-meta">
+                <span className="header-profile-name">
+                  {user.country && (
+                    <span className="header-profile-flag" title={countryName(user.country)}>
+                      {countryFlag(user.country)}
                     </span>
-                    <span className="header-profile-rating">
-                      Elo {user.rating[universe]}
-                    {lastRatingChange && lastRatingChange.universe === universe && Date.now() - lastRatingChange.playedAt < 120_000 && (
-                      <span className={lastRatingChange.delta >= 0 ? 'rating-delta-up' : 'rating-delta-down'}>
-                        {lastRatingChange.delta >= 0 ? '+' : ''}{lastRatingChange.delta}
-                      </span>
-                    )}
+                  )}
+                  <span className="header-profile-name-text">{user.name}</span>
+                </span>
+                <span className="header-profile-rating">
+                  Elo {user.rating[universe]}
+                  {lastRatingChange && lastRatingChange.universe === universe && Date.now() - lastRatingChange.playedAt < 120_000 && (
+                    <span className={lastRatingChange.delta >= 0 ? 'rating-delta-up' : 'rating-delta-down'}>
+                      {lastRatingChange.delta >= 0 ? '+' : ''}{lastRatingChange.delta}
                     </span>
-                  </span>
-                </button>
-              )}
-            </div>
+                  )}
+                </span>
+              </span>
+            </button>
           ) : (
             <>
               <button className="btn-signin"   onClick={onOpenAuth}>{t('nav.signIn')}</button>

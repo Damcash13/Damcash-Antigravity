@@ -1272,24 +1272,6 @@ button,
 
 .btn-signin:hover { color: var(--text-1); border-color: var(--text-3); }
 
-/* ===== WALLET DISPLAY ===== */
-.wallet-display {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 6px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: border-color var(--transition);
-}
-
-.wallet-display:hover { border-color: var(--accent); }
-.wallet-amount { color: var(--accent); font-weight: 700; }
-.wallet-icon { font-size: 14px; }
-
 .header-message-btn {
   position: relative;
   width: 34px;
@@ -3193,7 +3175,6 @@ html, body {
 @media (max-width: 700px) {
   /* Header — hide wide items so everything fits without horizontal scroll */
   .header-search-wrap { display: none; }
-  .header-play-wrap   { display: none; }
   .header-inner { padding: 0 8px; gap: 6px; height: 48px; }
   .logo { font-size: 16px; }
   .header .logo-mark { width: 34px; height: 34px; border-radius: 8px; }
