@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiAdminDashboard } from '../../lib/api';
 import { useNotificationStore, useUniverseStore } from '../../stores';
+import { formatLocalDateTime, getUserTimeZone } from '../../lib/timezone';
 
 const formatDuration = (ms: number | null | undefined) => {
   if (!ms || ms < 0) return '-';
@@ -20,7 +21,7 @@ const formatBytes = (bytes: number) => {
 };
 
 const formatTime = (value?: string | null) =>
-  value ? new Date(value).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+  value ? formatLocalDateTime(value, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }, true) : '-';
 
 export const AdminSafetyPage: React.FC = () => {
   const navigate = useNavigate();
@@ -90,7 +91,7 @@ export const AdminSafetyPage: React.FC = () => {
         <div>
           <div className="admin-safety-kicker">Owner Tools</div>
           <h1>Admin Dashboard</h1>
-          <p>Live operational view for users, games, tournaments, payments, disputes, flagged accounts, health, and server errors.</p>
+          <p>Live operational view for users, games, tournaments, payments, disputes, flagged accounts, health, and server errors. Times shown in {getUserTimeZone()}.</p>
         </div>
         <div className="admin-safety-actions">
           <button className="btn btn-secondary" onClick={() => navigate(`/${universe}`)}>

@@ -9,6 +9,7 @@ import {
   createInitialBoard, getLegalMoves, applyMove, getMovesFromSquare, formatMove,
 } from '../../engines/draughts.engine';
 import { DraughtsBoard as DraughtsBoardType, DraughtsMove, Position } from '../../types';
+import { formatLocalDateTime } from '../../lib/timezone';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ function timeLeft(game: CorrGame): string {
 }
 
 function formatTs(ms: number): string {
-  return new Date(ms).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return formatLocalDateTime(ms, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }, true);
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

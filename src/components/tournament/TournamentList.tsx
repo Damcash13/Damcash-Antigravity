@@ -4,6 +4,7 @@ import { useUniverseStore, useUserStore } from '../../stores';
 import { useTournamentStore, Tournament, TournamentStatus } from '../../stores/tournamentStore';
 import { api } from '../../lib/api';
 import { socket } from '../../lib/socket';
+import { formatLocalDateTime, getUserTimeZone } from '../../lib/timezone';
 import { useNotificationStore } from '../../stores';
 import '../../styles/tournaments.css';
 
@@ -125,7 +126,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
   };
 
   const exactTimeStr = (ts: number): string =>
-    new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    formatLocalDateTime(ts, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }, true);
 
   const shortCountdown = (ms: number): string => {
     const total = Math.max(0, Math.ceil(ms / 1000));
@@ -214,7 +215,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
         <div>
           <h2 className="tl-title">🏆 {t('lobby.tournaments')}</h2>
           <p className="tl-sub">
-            {universe === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}`} · {visible.length}
+            {universe === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}`} · {visible.length} · Times shown in {getUserTimeZone()}
           </p>
         </div>
 

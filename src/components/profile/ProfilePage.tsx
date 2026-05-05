@@ -12,6 +12,7 @@ import { useSafetyStore } from '../../stores/safetyStore';
 import { useDirectMessageStore } from '../../stores/directMessageStore';
 import { AvatarUpload } from './AvatarUpload';
 import { countryFlag, countryName } from '../../lib/countries';
+import { formatLocalDate, formatLocalDateTime, getUserTimeZone } from '../../lib/timezone';
 import '../../styles/profile.css';
 
 // ── Sparkline ─────────────────────────────────────────────────────────────────
@@ -139,7 +140,7 @@ const RatingChart: React.FC<{ entries: RatingEntry[]; color: string; currentRati
   // X axis: show dates at evenly spaced points
   const xLabels = [0, Math.floor(data.length / 2), data.length - 1].map(i => ({
     x: toX(i),
-    label: new Date(entries[i].playedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+    label: formatLocalDate(entries[i].playedAt, { month: 'short', day: 'numeric' }),
   }));
 
   const trend = data[data.length - 1] >= data[0];
@@ -370,7 +371,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
   const publicRecentGames = games.filter(g => g.universe === universe).slice(0, 15);
   const rating = uStats.rating;
   const band   = ratingBand(rating);
-  const joined = new Date(profile.createdAt).toLocaleDateString([], { year: 'numeric', month: 'long' });
+  const joined = formatLocalDate(profile.createdAt, { year: 'numeric', month: 'long' });
   const isBlocked = blockedUsers.includes(profile.username.trim().toLowerCase());
   const onlineEntry = onlinePlayers.find(p => p.name === profile.username && p.universe === universe);
 
@@ -548,7 +549,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
             <div className="pf-kpi-lbl">{t('profile.timePlayed')}</div>
           </div>
           <div className="pf-kpi">
-            <div className="pf-kpi-val">{fullStats ? new Date(fullStats.joinedAt).toLocaleDateString([],{month:'short',year:'numeric'}) : joined}</div>
+            <div className="pf-kpi-val">{fullStats ? formatLocalDate(fullStats.joinedAt, { month: 'short', year: 'numeric' }) : joined}</div>
             <div className="pf-kpi-lbl">{t('profile.memberSince')}</div>
           </div>
           <div className="pf-kpi">
@@ -640,7 +641,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
                       </span>
                       <span className="c pf-dim" style={{ fontSize: 11 }}>{g.timeControl}</span>
                       <span className="c pf-dim" style={{ fontSize: 11 }}>
-                        {new Date(g.endedAt ?? g.createdAt).toLocaleDateString()}
+                        {formatLocalDate(g.endedAt ?? g.createdAt)}
                       </span>
                       <span className="c">
                         {g.pgn
@@ -859,7 +860,7 @@ export const ProfilePage: React.FC = () => {
                 {winRate}% {t('common.winRate')}
               </span>
               <span>·</span>
-              <span>{fullStats ? new Date(fullStats.joinedAt).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '—'}</span>
+              <span>{fullStats ? formatLocalDate(fullStats.joinedAt, { month: 'short', year: 'numeric' }) : '—'}</span>
             </div>
             <SocialLinksRow links={user.socialLinks} />
           </div>
@@ -931,7 +932,7 @@ export const ProfilePage: React.FC = () => {
             </div>
             <div className="pf-kpi">
               <div className="pf-kpi-val">
-                {fullStats ? new Date(fullStats.joinedAt).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '—'}
+                {fullStats ? formatLocalDate(fullStats.joinedAt, { month: 'short', year: 'numeric' }) : '—'}
               </div>
               <div className="pf-kpi-lbl">{t('profile.memberSince')}</div>
             </div>
@@ -1218,7 +1219,7 @@ export const ProfilePage: React.FC = () => {
                               <span className={`c pf-delta ${delta == null || delta >= 0 ? 'pos' : 'neg'}`}>
                                 {delta == null ? '—' : `${delta >= 0 ? '+' : ''}${delta}`}
                               </span>
-                              <span className="c pf-dim" style={{ fontSize: 11 }}>{new Date(g.endedAt ?? g.createdAt).toLocaleDateString()}</span>
+                              <span className="c pf-dim" style={{ fontSize: 11 }}>{formatLocalDate(g.endedAt ?? g.createdAt)}</span>
                               <span className="c">
                                 {g.pgn
                                   ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>Replay</button>
@@ -1259,7 +1260,7 @@ export const ProfilePage: React.FC = () => {
                       <span className="c">Date</span>
                     </div>
                     {history.map((e, idx) => {
-                      const date = new Date(e.playedAt).toLocaleDateString();
+                      const date = formatLocalDate(e.playedAt);
                       const rc   = e.result === 'win' ? 'win' : e.result === 'draw' ? 'draw' : 'loss';
                       return (
                         <div key={idx} className="pf-hist-row">
@@ -1284,7 +1285,7 @@ export const ProfilePage: React.FC = () => {
           {/* Wallet transaction history */}
           {fullStats && (
             <div className="pf-section" style={{ marginTop: 16 }}>
-              <div className="pf-section-title">{t('profile.transactionHistory')}</div>
+              <div className="pf-section-title">{t('profile.transactionHistory')} · Times shown in {getUserTimeZone()}</div>
               {fullStats.wallet.transactions.length === 0 ? (
                 <div className="pf-empty-small">
                   No wallet activity yet. Deposits, withdrawals, bet escrow, payouts, refunds, and tournament entry fees will be listed here.
@@ -1313,7 +1314,7 @@ export const ProfilePage: React.FC = () => {
                         </span>
                         <span className="c pf-dim" style={{ fontSize: 11 }}>{tx.status}</span>
                         <span className="c pf-dim" style={{ fontSize: 11 }}>
-                          {new Date(tx.createdAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {formatLocalDateTime(tx.createdAt, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }, true)}
                         </span>
                       </div>
                     );
@@ -1379,7 +1380,7 @@ export const ProfilePage: React.FC = () => {
                     {tn.prizePool > 0 && <span style={{ color: '#22c55e', marginLeft: 6 }}>${tn.prizePool} pool</span>}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
-                    {new Date(tn.startsAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {formatLocalDateTime(tn.startsAt, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }, true)}
                   </div>
                 </div>
                 <div className="pf-tourn-stats">

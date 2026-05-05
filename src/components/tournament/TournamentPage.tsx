@@ -6,6 +6,7 @@ import { useTournamentStore } from '../../stores/tournamentStore';
 import { TournamentList } from './TournamentList';
 import { socket } from '../../lib/socket';
 import { AppErrorBoundary } from '../common/AppErrorBoundary';
+import { formatLocalDateTime, getTimeZoneLabel, getUserTimeZone } from '../../lib/timezone';
 import '../../styles/tournaments.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -29,24 +30,18 @@ function timeAgo(ts: number): string {
 }
 
 function formatStartTime(ts: number): string {
-  return new Date(ts).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatLocalDateTime(ts, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }, true);
 }
 
 function formatExactTime(ts: number): string {
-  return new Date(ts).toLocaleString([], {
+  return formatLocalDateTime(ts, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    timeZoneName: 'short',
-  });
+  }, true);
 }
 
 function formatDuration(ms: number): string {
@@ -379,6 +374,11 @@ export const TournamentPage: React.FC = () => {
         </div>
 
         <div className="tp-timeline-grid">
+          <div className="tp-timeline-card">
+            <span className="tp-timeline-label">Your timezone</span>
+            <strong>{getUserTimeZone()}</strong>
+            <small>{getTimeZoneLabel(tournament.startsAt)}</small>
+          </div>
           <div className="tp-timeline-card">
             <span className="tp-timeline-label">Exact start</span>
             <strong>{formatExactTime(tournament.startsAt)}</strong>

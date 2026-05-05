@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal } from './Modal';
 import { useUserStore, useNotificationStore } from '../../stores';
 import { api, ApiTransaction } from '../../lib/api';
+import { formatLocalDateTime, getUserTimeZone } from '../../lib/timezone';
 
 interface Props {
   open: boolean;
@@ -233,7 +234,11 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
               <div>Deposits, withdrawals, bet escrow, payouts, refunds, and tournament entry fees will appear here with timestamps.</div>
             </div>
           ) : (
-            transactions.map((tx) => {
+            <>
+              <div style={{ color: 'var(--text-3)', fontSize: 11, lineHeight: 1.4 }}>
+                Times shown in {getUserTimeZone()}.
+              </div>
+              {transactions.map((tx) => {
               const amount = Number(tx.amount);
               const positive = amount >= 0;
               const info = transactionLabel(tx.type);
@@ -254,7 +259,7 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
                       {info.detail}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-3)' }}>
-                      {new Date(tx.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {formatLocalDateTime(tx.createdAt, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }, true)}
                       {linkedId}
                       {stripeId}
                     </div>
@@ -276,7 +281,8 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
                   </div>
                 </div>
               );
-            })
+              })}
+            </>
           )}
         </div>
       )}

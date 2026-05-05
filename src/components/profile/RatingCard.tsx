@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useUserStore, RatingEntry } from '../../stores';
 import { ratingBand } from '../../lib/elo';
+import { formatLocalDate } from '../../lib/timezone';
 import '../../styles/rating-card.css';
 
 // ── Mini sparkline chart ──────────────────────────────────────────────────────
@@ -81,7 +82,7 @@ const HistoryTable: React.FC<{ entries: RatingEntry[]; universe: 'chess' | 'chec
         <span className="center">Δ</span>
       </div>
       {filtered.map((e, i) => {
-        const date = new Date(e.playedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        const date = formatLocalDate(e.playedAt, { month: 'short', day: 'numeric' });
         const resultLabel = e.result === 'win' ? 'Win' : e.result === 'draw' ? 'Draw' : 'Loss';
         const resultClass = e.result === 'win' ? 'win' : e.result === 'draw' ? 'draw' : 'loss';
         return (

@@ -2,9 +2,10 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAnalysisStore } from '../../stores/analysisStore';
 import { useUniverseStore } from '../../stores';
+import { formatLocalDate } from '../../lib/timezone';
 
 function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatLocalDate(ts, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function classColor(cls: string): string {

@@ -4,6 +4,7 @@ import { Chess } from 'chess.js';
 import { ChessBoard } from '../chess/ChessBoard';
 import { useAnalysisStore, AnalysedMove, MoveClass, analyseGame } from '../../stores/analysisStore';
 import { useStockfish } from '../../hooks/useStockfish';
+import { formatLocalDate } from '../../lib/timezone';
 import '../../styles/analysis.css';
 
 // ── Move classification metadata ─────────────────────────────────────────────
@@ -326,7 +327,7 @@ export const AnalysisBoard: React.FC = () => {
             {game.white} vs {game.black}
           </div>
           <div className="an-game-meta">
-            {game.tc} · {game.result} · {new Date(game.playedAt).toLocaleDateString()}
+            {game.tc} · {game.result} · {formatLocalDate(game.playedAt)}
           </div>
         </div>
 
