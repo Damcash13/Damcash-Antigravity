@@ -55,7 +55,14 @@ app.use(helmet({
 }));
 
 // ── Body parsing (cap at 100kb to prevent payload attacks) ───────────────────
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({
+  limit: '100kb',
+  verify: (req, _res, buf) => {
+    if (req.originalUrl?.startsWith('/api/wallet/stripe/webhook')) {
+      req.rawBody = Buffer.from(buf);
+    }
+  },
+}));
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
@@ -2896,14 +2903,15 @@ app.get('/api/wallet/stripe/verify', requireAuth, async (req, res) => {
 });
 
 // Stripe webhook (for server-initiated fulfillment — optional but recommended in prod)
-app.post('/api/wallet/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/api/wallet/stripe/webhook', async (req, res) => {
   if (!stripe) return res.sendStatus(200);
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) return res.sendStatus(200);
+  if (!req.rawBody) return res.status(400).send('Webhook Error: raw body missing');
   let event;
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
   } catch (err) { 
     console.error(`[Stripe Webhook] Signature verification failed: ${err.message}`);
     return res.status(400).send(`Webhook Error: ${err.message}`); 

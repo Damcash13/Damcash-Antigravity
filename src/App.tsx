@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
-import { Routes, Route, useNavigate, Navigate, useParams, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { SearchingOverlay } from './components/lobby/SearchingOverlay';
@@ -13,6 +13,7 @@ import { useInviteStore, OnlinePlayer } from './stores/inviteStore';
 import { useFriendsStore } from './stores/friendsStore';
 import { useRatingUpdates } from './hooks/useRatingUpdates';
 import { socket } from './lib/socket';
+import { api } from './lib/api';
 
 // Lazy load pages
 const HomePage = lazy(() => import('./components/lobby/HomePage').then(m => ({ default: m.HomePage })));
@@ -251,6 +252,8 @@ export default function App() {
 
             <Route path="/game/:id" element={<main className="main-content"><GameReplayPage /></main>} />
             <Route path="/join/:code" element={<JoinByCodeRedirect />} />
+            <Route path="/wallet/success" element={<WalletReturn status="success" />} />
+            <Route path="/wallet/cancel" element={<WalletReturn status="cancel" />} />
 
             <Route path="*" element={<Navigate to={`/${universe}`} replace />} />
           </Routes>
@@ -303,4 +306,46 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
   return <>{children}</>;
+}
+
+function WalletReturn({ status }: { status: 'success' | 'cancel' }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const universe = useUniverseStore(s => s.universe);
+  const setWalletBalance = useUserStore(s => s.setWalletBalance);
+  const handledRef = useRef(false);
+
+  useEffect(() => {
+    if (handledRef.current) return;
+    handledRef.current = true;
+
+    const finish = async () => {
+      if (status === 'cancel') {
+        useNotificationStore.getState().addNotification('Payment cancelled.', 'info');
+        navigate(`/${universe}`, { replace: true });
+        return;
+      }
+
+      const sessionId = searchParams.get('session_id');
+      if (!sessionId) {
+        useNotificationStore.getState().addNotification('Missing payment session.', 'error');
+        navigate(`/${universe}`, { replace: true });
+        return;
+      }
+
+      try {
+        const result = await api.wallet.stripeVerify(sessionId);
+        if (typeof result.balance === 'number') setWalletBalance(result.balance);
+        useNotificationStore.getState().addNotification('Wallet topped up successfully.', 'success');
+      } catch (err: any) {
+        useNotificationStore.getState().addNotification(err?.message || 'Could not verify payment.', 'error');
+      } finally {
+        navigate(`/${universe}`, { replace: true });
+      }
+    };
+
+    finish();
+  }, [navigate, searchParams, setWalletBalance, status, universe]);
+
+  return <div className="spinner-overlay"><div className="spinner" /></div>;
 }
