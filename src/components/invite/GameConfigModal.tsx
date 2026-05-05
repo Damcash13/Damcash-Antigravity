@@ -345,6 +345,16 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
                     </span>
                   )}
                 </div>
+                {effectiveBet > 0 && (
+                  <div style={{ marginTop: 8, padding: '8px 10px', border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.08)', borderRadius: 8, fontSize: 11, color: 'var(--text-2)', lineHeight: 1.45 }}>
+                    Both players must have enough balance. Stakes are escrowed by the server when the game starts, payouts are recorded after the result, and draws/cancelled games refund the stake. Estimated payout includes the 5% platform fee.
+                  </div>
+                )}
+                {effectiveBet > (user?.walletBalance ?? 0) && effectiveBet > 0 && (
+                  <div style={{ marginTop: 8, color: '#ef4444', fontSize: 12, lineHeight: 1.4 }}>
+                    Your balance is too low for this stake. Lower the bet or add funds before creating the game.
+                  </div>
+                )}
               </div>
 
               {/* Rated toggle */}

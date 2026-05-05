@@ -72,6 +72,7 @@ export default function App() {
   const isLoggedIn = useUserStore(s => s.isLoggedIn);
   const restoreSession = useUserStore(s => s.restoreSession);
   const listenToAuthChanges = useUserStore(s => s.listenToAuthChanges);
+  const setWalletBalance = useUserStore(s => s.setWalletBalance);
   const universe = useUniverseStore(s => s.universe);
   const setUniverse = useUniverseStore(s => s.setUniverse);
 
@@ -138,10 +139,17 @@ export default function App() {
       setSearching(null);
     };
 
+    const handleWalletUpdate = (data: { balance?: number | string; message?: string }) => {
+      const balance = Number(data.balance);
+      if (Number.isFinite(balance)) setWalletBalance(balance);
+      if (data.message) useNotificationStore.getState().addNotification(data.message, 'info');
+    };
+
     socket.on('players:online', handlePlayersOnline);
     socket.on('room:created', handleRoomCreated);
     socket.on('game-start', handleGameStart);
     socket.on('room:error', handleRoomError);
+    socket.on('wallet:update', handleWalletUpdate);
 
     const handleAuthUnauthorized = () => {
       useUserStore.getState().logout();
@@ -157,8 +165,9 @@ export default function App() {
       socket.off('room:created', handleRoomCreated);
       socket.off('game-start', handleGameStart);
       socket.off('room:error', handleRoomError);
+      socket.off('wallet:update', handleWalletUpdate);
     };
-  }, [navigate, setOnlinePlayers, syncOnlinePlayers]);
+  }, [navigate, setOnlinePlayers, setWalletBalance, syncOnlinePlayers]);
 
   const handleCreateGame = (tc: string, mode: 'online' | 'computer') => {
     if (!user) { setShowAuth(true); return; }
@@ -321,14 +330,14 @@ function WalletReturn({ status }: { status: 'success' | 'cancel' }) {
 
     const finish = async () => {
       if (status === 'cancel') {
-        useNotificationStore.getState().addNotification('Payment cancelled.', 'info');
+        useNotificationStore.getState().addNotification('Payment cancelled. Your wallet balance was not changed.', 'info');
         navigate(`/${universe}`, { replace: true });
         return;
       }
 
       const sessionId = searchParams.get('session_id');
       if (!sessionId) {
-        useNotificationStore.getState().addNotification('Missing payment session.', 'error');
+        useNotificationStore.getState().addNotification('Could not verify the payment because the checkout session was missing. Your wallet was not credited.', 'error');
         navigate(`/${universe}`, { replace: true });
         return;
       }
@@ -336,9 +345,9 @@ function WalletReturn({ status }: { status: 'success' | 'cancel' }) {
       try {
         const result = await api.wallet.stripeVerify(sessionId);
         if (typeof result.balance === 'number') setWalletBalance(result.balance);
-        useNotificationStore.getState().addNotification('Wallet topped up successfully.', 'success');
+        useNotificationStore.getState().addNotification(result.already_credited ? 'Payment was already credited. Wallet balance refreshed.' : 'Payment verified. Wallet balance updated and audit entry recorded.', 'success');
       } catch (err: any) {
-        useNotificationStore.getState().addNotification(err?.message || 'Could not verify payment.', 'error');
+        useNotificationStore.getState().addNotification(err?.message || 'Could not verify payment. Your wallet was not credited; please check transaction history or try again.', 'error');
       } finally {
         navigate(`/${universe}`, { replace: true });
       }

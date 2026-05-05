@@ -188,11 +188,16 @@ export const TournamentPage: React.FC = () => {
     setJoining(true);
     try {
       if (hasJoined) {
-        await leaveTournament(tournament.id);
-        addNotification(t('tournament.leftSuccessfully') || 'Left tournament', 'info');
+        const result = await leaveTournament(tournament.id);
+        addNotification(result.message || t('tournament.leftSuccessfully') || 'Left tournament', result.refunded ? 'success' : 'info');
       } else {
         await joinTournament(tournament.id);
-        addNotification(t('tournament.joinedSuccessfully') || 'Successfully joined tournament', 'success');
+        addNotification(
+          tournament.betEntry > 0
+            ? `Joined tournament. Entry fee charged: $${Number(tournament.betEntry).toFixed(2)} and recorded in wallet history.`
+            : t('tournament.joinedSuccessfully') || 'Successfully joined tournament',
+          'success'
+        );
       }
     } catch (e: any) {
       addNotification(e?.message || t('common.error'), 'error');
@@ -214,10 +219,10 @@ export const TournamentPage: React.FC = () => {
       if (result.paired) {
         addNotification(`Pairing found${result.opponent ? ` vs ${result.opponent}` : ''}`, 'success');
       } else {
-        addNotification(result.message || 'No available opponent yet', 'info');
+        addNotification(result.message || 'No available opponent yet. Stay on this page or try again in a few seconds.', 'info');
       }
     } catch (e: any) {
-      addNotification(e?.message || 'Pairing failed', 'error');
+      addNotification(e?.message || 'Could not request pairing. Check your connection and try again in a few seconds.', 'error');
     } finally {
       setPairing(false);
     }
@@ -256,6 +261,9 @@ export const TournamentPage: React.FC = () => {
       ? 'Late joining is open. New players can join, request games, and catch up while pairings remain open.'
       : 'Late joining can still place you in the room, but new pairings are closed for the final 2 minutes.'
     : 'Players can register now, then enter the waiting room during the final 3 minutes before start.';
+  const moneyRulesText = tournament.betEntry > 0
+    ? `Entry fee is $${Number(tournament.betEntry).toFixed(2)}. It is charged when you join and added to the prize pool. Leaving before the start refunds the entry fee; after the start, entry fees are not automatically refunded. Current prize pool: $${Number(tournament.prizePool).toFixed(2)}.`
+    : `No entry fee is required. Current prize pool: $${Number(tournament.prizePool).toFixed(2)}. Prize payout rules should be confirmed before real-money events.`;
   const joinCta = hasJoined
     ? isRunning ? `🏳 ${t('tournament.withdraw')}` : `✕ ${t('common.cancel')}`
     : isRunning ? `▶ Join & catch up`
@@ -393,6 +401,10 @@ export const TournamentPage: React.FC = () => {
             <span className="tp-rule-label">Games record</span>
             <p>{liveGames.length} current · {finishedGames.length} finished · standings update after each result.</p>
           </div>
+          <div className="tp-rule-card">
+            <span className="tp-rule-label">Entry fees / prizes</span>
+            <p>{moneyRulesText}</p>
+          </div>
         </div>
 
         <div className="tp-clarity-bottom">
@@ -466,6 +478,13 @@ export const TournamentPage: React.FC = () => {
               <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 8 }}>
                 {isUpcoming ? t('tournament.noRegistrations') : t('tournament.noTournaments')}
               </div>
+              <div className="tp-empty-help">
+                {isUpcoming
+                  ? `Registration is open. The waiting room opens at ${formatStartTime(waitingRoomOpensAt)}.`
+                  : isRunning
+                  ? 'No players are currently in the standings. Join while late entry is open, then request a game.'
+                  : 'No standings were recorded for this tournament.'}
+              </div>
               {isUpcoming && !hasJoined && (
                 <button className="btn tp-btn-join" style={{ marginTop: 16 }} onClick={handleJoin}>
                   {waitingRoomOpen ? '✓ Join waiting room' : `✓ ${t('tournament.registerNow')}`}
@@ -530,6 +549,11 @@ export const TournamentPage: React.FC = () => {
               <div style={{ fontSize: 40 }}>⚔️</div>
               <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 8 }}>
                 {t('tournament.pairingsTBD')}
+              </div>
+              <div className="tp-empty-help">
+                {isUpcoming
+                  ? 'Pairings appear after the tournament starts and at least two players are registered.'
+                  : 'Need at least two available online players before a tournament game can be paired.'}
               </div>
             </div>
           ) : (
@@ -641,6 +665,13 @@ export const TournamentPage: React.FC = () => {
               <div style={{ fontSize: 40 }}>🎮</div>
               <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 8 }}>
                 {t('tournament.gamesPlayedYet')}
+              </div>
+              <div className="tp-empty-help">
+                {isUpcoming
+                  ? `No games yet. Games can start at ${formatStartTime(tournament.startsAt)}.`
+                  : pairingOpen
+                  ? 'No tournament games have started yet. Joined players can stay here and request a pairing.'
+                  : 'No tournament games were recorded before pairing closed.'}
               </div>
             </div>
           ) : (

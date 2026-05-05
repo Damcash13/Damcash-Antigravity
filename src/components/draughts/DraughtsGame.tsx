@@ -160,14 +160,12 @@ export const DraughtsGame: React.FC = () => {
 
         if (isMe) {
           const payout = activeBet.amount * 2 * 0.95;
-          useUserStore.getState().updateBalance(payout);
           play('betWon');
-          addNotification(t('game.youWonAmount', { amount: payout.toFixed(2) }), 'success');
+          addNotification(`${t('game.youWonAmount', { amount: payout.toFixed(2) })} Wallet will update from the server ledger.`, 'success');
         }
         settleBet(winnerId);
       } else if (winner === 'draw') {
-        useUserStore.getState().updateBalance(activeBet.amount);
-        addNotification(t('game.drawBetRefunded'), 'info');
+        addNotification(`${t('game.drawBetRefunded')} Refund is recorded by the server ledger.`, 'info');
         useBettingStore.getState().cancelBet();
       }
     }

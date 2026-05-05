@@ -1132,35 +1132,50 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           {/* Wallet transaction history */}
-          {fullStats && fullStats.wallet.transactions.length > 0 && (
+          {fullStats && (
             <div className="pf-section" style={{ marginTop: 16 }}>
               <div className="pf-section-title">💳 {t('profile.transactionHistory')}</div>
-              <div className="pf-hist-head pf-wallet-history">
-                <span>Type</span>
-                <span className="c">Amount</span>
-                <span className="c">Status</span>
-                <span className="c">Date</span>
-              </div>
-              {fullStats.wallet.transactions.slice(0, 50).map(tx => {
-                const typeLabel: Record<string, string> = {
-                  DEPOSIT: '⬇ Deposit', WITHDRAWAL: '⬆ Withdraw',
-                  BET_WON: '🏆 Bet won', BET_PLACED: '🎲 Bet placed',
-                  BET_REFUND: '↩ Refund',
-                };
-                const positive = tx.amount > 0;
-                return (
-                  <div key={tx.id} className="pf-hist-row pf-wallet-history">
-                    <span className="pf-hist-opp">{typeLabel[tx.type] ?? tx.type}</span>
-                    <span className="c" style={{ fontWeight: 700, color: positive ? '#22c55e' : '#ef4444' }}>
-                      {positive ? '+' : ''}${Math.abs(tx.amount).toFixed(2)}
-                    </span>
-                    <span className="c pf-dim" style={{ fontSize: 11 }}>{tx.status}</span>
-                    <span className="c pf-dim" style={{ fontSize: 11 }}>
-                      {new Date(tx.createdAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
+              {fullStats.wallet.transactions.length === 0 ? (
+                <div className="pf-empty-small">
+                  No wallet activity yet. Deposits, withdrawals, bet escrow, payouts, refunds, and tournament entry fees will be listed here.
+                </div>
+              ) : (
+                <>
+                  <div className="pf-hist-head pf-wallet-history">
+                    <span>Type</span>
+                    <span className="c">Amount</span>
+                    <span className="c">Status</span>
+                    <span className="c">Date</span>
                   </div>
-                );
-              })}
+                  {fullStats.wallet.transactions.slice(0, 50).map(tx => {
+                    const typeLabel: Record<string, string> = {
+                      DEPOSIT: '⬇ Deposit', WITHDRAWAL: '⬆ Withdraw',
+                      BET_WON: '🏆 Bet payout', BET_PLACED: '🎲 Bet escrow',
+                      BET_REFUND: '↩ Bet refund', TOURNAMENT_ENTRY: '🏆 Tournament entry',
+                      TOURNAMENT_REFUND: '↩ Tournament refund',
+                    };
+                    const amount = Number(tx.amount);
+                    const positive = amount >= 0;
+                    return (
+                      <div key={tx.id} className="pf-hist-row pf-wallet-history">
+                        <span
+                          className="pf-hist-opp"
+                          title={tx.matchId ? `${tx.type.startsWith('TOURNAMENT') ? 'Tournament' : 'Match'} ${tx.matchId}` : tx.stripeSessionId ? `Stripe ${tx.stripeSessionId}` : undefined}
+                        >
+                          {typeLabel[tx.type] ?? tx.type}
+                        </span>
+                        <span className="c" style={{ fontWeight: 700, color: positive ? '#22c55e' : '#ef4444' }}>
+                          {positive ? '+' : '-'}${Math.abs(amount).toFixed(2)}
+                        </span>
+                        <span className="c pf-dim" style={{ fontSize: 11 }}>{tx.status}</span>
+                        <span className="c pf-dim" style={{ fontSize: 11 }}>
+                          {new Date(tx.createdAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
         </div>

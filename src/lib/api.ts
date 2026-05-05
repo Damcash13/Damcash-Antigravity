@@ -164,7 +164,7 @@ export const api = {
         body: JSON.stringify({}),
       }),
     leave: (id: string) =>
-      request<{ ok: boolean }>(`/api/tournaments/${id}/leave`, {
+      request<{ ok: boolean; refunded?: number; message?: string }>(`/api/tournaments/${id}/leave`, {
         method: 'POST',
         body: JSON.stringify({}),
       }),
@@ -351,10 +351,11 @@ export interface ApiWallet {
 
 export interface ApiTransaction {
   id: string;
-  amount: number;
+  amount: number | string;
   type: string;
   status: string;
   matchId: string | null;
+  stripeSessionId?: string | null;
   createdAt: string;
 }
 
@@ -463,7 +464,7 @@ export interface ApiFullStats {
     gamesWithBets: number;
     betsWon: number;
     transactions: Array<{
-      id: string; amount: number; type: string; status: string; createdAt: string;
+      id: string; amount: number | string; type: string; status: string; matchId?: string | null; stripeSessionId?: string | null; createdAt: string;
     }>;
   };
 }

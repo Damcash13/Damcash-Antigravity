@@ -2320,6 +2320,7 @@ app.post('/api/tournaments/:id/join', requireAuth, async (req, res) => {
             amount: -entryFee,
             type: 'TOURNAMENT_ENTRY',
             status: 'COMPLETED',
+            matchId: tournamentId,
           },
         });
         await tx.tournament.update({ where: { id: tournamentId }, data: { prizePool: { increment: entryFee } } });
@@ -2369,12 +2370,70 @@ app.get('/api/tournaments/:id', async (req, res) => {
 
 app.post('/api/tournaments/:id/leave', requireAuth, async (req, res) => {
   try {
-    await prisma.tournamentPlayer.deleteMany({
-      where: { tournamentId: req.params.id, userId: req.user.id },
+    const tournamentId = req.params.id;
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
     });
-    io.to(`tournament:${req.params.id}`).emit('tournament:updated', { id: req.params.id });
-    res.json({ ok: true });
-  } catch { res.status(500).json({ error: 'Failed' }); }
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
+    const player = await prisma.tournamentPlayer.findFirst({
+      where: { tournamentId, userId: req.user.id },
+    });
+    if (!player) return res.status(404).json({ error: 'You are not registered for this tournament' });
+
+    const lifecycle = getTournamentLifecycle(tournament);
+    const entryFee = Number(tournament.betEntry) || 0;
+    let refunded = 0;
+    let updatedWallet = null;
+
+    if (entryFee > 0 && lifecycle === 'upcoming') {
+      updatedWallet = await prisma.$transaction(async (tx) => {
+        await tx.tournamentPlayer.delete({ where: { id: player.id } });
+        const wallet = await tx.wallet.update({
+          where: { userId: req.user.id },
+          data: { balance: { increment: entryFee } },
+        });
+        await tx.tournament.update({
+          where: { id: tournamentId },
+          data: { prizePool: { decrement: entryFee } },
+        });
+        await tx.transaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: entryFee,
+            type: 'TOURNAMENT_REFUND',
+            status: 'COMPLETED',
+            matchId: tournamentId,
+          },
+        });
+        return wallet;
+      });
+      refunded = entryFee;
+    } else {
+      await prisma.tournamentPlayer.delete({ where: { id: player.id } });
+    }
+
+    if (updatedWallet) {
+      const sock = [...io.sockets.sockets.values()].find(s => s.user?.id === req.user.id);
+      sock?.emit('wallet:update', {
+        balance: Number(updatedWallet.balance),
+        message: `Tournament entry refund recorded: $${refunded.toFixed(2)}`,
+      });
+    }
+    io.to(`tournament:${tournamentId}`).emit('tournament:updated', { id: tournamentId });
+    res.json({
+      ok: true,
+      refunded,
+      message: refunded > 0
+        ? `Entry fee refunded: $${refunded.toFixed(2)}`
+        : entryFee > 0 && lifecycle !== 'upcoming'
+        ? 'Entry fees are not automatically refunded after a tournament starts'
+        : 'Left tournament',
+    });
+  } catch (err) {
+    console.error('[Tournament] Leave failed:', err);
+    res.status(500).json({ error: 'Could not leave tournament. No wallet changes were made; please try again.' });
+  }
 });
 
 app.get('/api/tournaments/:id/games', async (req, res) => {
@@ -2628,7 +2687,7 @@ app.get('/api/users/:username/full-stats', async (req, res) => {
         gamesWithBets, betsWon,
         transactions: txns.map(t => ({
           id: t.id, amount: t.amount, type: t.type,
-          status: t.status, createdAt: t.createdAt,
+          status: t.status, matchId: t.matchId, stripeSessionId: t.stripeSessionId, createdAt: t.createdAt,
         })),
       },
     });
@@ -3040,7 +3099,7 @@ app.post('/api/tournaments/:id/pair', requireAuth, async (req, res) => {
         where: { tournamentId, userId },
         data: { status: 'available' },
       });
-      return res.json({ paired: false, message: 'No available tournament opponent yet' });
+      return res.json({ paired: false, message: 'No available opponent yet. Stay on this page or try again in a few seconds.' });
     }
 
     const pairKey = (otherId) => [userId, otherId].sort().join(':');
@@ -3113,31 +3172,17 @@ app.get('/api/wallet', requireAuth, async (req, res) => {
     const wallet = await prisma.wallet.findUnique({ where: { userId: req.user.id } });
     if (!wallet) return res.status(404).json({ error: 'Wallet not found' });
     res.json(wallet);
-  } catch { res.status(500).json({ error: 'Failed' }); }
+  } catch { res.status(500).json({ error: 'Could not load wallet. Refresh or sign in again.' }); }
 });
 
 app.post('/api/wallet/deposit', requireAuth, async (req, res) => {
-  try {
-    const safeAmount = sanitizeMoney(req.body.amount);
-    if (safeAmount <= 0) return res.status(400).json({ error: 'Invalid amount' });
-    const wallet = await prisma.$transaction(async (tx) => {
-      const updated = await tx.wallet.update({
-        where: { userId: req.user.id },
-        data: { balance: { increment: safeAmount } },
-      });
-      await tx.transaction.create({
-        data: { walletId: updated.id, amount: safeAmount, type: 'DEPOSIT', status: 'COMPLETED' },
-      });
-      return updated;
-    });
-    res.json(wallet);
-  } catch { res.status(500).json({ error: 'Failed' }); }
+  res.status(403).json({ error: 'Direct wallet deposits are disabled. Use secure checkout so payment is verified before funds are credited.' });
 });
 
 app.post('/api/wallet/withdraw', requireAuth, async (req, res) => {
   try {
     const safeAmount = sanitizeMoney(req.body.amount);
-    if (safeAmount <= 0) return res.status(400).json({ error: 'Invalid amount' });
+    if (safeAmount <= 0) return res.status(400).json({ error: 'Withdrawal amount must be greater than $0' });
     let wallet;
     try {
       wallet = await prisma.$transaction(async (tx) => {
@@ -3159,11 +3204,11 @@ app.post('/api/wallet/withdraw', requireAuth, async (req, res) => {
         return updated;
       });
     } catch (err) {
-      if (err.message === 'Insufficient funds') return res.status(400).json({ error: 'Insufficient funds' });
+      if (err.message === 'Insufficient funds') return res.status(400).json({ error: 'Insufficient wallet balance. Reduce the amount or deposit funds first.' });
       throw err;
     }
     res.json(wallet);
-  } catch { res.status(500).json({ error: 'Failed' }); }
+  } catch { res.status(500).json({ error: 'Could not complete withdrawal. No funds were changed; please try again.' }); }
 });
 
 app.get('/api/wallet/transactions', requireAuth, async (req, res) => {
@@ -3176,7 +3221,7 @@ app.get('/api/wallet/transactions', requireAuth, async (req, res) => {
       take: 100,
     });
     res.json(txns);
-  } catch { res.status(500).json({ error: 'Failed' }); }
+  } catch { res.status(500).json({ error: 'Could not load transaction history. Refresh or try again in a few seconds.' }); }
 });
 
 // ── REST: Puzzle Progress ────────────────────────────────────────────────────
@@ -3360,7 +3405,8 @@ app.get('/api/wallet/stripe/verify', requireAuth, async (req, res) => {
   } catch (err) {
     // Handle unique constraint failure (P2002) which means it was already processed
     if (err.code === 'P2002') {
-       return res.json({ already_credited: true, message: 'Session already processed' });
+      const wallet = await prisma.wallet.findUnique({ where: { userId: req.user.id } });
+      return res.json({ already_credited: true, balance: Number(wallet?.balance ?? 0), message: 'Session already processed' });
     }
     console.error('[Stripe Verify] Error:', err);
     res.status(500).json({ error: 'Failed to verify payment' });

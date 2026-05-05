@@ -611,6 +611,14 @@
   color: var(--text-3);
 }
 
+.tp-empty-help {
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 8px auto 0;
+  max-width: 420px;
+}
+
 .tp-table-head {
   display: grid;
   grid-template-columns: 40px 1fr 80px 60px 120px 70px;

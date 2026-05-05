@@ -79,7 +79,7 @@ export const GameReplayPage: React.FC = () => {
       setLoading(false);
       return;
     }
-    if (!id) { setError('No game ID provided'); setLoading(false); return; }
+    if (!id) { setError('No game ID was provided. Go back to your recent games and open a saved replay link.'); setLoading(false); return; }
     api.games.get(id)
       .then(g => {
         setGame(g);
@@ -89,7 +89,7 @@ export const GameReplayPage: React.FC = () => {
           setCursor(parsed.length - 1);
         }
       })
-      .catch(() => setError('Game not found'))
+      .catch(() => setError('Game not found or not available yet. The game may still be running, may not have PGN saved, or the link may be outdated.'))
       .finally(() => setLoading(false));
   }, [id, pgnParam]);
 
@@ -110,7 +110,8 @@ export const GameReplayPage: React.FC = () => {
   if (error) return (
     <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-3)' }}>
       <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
-      <h2 style={{ color: 'var(--text-1)', marginBottom: 8 }}>{error}</h2>
+      <h2 style={{ color: 'var(--text-1)', marginBottom: 8 }}>Replay unavailable</h2>
+      <p style={{ maxWidth: 460, margin: '0 auto 16px', lineHeight: 1.5 }}>{error}</p>
       <button className="btn btn-secondary" onClick={() => navigate(-1)}>← Go back</button>
     </div>
   );
