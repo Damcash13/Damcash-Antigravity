@@ -1304,17 +1304,15 @@ button,
 /* ===== HAMBURGER MENU ===== */
 .hamburger-btn {
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 5px;
-  width: 36px;
+  min-width: 54px;
   height: 36px;
   background: none;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
-  padding: 6px;
+  padding: 0 12px;
   transition: background var(--transition), border-color var(--transition);
   flex-shrink: 0;
 }
@@ -1333,6 +1331,18 @@ button,
 }
 .hamburger-btn.active .hamburger-line {
   background: var(--accent);
+}
+
+.header-menu-label {
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.hamburger-btn:hover .header-menu-label,
+.hamburger-btn.active .header-menu-label {
+  color: var(--accent);
 }
 
 .hamburger-panel {

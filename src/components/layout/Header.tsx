@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useUniverseStore, useUserStore } from '../../stores';
 import { PlayerSearchBar } from '../invite/PlayerSearchBar';
 import { OnlinePlayer } from '../../stores/inviteStore';
-import { NotificationCenter } from '../common/NotificationCenter';
 import { getSoundEnabled, toggleSoundGlobal } from '../../hooks/useSound';
 import { useDirectMessageStore } from '../../stores/directMessageStore';
 import '../../styles/nav-dropdown.css';
@@ -17,11 +16,11 @@ interface Props {
 }
 
 const LANGUAGES = [
-  { code: 'en', flag: '🇬🇧' },
-  { code: 'fr', flag: '🇫🇷' },
-  { code: 'ru', flag: '🇷🇺' },
-  { code: 'nl', flag: '🇳🇱' },
-  { code: 'zh', flag: '🇨🇳' },
+  { code: 'en' },
+  { code: 'fr' },
+  { code: 'ru' },
+  { code: 'nl' },
+  { code: 'zh' },
 ];
 
 const OWNER_ADMIN_EMAIL = 'yves.ahipo@gmail.com';
@@ -29,166 +28,71 @@ const OWNER_ADMIN_EMAIL = 'yves.ahipo@gmail.com';
 // ── Nav menu definitions ───────────────────────────────────────────────────────
 
 interface NavItem {
-  icon: string;
-  labelKey: string;
-  descKey: string;
+  label: string;
   path?: string;
   action?: string;
 }
 
 interface NavSection {
-  titleKey?: string;
+  title?: string;
   items: NavItem[];
 }
 
 interface NavMenu {
   key: string;
-  labelKey: string;
+  label: string;
   sections: NavSection[];
 }
 
-const CHESS_MENUS: NavMenu[] = [
+const buildMenus = (universe: 'chess' | 'checkers'): NavMenu[] => [
   {
-    key: 'watch',
-    labelKey: 'nav.watch',
+    key: 'play',
+    label: 'Play',
     sections: [
       {
         items: [
-          { icon: '📺', labelKey: 'menu.liveGames',       descKey: 'menu.descWatchLive',        path: '/chess' },
-          { icon: '🏆', labelKey: 'lobby.tournaments',    descKey: 'menu.descTournaments',      path: '/chess/tournaments' },
+          { label: 'Quick game', action: 'quickGame' },
+          { label: 'Challenge a friend', action: 'challengeFriend' },
+          { label: 'Play computer', path: `/${universe}/play/computer/5+0` },
+          { label: 'Tournaments', path: `/${universe}/tournaments` },
         ],
       },
     ],
   },
   {
-    key: 'community',
-    labelKey: 'nav.community',
+    key: 'watch',
+    label: 'Watch',
     sections: [
       {
-        titleKey: 'menu.connect',
         items: [
-          { icon: '👥', labelKey: 'tournament.players',   descKey: 'menu.descPlayers',          path: '/chess/leaderboard' },
+          { label: 'Live games', path: `/${universe}` },
+          { label: 'Leaderboard', path: `/${universe}/leaderboard` },
         ],
       },
+    ],
+  },
+  {
+    key: 'account',
+    label: 'Account',
+    sections: [
       {
-        titleKey: 'menu.events',
         items: [
-          { icon: '📊', labelKey: 'lobby.leaderboard',    descKey: 'menu.descLeaderboard',      path: '/chess/leaderboard' },
+          { label: 'Profile', action: 'profile' },
+          { label: 'Wallet', action: 'wallet' },
+          { label: 'Messages', action: 'messages' },
+          { label: 'Friends', path: `/${universe}` },
         ],
       },
     ],
   },
   {
     key: 'tools',
-    labelKey: 'nav.tools',
-    sections: [
-      {
-        titleKey: 'menu.analysis',
-        items: [
-          { icon: '🔬', labelKey: 'menu.analysisBoard',   descKey: 'menu.descAnalysisBoard',   path: '/chess/analysis' },
-          { icon: '🏗️', labelKey: 'menu.boardEditor',     descKey: 'menu.descBoardEditor',     path: '/chess/board-editor' },
-          { icon: '⚙️', labelKey: 'menu.gameImporter',    descKey: 'menu.descGameImporter',    path: '/chess/import' },
-        ],
-      },
-      {
-        titleKey: 'menu.training',
-        items: [
-          { icon: '🧩', labelKey: 'menu.puzzles',         descKey: 'menu.descPuzzles',         path: '/chess/puzzles' },
-        ],
-      },
-    ],
-  },
-  {
-    key: 'learn',
-    labelKey: 'nav.learn',
-    sections: [
-      {
-        titleKey: 'menu.courses',
-        items: [
-          { icon: '🎓', labelKey: 'menu.practice',        descKey: 'menu.descPractice',        path: '/chess/play/computer/5+0' },
-        ],
-      },
-      {
-        titleKey: 'menu.study',
-        items: [
-          { icon: '🗂️', labelKey: 'menu.myStudies',       descKey: 'menu.descMyStudies',       path: '/chess/my-studies' },
-          { icon: '📡', labelKey: 'menu.allStudies',       descKey: 'menu.descAllStudies',      path: '/chess/coming-soon/all-studies' },
-          { icon: '👨‍💻', labelKey: 'menu.endgameTraining', descKey: 'menu.descEndgameTraining', path: '/chess/endgame-training' },
-        ],
-      },
-    ],
-  },
-];
-
-const CHECKERS_MENUS: NavMenu[] = [
-  {
-    key: 'watch',
-    labelKey: 'nav.watch',
+    label: 'Tools',
     sections: [
       {
         items: [
-          { icon: '📺', labelKey: 'menu.liveGames',              descKey: 'menu.descWatchLiveCheckers',    path: '/checkers' },
-          { icon: '🏆', labelKey: 'lobby.tournaments',           descKey: 'menu.descTournaments',          path: '/checkers/tournaments' },
-          { icon: '🏅', labelKey: 'menu.frisianChampionship',    descKey: 'menu.descFrisianChampionship',  path: '/checkers/coming-soon/frisian-championship' },
-        ],
-      },
-    ],
-  },
-  {
-    key: 'community',
-    labelKey: 'nav.community',
-    sections: [
-      {
-        titleKey: 'menu.connect',
-        items: [
-          { icon: '👥', labelKey: 'tournament.players',          descKey: 'menu.descPlayersCheckers',      path: '/checkers/leaderboard' },
-        ],
-      },
-      {
-        titleKey: 'menu.events',
-        items: [
-          { icon: '📊', labelKey: 'lobby.leaderboard',           descKey: 'menu.descLeaderboardCheckers', path: '/checkers/leaderboard' },
-          { icon: '🌍', labelKey: 'menu.worldRankings',          descKey: 'menu.descWorldRankings',        path: '/checkers/coming-soon/world-rankings' },
-        ],
-      },
-    ],
-  },
-  {
-    key: 'tools',
-    labelKey: 'nav.tools',
-    sections: [
-      {
-        titleKey: 'menu.analysis',
-        items: [
-          { icon: '🔬', labelKey: 'menu.analysisBoard',          descKey: 'menu.descAnalysisBoardCheckers', path: '/checkers/analysis' },
-          { icon: '🏗️', labelKey: 'menu.boardEditor',            descKey: 'menu.descBoardEditorCheckers',  path: '/checkers/board-editor' },
-          { icon: '⚙️', labelKey: 'menu.pdnImporter',            descKey: 'menu.descPdnImporter',          path: '/checkers/import' },
-        ],
-      },
-      {
-        titleKey: 'menu.training',
-        items: [
-          { icon: '🧩', labelKey: 'menu.draughtsPuzzles',        descKey: 'menu.descDraughtsPuzzles',      path: '/checkers/puzzles' },
-          { icon: '🎯', labelKey: 'menu.endgameTrainer',         descKey: 'menu.descEndgameTrainer',       path: '/checkers/endgame-training' },
-        ],
-      },
-    ],
-  },
-  {
-    key: 'learn',
-    labelKey: 'nav.learn',
-    sections: [
-      {
-        titleKey: 'menu.gettingStarted',
-        items: [
-          { icon: '📖', labelKey: 'menu.draughtsRules',          descKey: 'menu.descDraughtsRules',        path: '/checkers/coming-soon/draughts-rules' },
-          { icon: '🎓', labelKey: 'menu.practiceMode',           descKey: 'menu.descPracticeMode',         path: '/checkers/play/computer/5+0' },
-        ],
-      },
-      {
-        titleKey: 'menu.strategy',
-        items: [
-          { icon: '📝', labelKey: 'menu.tacticsGuide',           descKey: 'menu.descTacticsGuide',         path: '/checkers/coming-soon/tactics-guide' },
+          { label: 'Analysis board', path: `/${universe}/analysis` },
+          { label: 'Board editor', path: `/${universe}/board-editor` },
         ],
       },
     ],
@@ -204,7 +108,6 @@ const NavDropdown: React.FC<{
   onClose: () => void;
   navigate: (path: string) => void;
 }> = ({ menu, activeKey, onOpen, onClose, navigate }) => {
-  const { t } = useTranslation();
   const isOpen = activeKey === menu.key;
   const ref = useRef<HTMLDivElement>(null);
 
@@ -222,16 +125,15 @@ const NavDropdown: React.FC<{
         className={`nav-btn ${isOpen ? 'active' : ''}`}
         onClick={() => isOpen ? onClose() : onOpen(menu.key)}
       >
-        {t(menu.labelKey)}
-        <span className={`nav-chevron ${isOpen ? 'open' : ''}`}>›</span>
+        {menu.label}
       </button>
 
       {isOpen && (
         <div className={`nav-dropdown-panel ${menu.sections.length > 1 ? 'wide' : ''}`}>
           {menu.sections.map((section, si) => (
             <div key={si} className="nav-dropdown-section">
-              {section.titleKey && (
-                <div className="nav-section-title">{t(section.titleKey)}</div>
+              {section.title && (
+                <div className="nav-section-title">{section.title}</div>
               )}
               {section.items.map((item, ii) => (
                 <button
@@ -242,10 +144,8 @@ const NavDropdown: React.FC<{
                     onClose();
                   }}
                 >
-                  <span className="nav-item-icon">{item.icon}</span>
                   <span className="nav-item-text">
-                    <span className="nav-item-label">{t(item.labelKey)}</span>
-                    <span className="nav-item-desc">{t(item.descKey)}</span>
+                    <span className="nav-item-label">{item.label}</span>
                   </span>
                 </button>
               ))}
@@ -271,7 +171,29 @@ const HamburgerMenu: React.FC<{
   onClose: () => void;
   onLogout?: () => void;
   showAdminTools?: boolean;
-}> = ({ menus, universe, onUniverseSwitch, soundOn, onToggleSound, i18n, t, navigate, onClose, onLogout, showAdminTools }) => {
+  user: ReturnType<typeof useUserStore.getState>['user'];
+  onOpenAuth: () => void;
+  onOpenWallet: () => void;
+  onOpenMessages: () => void;
+  onOpenCreateGame: () => void;
+}> = ({
+  menus,
+  universe,
+  onUniverseSwitch,
+  soundOn,
+  onToggleSound,
+  i18n,
+  t,
+  navigate,
+  onClose,
+  onLogout,
+  showAdminTools,
+  user,
+  onOpenAuth,
+  onOpenWallet,
+  onOpenMessages,
+  onOpenCreateGame,
+}) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -283,6 +205,19 @@ const HamburgerMenu: React.FC<{
   }, [onClose]);
 
   const go = (path: string) => { navigate(path); onClose(); };
+  const runAction = (action?: string) => {
+    if (!action) return;
+    if (action === 'quickGame' || action === 'challengeFriend') {
+      onOpenCreateGame();
+    } else if (action === 'wallet') {
+      user ? onOpenWallet() : onOpenAuth();
+    } else if (action === 'messages') {
+      user ? onOpenMessages() : onOpenAuth();
+    } else if (action === 'profile') {
+      user ? navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`) : onOpenAuth();
+    }
+    onClose();
+  };
 
   return (
     <div className="hamburger-panel" ref={ref}>
@@ -294,13 +229,13 @@ const HamburgerMenu: React.FC<{
             className={`hamburger-universe-btn ${universe === 'chess' ? 'active' : ''}`}
             onClick={() => { onUniverseSwitch('chess'); onClose(); }}
           >
-            ♟ {t('profile.chess')}
+            {t('profile.chess')}
           </button>
           <button
             className={`hamburger-universe-btn ${universe === 'checkers' ? 'active' : ''}`}
             onClick={() => { onUniverseSwitch('checkers'); onClose(); }}
           >
-            ⬤ {t('profile.checkers')}
+            {t('profile.checkers')}
           </button>
         </div>
       </div>
@@ -308,16 +243,15 @@ const HamburgerMenu: React.FC<{
       {/* Nav menus */}
       {menus.map(menu => (
         <div key={menu.key} className="hamburger-section">
-          <div className="hamburger-section-title">{t(menu.labelKey)}</div>
+          <div className="hamburger-section-title">{menu.label}</div>
           {menu.sections.map((section, si) =>
             section.items.map((item, ii) => (
               <button
                 key={`${si}-${ii}`}
                 className="hamburger-nav-item"
-                onClick={() => go(item.path || `/${universe}`)}
+                onClick={() => item.action ? runAction(item.action) : go(item.path || `/${universe}`)}
               >
-                <span>{item.icon}</span>
-                <span>{t(item.labelKey)}</span>
+                <span>{item.label}</span>
               </button>
             ))
           )}
@@ -328,7 +262,6 @@ const HamburgerMenu: React.FC<{
         <div className="hamburger-section">
           <div className="hamburger-section-title">Owner</div>
           <button className="hamburger-nav-item" onClick={() => go(`/${universe}/admin`)}>
-            <span>🛡️</span>
             <span>Admin Dashboard</span>
           </button>
         </div>
@@ -339,12 +272,12 @@ const HamburgerMenu: React.FC<{
         <div className="hamburger-section-title">{t('menu.settings')}</div>
         <div className="hamburger-settings-row">
           <button className="hamburger-setting-btn" onClick={() => { onToggleSound(); }}>
-            {soundOn ? `🔊 ${t('menu.soundOn')}` : `🔇 ${t('menu.soundOff')}`}
+            {soundOn ? t('menu.soundOn') : t('menu.soundOff')}
           </button>
           <div className="lang-switcher">
             <div className="lang-switcher-label">{t('menu.language')}</div>
             <div className="lang-pill-grid">
-              {LANGUAGES.map(({ code, flag }) => {
+              {LANGUAGES.map(({ code }) => {
                 const active = i18n.language.split('-')[0] === code;
                 return (
                   <button
@@ -353,7 +286,6 @@ const HamburgerMenu: React.FC<{
                     onClick={() => i18n.changeLanguage(code)}
                     title={t(`languages.${code}`)}
                   >
-                    <span className="lang-pill-flag">{flag}</span>
                     <span className="lang-pill-code">{code.toUpperCase()}</span>
                   </button>
                 );
@@ -371,7 +303,6 @@ const HamburgerMenu: React.FC<{
             onClick={() => { onLogout(); onClose(); }}
             style={{ color: '#ef4444', fontWeight: 700 }}
           >
-            <span>🚪</span>
             <span>Sign out</span>
           </button>
         </div>
@@ -387,12 +318,11 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
   const { universe, toggleUniverse } = useUniverseStore();
   const { user, isLoggedIn, logout, lastRatingChange } = useUserStore();
   const openMessages = useDirectMessageStore(s => s.openInbox);
-  const messageUnreadCount = useDirectMessageStore(s => s.unreadCount);
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(() => getSoundEnabled());
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
-  const menus = universe === 'chess' ? CHESS_MENUS : CHECKERS_MENUS;
+  const menus = buildMenus(universe);
   const showAdminTools = user?.email?.toLowerCase() === OWNER_ADMIN_EMAIL;
 
   const handleUniverseSwitch = useCallback((target: 'chess' | 'checkers') => {
@@ -433,39 +363,13 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
             title={t('header.createRoomTitle')}
             style={{ whiteSpace: 'nowrap' }}
           >
-            🔗 Play
+            Play
           </button>
-
-          {/* Notification center */}
-          {isLoggedIn && (
-            <button
-              className="header-message-btn"
-              onClick={openMessages}
-              title="Messages"
-            >
-              💬
-              {messageUnreadCount > 0 && (
-                <span>{messageUnreadCount > 9 ? '9+' : messageUnreadCount}</span>
-              )}
-            </button>
-          )}
-          <NotificationCenter />
-
-          {showAdminTools && (
-            <button
-              className="btn btn-secondary btn-sm header-admin-btn"
-              onClick={() => navigate(`/${universe}/admin`)}
-              title="Owner admin dashboard"
-            >
-              🛡️ Admin
-            </button>
-          )}
 
           {/* Wallet / Auth */}
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <button className="wallet-display" onClick={onOpenWallet}>
-                <span className="wallet-icon">💰</span>
                 <span className="wallet-amount">${Number(user.walletBalance).toFixed(2)}</span>
               </button>
               {isLoggedIn && (
@@ -504,9 +408,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
               onClick={() => setHamburgerOpen(o => !o)}
               aria-label="Menu"
             >
-              <span className="hamburger-line" />
-              <span className="hamburger-line" />
-              <span className="hamburger-line" />
+              <span className="header-menu-label">Menu</span>
             </button>
 
             {hamburgerOpen && (
@@ -522,6 +424,11 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
                 onClose={() => setHamburgerOpen(false)}
                 onLogout={user ? () => { logout(); navigate('/'); } : undefined}
                 showAdminTools={showAdminTools}
+                user={user}
+                onOpenAuth={onOpenAuth}
+                onOpenWallet={onOpenWallet}
+                onOpenMessages={openMessages}
+                onOpenCreateGame={onOpenCreateGame}
               />
             )}
           </div>
