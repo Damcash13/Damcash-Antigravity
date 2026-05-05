@@ -333,31 +333,29 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     lastMoveTime: Date.now(),
   });
 
-  // Create DB Match records for rated games and all tournament games.
-  if (config?.rated !== false || config?.tournamentId) {
-    try {
-      if (config?.tournamentId) await ensureTournamentMatchSchema();
-      const whiteDbId = socketToUserId.get(white);
-      const blackDbId = socketToUserId.get(black);
-      if (whiteDbId && blackDbId) {
-        const dbMatch = await prisma.match.create({
-          data: {
-            universe: config.universe || 'chess',
-            timeControl: config.timeControl || '5+0',
-            status: 'playing',
-            betAmount: config.betAmount || 0,
-            whiteId: whiteDbId,
-            blackId: blackDbId,
-            isRated: config?.rated !== false,
-            ...(config.tournamentId ? { tournamentId: config.tournamentId } : {}),
-          }
-        });
-        const r = rooms.get(roomId);
-        if (r) r.dbMatchId = dbMatch.id;
-      }
-    } catch (e) {
-      console.error('[DB] Failed to create initial Match record:', e.message);
+  // Create DB Match records for every signed-in game, rated or casual.
+  try {
+    if (config?.tournamentId) await ensureTournamentMatchSchema();
+    const whiteDbId = socketToUserId.get(white);
+    const blackDbId = socketToUserId.get(black);
+    if (whiteDbId && blackDbId) {
+      const dbMatch = await prisma.match.create({
+        data: {
+          universe: config.universe || 'chess',
+          timeControl: config.timeControl || '5+0',
+          status: 'playing',
+          betAmount: config.betAmount || 0,
+          whiteId: whiteDbId,
+          blackId: blackDbId,
+          isRated: config?.rated !== false,
+          ...(config.tournamentId ? { tournamentId: config.tournamentId } : {}),
+        }
+      });
+      const r = rooms.get(roomId);
+      if (r) r.dbMatchId = dbMatch.id;
     }
+  } catch (e) {
+    console.error('[DB] Failed to create initial Match record:', e.message);
   }
 
   removeSeekBySocket(currentCreatorId);
@@ -470,6 +468,19 @@ async function settleTournamentRoom(roomId, result) {
     io.emit('tournament:global_update');
   } catch (err) {
     log.error('[Tournament] Failed to settle tournament standings:', err.message);
+  }
+}
+
+async function markRoomMatchAborted(roomId) {
+  const room = rooms.get(roomId);
+  if (!room?.dbMatchId) return;
+  try {
+    await prisma.match.update({
+      where: { id: room.dbMatchId },
+      data: { status: 'aborted', result: 'abandoned', endedAt: new Date() },
+    });
+  } catch (err) {
+    log.error('[DB] Failed to mark match aborted:', err.message);
   }
 }
 
@@ -1019,6 +1030,7 @@ io.on('connection', (socket) => {
     const universe = room.config?.universe;
     io.to(roomId).emit('game-over', { result: reason, by: 'server' });
     if (room.config?.rated !== false) settleElo(roomId, result, universe);
+    else settleUnratedGameStats(roomId, result);
     settleBets(roomId, result);
     settleTournamentRoom(roomId, result);
     [room.players.white, room.players.black].forEach(id => {
@@ -1301,6 +1313,82 @@ io.on('connection', (socket) => {
     }
   }
 
+  async function settleUnratedGameStats(roomId, result) {
+    const room = rooms.get(roomId);
+    if (!room || room.config?.rated !== false) return;
+
+    const whiteId = room.players.white;
+    const blackId = room.players.black;
+    const dbWhiteId = socketToUserId.get(whiteId);
+    const dbBlackId = socketToUserId.get(blackId);
+    if (!dbWhiteId || !dbBlackId) return;
+
+    const uv = room.config?.universe || 'chess';
+    const gamesField = uv === 'chess' ? 'chessGames' : 'checkersGames';
+    const wWinsField = uv === 'chess' ? 'chessWins' : 'checkersWins';
+    const wLossField = uv === 'chess' ? 'chessLosses' : 'checkersLosses';
+    const wDrawField = uv === 'chess' ? 'chessDraws' : 'checkersDraws';
+    const wWinsInc = result === 'win' ? 1 : 0;
+    const wLossesInc = result === 'loss' ? 1 : 0;
+    const wDrawsInc = result === 'draw' ? 1 : 0;
+    const bWinsInc = result === 'loss' ? 1 : 0;
+    const bLossesInc = result === 'win' ? 1 : 0;
+    const bDrawsInc = result === 'draw' ? 1 : 0;
+
+    try {
+      const ops = [
+        prisma.user.update({
+          where: { id: dbWhiteId },
+          data: {
+            [gamesField]: { increment: 1 },
+            [wWinsField]: { increment: wWinsInc },
+            [wLossField]: { increment: wLossesInc },
+            [wDrawField]: { increment: wDrawsInc },
+          },
+        }),
+        prisma.user.update({
+          where: { id: dbBlackId },
+          data: {
+            [gamesField]: { increment: 1 },
+            [wWinsField]: { increment: bWinsInc },
+            [wLossField]: { increment: bLossesInc },
+            [wDrawField]: { increment: bDrawsInc },
+          },
+        }),
+      ];
+
+      if (room.dbMatchId) {
+        ops.push(prisma.match.update({
+          where: { id: room.dbMatchId },
+          data: {
+            status: 'ended',
+            result: result === 'win' ? 'white' : result === 'loss' ? 'black' : 'draw',
+            pgn: room.moves.map(m => m.move || m.san).join(' '),
+            endedAt: new Date(),
+          },
+        }));
+      }
+
+      await prisma.$transaction(ops);
+
+      const wp = players.get(whiteId);
+      const bp = players.get(blackId);
+      if (wp) {
+        if (!wp.gamesPlayed) wp.gamesPlayed = {};
+        wp.gamesPlayed[uv] = (wp.gamesPlayed[uv] || 0) + 1;
+        players.set(whiteId, wp);
+      }
+      if (bp) {
+        if (!bp.gamesPlayed) bp.gamesPlayed = {};
+        bp.gamesPlayed[uv] = (bp.gamesPlayed[uv] || 0) + 1;
+        players.set(blackId, bp);
+      }
+      broadcastPlayerList();
+    } catch (e) {
+      console.error('[DB] Unrated game stats transaction failed:', e);
+    }
+  }
+
   // ── Bet escrow: deduct betAmount from both wallets when game starts ──────────
   // Returns true if escrow succeeded (or no bet). Returns false on failure.
   async function escrowBet(roomId) {
@@ -1487,6 +1575,7 @@ io.on('connection', (socket) => {
     // Only allow cancellation if no moves were made
     if (room.moves.length === 0) {
       socket.to(roomId).emit('room:cancelled');
+      markRoomMatchAborted(roomId);
       releaseTournamentRoom(roomId);
       rooms.delete(roomId);
       reconnectTokens.delete(roomId);
@@ -1506,6 +1595,7 @@ io.on('connection', (socket) => {
     const universe = room.config?.universe;
     io.to(roomId).emit('game-over', { result: 'resign', by: socket.id });
     if (room.config?.rated !== false) settleElo(roomId, result, universe);
+    else settleUnratedGameStats(roomId, result);
     settleBets(roomId, result);
     settleTournamentRoom(roomId, result);
     rooms.delete(roomId);
@@ -1548,6 +1638,7 @@ io.on('connection', (socket) => {
       by: 'server',
     });
     if (room.config?.rated !== false) settleElo(roomId, result, universe);
+    else settleUnratedGameStats(roomId, result);
     settleBets(roomId, result);
     settleTournamentRoom(roomId, result);
     [room.players.white, room.players.black].forEach(id => {
@@ -1599,6 +1690,7 @@ io.on('connection', (socket) => {
       by: 'server',
     });
     if (room.config?.rated !== false) settleElo(roomId, eloResult, universe);
+    else settleUnratedGameStats(roomId, eloResult);
     settleBets(roomId, eloResult);
     settleTournamentRoom(roomId, eloResult);
     [room.players.white, room.players.black].forEach(id => {
@@ -1619,7 +1711,8 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     io.to(roomId).emit('game-over', { result: 'draw', reason: 'agreement' });
     if (room) {
-      settleElo(roomId, 'draw', room.config?.universe);
+      if (room.config?.rated !== false) settleElo(roomId, 'draw', room.config?.universe);
+      else settleUnratedGameStats(roomId, 'draw');
       settleBets(roomId, 'draw');
       settleTournamentRoom(roomId, 'draw');
       [room.players.white, room.players.black].forEach(id => {
@@ -1730,6 +1823,7 @@ io.on('connection', (socket) => {
     for (const [roomId, room] of rooms.entries()) {
       if (Object.values(room.players).includes(socket.id)) {
         socket.to(roomId).emit('player-disconnected', { socketId: socket.id });
+        markRoomMatchAborted(roomId);
         releaseTournamentRoom(roomId);
         rooms.delete(roomId);
         reconnectTokens.delete(roomId);
@@ -2257,17 +2351,28 @@ app.get('/api/users/:username/stats', async (req, res) => {
   try {
     const u = await prisma.user.findUnique({ where: { username: req.params.username } });
     if (!u) return res.status(404).json({ error: 'Not found' });
+    const matches = await prisma.match.findMany({
+      where: { OR: [{ whiteId: u.id }, { blackId: u.id }], status: 'ended' },
+      select: { universe: true, result: true, whiteId: true, blackId: true },
+    });
+    const summarize = (universe) => {
+      const games = matches.filter(m => m.universe === universe);
+      const wins = games.filter(m => (m.whiteId === u.id && m.result === 'white') || (m.blackId === u.id && m.result === 'black')).length;
+      const losses = games.filter(m => (m.whiteId === u.id && m.result === 'black') || (m.blackId === u.id && m.result === 'white')).length;
+      const draws = games.filter(m => m.result === 'draw').length;
+      return { games: games.length, wins, losses, draws, winRate: games.length > 0 ? Math.round((wins / games.length) * 100) : 0 };
+    };
+    const chessStats = summarize('chess');
+    const checkersStats = summarize('checkers');
     res.json({
       username: u.username,
       chess: {
         rating: u.chessRating, peak: u.peakChessRating,
-        games: u.chessGames, wins: u.chessWins, losses: u.chessLosses, draws: u.chessDraws,
-        winRate: u.chessGames > 0 ? Math.round((u.chessWins / u.chessGames) * 100) : 0,
+        ...chessStats,
       },
       checkers: {
         rating: u.checkersRating, peak: u.peakCheckersRating,
-        games: u.checkersGames, wins: u.checkersWins, losses: u.checkersLosses, draws: u.checkersDraws,
-        winRate: u.checkersGames > 0 ? Math.round((u.checkersWins / u.checkersGames) * 100) : 0,
+        ...checkersStats,
       },
     });
   } catch { res.status(500).json({ error: 'Failed' }); }
@@ -2278,13 +2383,12 @@ app.get('/api/users/:username/games', async (req, res) => {
     const u = await prisma.user.findUnique({ where: { username: req.params.username } });
     if (!u) return res.status(404).json({ error: 'Not found' });
     const matches = await prisma.match.findMany({
-      where: { OR: [{ whiteId: u.id }, { blackId: u.id }] },
+      where: { OR: [{ whiteId: u.id }, { blackId: u.id }], status: 'ended' },
       include: {
         white: { select: { id: true, username: true } },
         black: { select: { id: true, username: true } },
       },
       orderBy: { createdAt: 'desc' },
-      take: 50,
     });
     res.json(matches);
   } catch { res.status(500).json({ error: 'Failed' }); }
@@ -2311,9 +2415,12 @@ app.get('/api/users/:username/full-stats', async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Time on platform: sum of all game durations (estimate: avg 5 min per game)
+    // Time on platform: sum real completed game durations, with a small fallback for old rows.
     const totalGames   = matches.length;
-    const estimatedMs  = totalGames * 5 * 60 * 1000;
+    const estimatedMs  = matches.reduce((sum, m) => {
+      if (m.endedAt) return sum + Math.max(0, m.endedAt.getTime() - m.createdAt.getTime());
+      return sum + 5 * 60 * 1000;
+    }, 0);
 
     // Best win streak
     let bestStreak = 0, cur = 0;
@@ -3251,6 +3358,7 @@ setInterval(() => {
   for (const [id, room] of rooms.entries()) {
     const age = now - (room.createdAt || 0);
     if (age > 4 * 60 * 60 * 1000 && room.moves.length === 0) {
+      markRoomMatchAborted(id);
       releaseTournamentRoom(id);
       rooms.delete(id);
       log.warn(`[CLEANUP] Removed stale room ${id}`);
