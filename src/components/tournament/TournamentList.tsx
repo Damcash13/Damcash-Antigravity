@@ -143,9 +143,34 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
     return 'Final standings and games are available';
   };
 
+  const compareTournaments = (a: Tournament, b: Tournament): number => {
+    const statusOrder: Record<TournamentStatus, number> = { running: 0, upcoming: 1, finished: 2 };
+    const statusA = liveStatus(a);
+    const statusB = liveStatus(b);
+    if (statusA !== statusB) return statusOrder[statusA] - statusOrder[statusB];
+    if (statusA === 'finished') return b.startsAt - a.startsAt;
+    return a.startsAt - b.startsAt;
+  };
+
   const visible = tournaments
     .filter(tObj => tObj.universe === universe)
-    .filter(tObj => filter === 'all' || liveStatus(tObj) === filter);
+    .filter(tObj => filter === 'all' || liveStatus(tObj) === filter)
+    .sort(compareTournaments);
+
+  const emptyTitle = filter === 'running'
+    ? 'No tournament is running right now'
+    : filter === 'upcoming'
+    ? 'No upcoming tournaments found'
+    : filter === 'finished'
+    ? 'No finished tournaments yet'
+    : t('tournament.noTournaments');
+  const emptyHelp = filter === 'running'
+    ? 'Hourly tournaments should run 24/7. Refresh in a few seconds while the scheduler catches up, or create one manually.'
+    : filter === 'upcoming'
+    ? 'Hourly events are created automatically ahead of time. Refresh in a few seconds or create a tournament now.'
+    : filter === 'finished'
+    ? 'Completed tournament records will stay here permanently once games are played.'
+    : 'Hourly tournaments are created automatically. If this stays empty, the server scheduler may need a restart.';
 
   return (
     <div className="tl-container">
@@ -193,7 +218,8 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
       {!loading && visible.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-3)' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🏆</div>
-          <div style={{ fontWeight: 700, color: 'var(--text-2)', marginBottom: 8 }}>{t('tournament.noTournaments')}</div>
+          <div style={{ fontWeight: 700, color: 'var(--text-2)', marginBottom: 8 }}>{emptyTitle}</div>
+          <div className="tp-empty-help">{emptyHelp}</div>
           {user && (
             <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setShowCreate(true)}>
               + {t('tournament.createTournament') || 'Create Tournament'}

@@ -3611,10 +3611,33 @@ startServer().catch((err) => {
 
 // ── Automated Tournament Scheduler ───────────────────────────────────────────
 
-const _scheduledKeys = new Set(); // prevents duplicates within the same process run
+const SCHEDULE_WINDOW_HOURS = 24;
+const HOURLY_TOURNAMENT_DURATION_MS = 60 * 60 * 1000;
+let schedulerTickInFlight = false;
 
-async function createScheduledTournament({ name, icon, universe, timeControl, format, durationMs, description, totalRounds }) {
+function utcHourStart(date = new Date()) {
+  const start = new Date(date);
+  start.setUTCMinutes(0, 0, 0);
+  return start;
+}
+
+function tournamentNameForHourlySlot(startAt) {
+  return `⚡ Hourly Blitz ${String(startAt.getUTCHours()).padStart(2, '0')}:00 UTC`;
+}
+
+async function createScheduledTournament({ name, icon, universe, timeControl, format, startsAt, durationMs, description, totalRounds }) {
   try {
+    const startDate = startsAt ? new Date(startsAt) : new Date(Date.now() + 5 * 60 * 1000);
+    const existing = await prisma.tournament.findFirst({
+      where: {
+        name,
+        universe: universe || 'chess',
+        startsAt: startDate,
+      },
+      select: { id: true },
+    });
+    if (existing) return false;
+
     await prisma.tournament.create({
       data: {
         name,
@@ -3622,134 +3645,135 @@ async function createScheduledTournament({ name, icon, universe, timeControl, fo
         universe: universe || 'chess',
         format: format || 'arena',
         timeControl: timeControl || '5+0',
-        startsAt: new Date(Date.now() + 5 * 60 * 1000), // starts in 5 min
+        startsAt: startDate,
         durationMs: Number(durationMs) || 3_600_000,
         maxPlayers: 50,
         betEntry: 0,
         prizePool: 0,
-        status: 'upcoming',
+        status: getTournamentLifecycle({ startsAt: startDate, durationMs: Number(durationMs) || 3_600_000 }),
         description: description || '',
         rated: true,
         totalRounds: Number(totalRounds) || 0,
       },
     });
-    io.emit('tournament:global_update');
     log.info(`[Scheduler] Created tournament: ${name}`);
+    return true;
   } catch (e) {
     log.error('[Scheduler] Failed to create tournament:', e.message);
+    return false;
   }
 }
 
-function runSchedulerTick() {
-  const now = new Date();
-  const h   = now.getUTCHours();
-  const min = now.getUTCMinutes();
-  const dow = now.getUTCDay();   // 0 = Sunday
-  const d   = now.getUTCDate();
-  const mo  = now.getUTCMonth();
-  const yr  = now.getUTCFullYear();
+async function refreshTournamentStatusFields(nowMs = Date.now()) {
+  const tournaments = await prisma.tournament.findMany({
+    select: { id: true, startsAt: true, durationMs: true, status: true },
+  });
+  const updates = tournaments
+    .map(tournament => ({ id: tournament.id, currentStatus: tournament.status, nextStatus: getTournamentLifecycle(tournament, nowMs) }))
+    .filter(tournament => tournament.nextStatus !== tournament.currentStatus);
 
-  if (min !== 0) return; // only act on the top of each hour
-
-  // Hourly Blitz (alternates chess / checkers each hour)
-  const hourlyKey = `hourly-${yr}-${mo}-${d}-${h}`;
-  if (!_scheduledKeys.has(hourlyKey)) {
-    _scheduledKeys.add(hourlyKey);
-    const universe = h % 2 === 0 ? 'chess' : 'checkers';
-    createScheduledTournament({
-      name: `⚡ Hourly Blitz ${String(h).padStart(2, '0')}:00 UTC`,
-      icon: '⚡',
-      universe,
-      timeControl: '5+0',
-      format: 'arena',
-      durationMs: 60 * 60 * 1000,
-      description: 'Automated hourly blitz arena. Jump in at any time!',
-      totalRounds: 0,
+  for (const update of updates) {
+    await prisma.tournament.update({
+      where: { id: update.id },
+      data: { status: update.nextStatus },
     });
   }
+  return updates.length;
+}
 
-  // Weekly Sunday Special (Sunday 14:00 UTC, 2-hour blitz arena)
-  if (dow === 0 && h === 14) {
-    const weeklyKey = `weekly-${yr}-${mo}-${d}`;
-    if (!_scheduledKeys.has(weeklyKey)) {
-      _scheduledKeys.add(weeklyKey);
-      createScheduledTournament({
+async function ensureHourlyTournamentWindow(now = new Date()) {
+  const anchor = utcHourStart(now);
+  let created = 0;
+  for (let offset = 0; offset <= SCHEDULE_WINDOW_HOURS; offset++) {
+    const startsAt = new Date(anchor.getTime() + offset * HOURLY_TOURNAMENT_DURATION_MS);
+    for (const universe of ['chess', 'checkers']) {
+      const wasCreated = await createScheduledTournament({
+        name: tournamentNameForHourlySlot(startsAt),
+        icon: '⚡',
+        universe,
+        timeControl: '5+0',
+        format: 'arena',
+        startsAt,
+        durationMs: HOURLY_TOURNAMENT_DURATION_MS,
+        description: 'Automated hourly blitz arena. Registration opens 3 minutes before the hour, late joining stays open while pairings are available, and pairing closes for the final 2 minutes.',
+        totalRounds: 0,
+      });
+      if (wasCreated) created += 1;
+    }
+  }
+  return created;
+}
+
+async function ensureSpecialTournamentSchedule(now = new Date()) {
+  let created = 0;
+  const dow = now.getUTCDay();   // 0 = Sunday
+  const d = now.getUTCDate();
+  const mo = now.getUTCMonth();
+  const yr = now.getUTCFullYear();
+  const nowMs = now.getTime();
+
+  if (dow === 0) {
+    const startsAt = new Date(Date.UTC(yr, mo, d, 14, 0, 0, 0));
+    if (nowMs <= startsAt.getTime() + 2 * 60 * 60 * 1000) {
+      const wasCreated = await createScheduledTournament({
         name: '☀️ Sunday Special',
         icon: '☀️',
         universe: 'chess',
         timeControl: '3+2',
         format: 'arena',
+        startsAt,
         durationMs: 2 * 60 * 60 * 1000,
         description: 'The weekly Sunday Special! 2 hours of exciting blitz action.',
         totalRounds: 0,
       });
+      if (wasCreated) created += 1;
     }
   }
 
-  // Monthly Grand Slam (1st of each month, 16:00 UTC, 4-hour Swiss)
-  if (d === 1 && h === 16) {
+  if (d === 1) {
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const monthlyKey = `monthly-${yr}-${mo}`;
-    if (!_scheduledKeys.has(monthlyKey)) {
-      _scheduledKeys.add(monthlyKey);
-      createScheduledTournament({
+    const startsAt = new Date(Date.UTC(yr, mo, d, 16, 0, 0, 0));
+    if (nowMs <= startsAt.getTime() + 4 * 60 * 60 * 1000) {
+      const wasCreated = await createScheduledTournament({
         name: `🏆 Grand Slam — ${monthNames[mo]} ${yr}`,
         icon: '🏆',
         universe: 'chess',
         timeControl: '10+5',
         format: 'swiss',
+        startsAt,
         durationMs: 4 * 60 * 60 * 1000,
         description: `The monthly Grand Slam championship! The biggest tournament of ${monthNames[mo]}.`,
         totalRounds: 7,
       });
+      if (wasCreated) created += 1;
     }
   }
+
+  return created;
 }
 
-async function seedTournamentsIfEmpty() {
+async function runSchedulerTick() {
+  if (schedulerTickInFlight) return;
+  schedulerTickInFlight = true;
   try {
-    const count = await prisma.tournament.count({ where: { status: { in: ['upcoming', 'running'] } } });
-    if (count > 0) return;
-
-    log.info('[Scheduler] No upcoming tournaments found — seeding initial batch');
-    const seeds = [
-      { name: '⚡ Daily Blitz — Chess',     icon: '⚡', universe: 'chess',    timeControl: '5+0',  format: 'arena',  durationMs: 60 * 60 * 1000,       description: 'Daily blitz arena open to all skill levels.', totalRounds: 0 },
-      { name: '🐢 Daily Rapid — Chess',     icon: '🐢', universe: 'chess',    timeControl: '10+5', format: 'arena',  durationMs: 90 * 60 * 1000,       description: 'Enjoy a slower pace in our daily rapid arena.', totalRounds: 0 },
-      { name: '⚡ Daily Blitz — Checkers',  icon: '⚡', universe: 'checkers', timeControl: '5+0',  format: 'arena',  durationMs: 60 * 60 * 1000,       description: 'Daily blitz arena for checkers players.', totalRounds: 0 },
-      { name: '🔥 Weekly Swiss — Chess',    icon: '🔥', universe: 'chess',    timeControl: '3+2',  format: 'swiss',  durationMs: 2 * 60 * 60 * 1000,   description: 'Compete in a 7-round Swiss tournament.', totalRounds: 7 },
-    ];
-    const now = Date.now();
-    for (let i = 0; i < seeds.length; i++) {
-      const s = seeds[i];
-      await prisma.tournament.create({
-        data: {
-          name:        s.name,
-          icon:        s.icon,
-          universe:    s.universe,
-          format:      s.format,
-          timeControl: s.timeControl,
-          startsAt:    new Date(now + (10 + i * 30) * 60 * 1000), // stagger: 10m, 40m, 70m, 100m from now
-          durationMs:  s.durationMs,
-          maxPlayers:  50,
-          betEntry:    0,
-          prizePool:   0,
-          status:      'upcoming',
-          description: s.description,
-          rated:       true,
-          totalRounds: s.totalRounds,
-        },
-      });
+    const [statusUpdates, hourlyCreated, specialCreated] = await Promise.all([
+      refreshTournamentStatusFields(),
+      ensureHourlyTournamentWindow(),
+      ensureSpecialTournamentSchedule(),
+    ]);
+    if (statusUpdates || hourlyCreated || specialCreated) {
+      io.emit('tournament:global_update');
+      log.info(`[Scheduler] Synced tournaments — ${hourlyCreated} hourly created, ${specialCreated} special created, ${statusUpdates} statuses updated`);
     }
-    io.emit('tournament:global_update');
-    log.info('[Scheduler] Seeded 4 initial tournaments');
   } catch (e) {
-    log.error('[Scheduler] Failed to seed tournaments:', e.message);
+    log.error('[Scheduler] Tick failed:', e.message);
+  } finally {
+    schedulerTickInFlight = false;
   }
 }
 
 function startTournamentScheduler() {
-  // Seed immediately if DB is empty, then align to the next full minute for hourly ticks
-  seedTournamentsIfEmpty();
+  runSchedulerTick();
   const msUntilNextMinute = (60 - new Date().getUTCSeconds()) * 1000 - new Date().getUTCMilliseconds();
   setTimeout(() => {
     runSchedulerTick();
