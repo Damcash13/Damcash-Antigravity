@@ -24,6 +24,8 @@ const LANGUAGES = [
   { code: 'zh', flag: '🇨🇳' },
 ];
 
+const OWNER_ADMIN_EMAIL = 'yves.ahipo@gmail.com';
+
 // ── Nav menu definitions ───────────────────────────────────────────────────────
 
 interface NavItem {
@@ -284,7 +286,8 @@ const HamburgerMenu: React.FC<{
   navigate: (path: string) => void;
   onClose: () => void;
   onLogout?: () => void;
-}> = ({ menus, universe, onUniverseSwitch, soundOn, onToggleSound, i18n, t, navigate, onClose, onLogout }) => {
+  showAdminTools?: boolean;
+}> = ({ menus, universe, onUniverseSwitch, soundOn, onToggleSound, i18n, t, navigate, onClose, onLogout, showAdminTools }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -336,6 +339,16 @@ const HamburgerMenu: React.FC<{
           )}
         </div>
       ))}
+
+      {showAdminTools && (
+        <div className="hamburger-section">
+          <div className="hamburger-section-title">Owner</div>
+          <button className="hamburger-nav-item" onClick={() => go(`/${universe}/admin`)}>
+            <span>🛡️</span>
+            <span>Admin Dashboard</span>
+          </button>
+        </div>
+      )}
 
       {/* Settings */}
       <div className="hamburger-section">
@@ -396,6 +409,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
   const menus = universe === 'chess' ? CHESS_MENUS : CHECKERS_MENUS;
+  const showAdminTools = user?.email?.toLowerCase() === OWNER_ADMIN_EMAIL;
 
   const handleUniverseSwitch = useCallback((target: 'chess' | 'checkers') => {
     if (universe === target) return;
@@ -452,6 +466,16 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
             </button>
           )}
           <NotificationCenter />
+
+          {showAdminTools && (
+            <button
+              className="btn btn-secondary btn-sm header-admin-btn"
+              onClick={() => navigate(`/${universe}/admin`)}
+              title="Owner admin dashboard"
+            >
+              🛡️ Admin
+            </button>
+          )}
 
           {/* Wallet / Auth */}
           {user ? (
@@ -513,6 +537,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
                 navigate={navigate}
                 onClose={() => setHamburgerOpen(false)}
                 onLogout={user ? () => { logout(); navigate('/'); } : undefined}
+                showAdminTools={showAdminTools}
               />
             )}
           </div>

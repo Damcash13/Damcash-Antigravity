@@ -20,6 +20,14 @@ const { Chess }  = require('chess.js');  // server-side move validation
 
 // ── Startup safety checks ────────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET;
+const OWNER_ADMIN_EMAIL = 'yves.ahipo@gmail.com';
+function adminEmails() {
+  return Array.from(new Set([
+    OWNER_ADMIN_EMAIL,
+    ...(process.env.ADMIN_EMAILS || '').split(','),
+  ].map(e => e.trim().toLowerCase()).filter(Boolean)));
+}
+
 if (!JWT_SECRET) {
   console.error('[FATAL] JWT_SECRET env var is not set. Set it before starting the server.');
   process.exit(1);
@@ -2215,8 +2223,7 @@ async function requireAuth(req, res, next) {
 async function requireAdmin(req, res, next) {
   // requireAuth must run first
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-  if (!adminEmails.includes(req.user.email?.toLowerCase())) {
+  if (!adminEmails().includes(req.user.email?.toLowerCase())) {
     return res.status(403).json({ error: 'Admin access required' });
   }
   next();
@@ -2408,8 +2415,7 @@ app.post('/api/tournaments', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'startsAt must be a valid ISO date' });
     }
     // Non-admins: must start at least 5 minutes from now, max 30 days out
-    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-    const isAdmin = adminEmails.includes(req.user.email?.toLowerCase());
+    const isAdmin = adminEmails().includes(req.user.email?.toLowerCase());
     const startDate = new Date(startsAt);
     const minStart = new Date(Date.now() + 5 * 60 * 1000);
     const maxStart = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
