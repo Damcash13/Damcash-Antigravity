@@ -4507,22 +4507,69 @@ function utcHourStart(date = new Date()) {
   return start;
 }
 
+function hourlyTournamentPricing(startAt) {
+  const hour = startAt.getUTCHours();
+  if (hour % 6 === 0) {
+    return {
+      betEntry: 10,
+      prizePool: 0,
+      description: 'Automated hourly blitz arena. $10 entry; entry fees build the prize pool. Registration opens 3 minutes before the hour, late joining stays open while pairings are available, and pairing closes for the final 2 minutes.',
+    };
+  }
+  if (hour % 3 === 0) {
+    return {
+      betEntry: 5,
+      prizePool: 0,
+      description: 'Automated hourly blitz arena. $5 entry; entry fees build the prize pool. Registration opens 3 minutes before the hour, late joining stays open while pairings are available, and pairing closes for the final 2 minutes.',
+    };
+  }
+  return {
+    betEntry: 0,
+    prizePool: 0,
+    description: 'Automated hourly blitz arena. Free entry. Registration opens 3 minutes before the hour, late joining stays open while pairings are available, and pairing closes for the final 2 minutes.',
+  };
+}
+
 function tournamentNameForHourlySlot(startAt) {
   return `⚡ Hourly Blitz ${String(startAt.getUTCHours()).padStart(2, '0')}:00 UTC`;
 }
 
-async function createScheduledTournament({ name, icon, universe, timeControl, format, startsAt, durationMs, description, totalRounds }) {
+async function createScheduledTournament({ name, icon, universe, timeControl, format, startsAt, durationMs, description, totalRounds, betEntry = 0, prizePool = 0 }) {
   try {
     const startDate = startsAt ? new Date(startsAt) : new Date(Date.now() + 5 * 60 * 1000);
+    const desiredBetEntry = Math.max(Number(betEntry) || 0, 0);
+    const desiredPrizePool = Math.max(Number(prizePool) || 0, 0);
     const existing = await prisma.tournament.findFirst({
       where: {
         name,
         universe: universe || 'chess',
         startsAt: startDate,
       },
-      select: { id: true },
+      select: { id: true, betEntry: true, prizePool: true, description: true },
     });
-    if (existing) return false;
+    if (existing) {
+      const needsPricingUpdate =
+        Number(existing.betEntry || 0) !== desiredBetEntry ||
+        Number(existing.prizePool || 0) !== desiredPrizePool ||
+        (description && existing.description !== description);
+
+      if (needsPricingUpdate && startDate.getTime() > Date.now()) {
+        const updated = await prisma.tournament.updateMany({
+          where: {
+            id: existing.id,
+            startsAt: { gt: new Date() },
+            players: { none: {} },
+          },
+          data: {
+            betEntry: desiredBetEntry,
+            prizePool: desiredPrizePool,
+            ...(description ? { description } : {}),
+          },
+        });
+        if (updated.count) log.info(`[Scheduler] Updated tournament pricing: ${name}`);
+      }
+      return false;
+    }
 
     await prisma.tournament.create({
       data: {
@@ -4534,8 +4581,8 @@ async function createScheduledTournament({ name, icon, universe, timeControl, fo
         startsAt: startDate,
         durationMs: Number(durationMs) || 3_600_000,
         maxPlayers: 50,
-        betEntry: 0,
-        prizePool: 0,
+        betEntry: desiredBetEntry,
+        prizePool: desiredPrizePool,
         status: getTournamentLifecycle({ startsAt: startDate, durationMs: Number(durationMs) || 3_600_000 }),
         description: description || '',
         rated: true,
@@ -4573,6 +4620,7 @@ async function ensureHourlyTournamentWindow(now = new Date()) {
   for (let offset = 0; offset <= SCHEDULE_WINDOW_HOURS; offset++) {
     const startsAt = new Date(anchor.getTime() + offset * HOURLY_TOURNAMENT_DURATION_MS);
     for (const universe of ['chess', 'checkers']) {
+      const pricing = hourlyTournamentPricing(startsAt);
       const wasCreated = await createScheduledTournament({
         name: tournamentNameForHourlySlot(startsAt),
         icon: '⚡',
@@ -4581,7 +4629,9 @@ async function ensureHourlyTournamentWindow(now = new Date()) {
         format: 'arena',
         startsAt,
         durationMs: HOURLY_TOURNAMENT_DURATION_MS,
-        description: 'Automated hourly blitz arena. Registration opens 3 minutes before the hour, late joining stays open while pairings are available, and pairing closes for the final 2 minutes.',
+        description: pricing.description,
+        betEntry: pricing.betEntry,
+        prizePool: pricing.prizePool,
         totalRounds: 0,
       });
       if (wasCreated) created += 1;
@@ -4609,7 +4659,9 @@ async function ensureSpecialTournamentSchedule(now = new Date()) {
         format: 'arena',
         startsAt,
         durationMs: 2 * 60 * 60 * 1000,
-        description: 'The weekly Sunday Special! 2 hours of exciting blitz action.',
+        description: 'The weekly Sunday Special. $5 entry; entry fees build the prize pool. 2 hours of blitz action.',
+        betEntry: 5,
+        prizePool: 0,
         totalRounds: 0,
       });
       if (wasCreated) created += 1;
@@ -4628,7 +4680,9 @@ async function ensureSpecialTournamentSchedule(now = new Date()) {
         format: 'swiss',
         startsAt,
         durationMs: 4 * 60 * 60 * 1000,
-        description: `The monthly Grand Slam championship! The biggest tournament of ${monthNames[mo]}.`,
+        description: `The monthly Grand Slam championship. $10 entry with a $50 starting prize pool for ${monthNames[mo]}.`,
+        betEntry: 10,
+        prizePool: 50,
         totalRounds: 7,
       });
       if (wasCreated) created += 1;

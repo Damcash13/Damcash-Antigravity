@@ -146,6 +146,26 @@
 .tl-tag.bet   { color: #22c55e; border-color: rgba(34,197,94,0.3);  background: rgba(34,197,94,0.1); }
 .tl-tag.prize { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-dim); }
 
+.tl-money-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 7px 9px;
+}
+
+.tl-money-row.free {
+  background: rgba(148,163,184,0.08);
+}
+
+.tl-money-row.paid {
+  background: rgba(34,197,94,0.08);
+  border-color: rgba(34,197,94,0.28);
+  color: #86efac;
+}
+
 .tl-card-rules {
   background: var(--bg-2);
   border: 1px solid var(--border);
@@ -198,6 +218,126 @@
 }
 
 .tl-enter-btn:hover { opacity: 0.8; }
+
+/* ── Create modal money controls ── */
+.tl-money-panel {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.tl-money-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.tl-money-head strong {
+  color: var(--accent);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.tl-money-title {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.tl-money-sub {
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.tl-money-options {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-bottom: 10px;
+}
+
+.tl-money-btn {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: var(--font-base);
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 34px;
+  padding: 0 6px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.tl-money-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+
+.tl-money-btn.active {
+  background: rgba(34,197,94,0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tl-money-input-label {
+  color: var(--text-3);
+  display: grid;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 4px;
+}
+
+.tl-money-input-label input {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-1);
+  font-family: var(--font-base);
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.tl-money-input-label input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.tl-money-summary {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-2);
+  display: grid;
+  font-size: 12px;
+  gap: 4px;
+  line-height: 1.45;
+  padding: 11px 12px;
+}
+
+.tl-money-summary strong {
+  color: var(--text-1);
+}
+
+.tl-money-summary.paid {
+  background: rgba(34,197,94,0.08);
+  border-color: rgba(34,197,94,0.28);
+}
+
+.tl-money-summary.free {
+  background: rgba(148,163,184,0.08);
+}
+
+@media (max-width: 520px) {
+  .tl-money-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 
 /* ════════════════════════════════════
    TOURNAMENT DETAIL PAGE
@@ -361,6 +501,33 @@
   background: rgba(34,197,94,0.08);
 }
 
+.tp-money-notice {
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-2);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  line-height: 1.45;
+  margin: -4px 0 16px;
+  padding: 12px 16px;
+}
+
+.tp-money-notice strong {
+  color: var(--text-1);
+  flex-shrink: 0;
+}
+
+.tp-money-notice.paid {
+  background: rgba(34,197,94,0.08);
+  border-color: rgba(34,197,94,0.28);
+}
+
+.tp-money-notice.free {
+  background: rgba(148,163,184,0.08);
+}
+
 .tp-clarity-panel {
   padding: 0;
   margin-bottom: 16px;
@@ -516,6 +683,10 @@
 
   .tp-start-notice {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tp-money-notice {
     flex-direction: column;
   }
 

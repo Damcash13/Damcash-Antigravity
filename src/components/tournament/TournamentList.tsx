@@ -14,9 +14,12 @@ const STATUS_COLORS: Record<TournamentStatus, string> = {
 };
 
 const TIME_CONTROLS = ['1+0', '2+1', '3+0', '3+2', '5+0', '5+3', '10+0', '10+5', '15+10', '30+0'];
+const ENTRY_PRESETS = [0, 5, 10, 25, 50, 100];
+const PRIZE_PRESETS = [0, 25, 50, 100, 250, 500];
 const JOIN_WINDOW_MS = 3 * 60_000;
 const PAIRING_CUTOFF_MS = 2 * 60_000;
 const FINISHED_VISIBLE_MS = 5 * 60_000;
+const MAX_TOURNAMENT_MONEY = 1000;
 
 interface CreateForm {
   name: string;
@@ -28,6 +31,8 @@ interface CreateForm {
   totalRounds: number;
   startsInMinutes: number;
   rated: boolean;
+  betEntry: number;
+  prizePool: number;
 }
 
 const DEFAULT_FORM: CreateForm = {
@@ -40,6 +45,8 @@ const DEFAULT_FORM: CreateForm = {
   totalRounds: 0,
   startsInMinutes: 15,
   rated: true,
+  betEntry: 0,
+  prizePool: 0,
 };
 
 interface Props {
@@ -58,6 +65,9 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
   const [form, setForm] = useState<CreateForm>({ ...DEFAULT_FORM, universe: universe as 'chess' | 'checkers' });
   const [now, setNow] = useState(Date.now());
 
+  const formatMoney = (value: number): string => `$${Number(value || 0).toFixed(2)}`;
+  const clampMoney = (value: number): number => Math.max(0, Math.min(MAX_TOURNAMENT_MONEY, Number(value) || 0));
+
   const handleCreate = async () => {
     if (!form.name.trim()) { addNotification('Tournament name is required', 'error'); return; }
     setCreating(true);
@@ -72,6 +82,11 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
         durationMs: form.durationMs,
         totalRounds: form.format === 'arena' ? 0 : form.totalRounds || 7,
         rated: form.rated,
+        betEntry: clampMoney(form.betEntry),
+        prizePool: clampMoney(form.prizePool),
+        description: form.betEntry > 0
+          ? `Paid tournament. Entry fee is ${formatMoney(form.betEntry)}; entry fees are added to the prize pool.`
+          : `Free tournament. No wallet charge is required to join.`,
         startsAt,
       });
       addNotification('Tournament created!', 'success');
@@ -148,6 +163,14 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
     if (status === 'running' && now >= pairingClosesAt) return 'Late joins allowed · Pairing closed for final 2 minutes';
     if (status === 'running') return `Late joins allowed · Pairing closes ${exactTimeStr(pairingClosesAt)}`;
     return 'Final standings and games are available';
+  };
+
+  const moneyLine = (tObj: Tournament): string => {
+    if (tObj.betEntry > 0) {
+      return `Entry fee ${formatMoney(tObj.betEntry)} · Prize pool ${formatMoney(tObj.prizePool)} · charged on join`;
+    }
+    if (tObj.prizePool > 0) return `Free entry · Prize pool ${formatMoney(tObj.prizePool)}`;
+    return 'Free entry · No wallet charge';
   };
 
   const compareTournaments = (a: Tournament, b: Tournament): number => {
@@ -372,6 +395,82 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
                 ★ {t('tournament.rated') || 'Rated'} — affects player ratings
               </label>
 
+              <div className="tl-money-panel">
+                <div className="tl-money-head">
+                  <div>
+                    <div className="tl-money-title">Entry fee</div>
+                    <div className="tl-money-sub">Choose what a player pays from their wallet when joining.</div>
+                  </div>
+                  <strong>{form.betEntry > 0 ? formatMoney(form.betEntry) : 'Free'}</strong>
+                </div>
+                <div className="tl-money-options" aria-label="Entry fee presets">
+                  {ENTRY_PRESETS.map(amount => (
+                    <button
+                      key={amount}
+                      type="button"
+                      className={`tl-money-btn ${form.betEntry === amount ? 'active' : ''}`}
+                      onClick={() => setForm(f => ({ ...f, betEntry: amount }))}
+                    >
+                      {amount === 0 ? 'Free' : `$${amount}`}
+                    </button>
+                  ))}
+                </div>
+                <label className="tl-money-input-label">
+                  Custom entry fee
+                  <input
+                    type="number"
+                    min={0}
+                    max={MAX_TOURNAMENT_MONEY}
+                    step={1}
+                    value={form.betEntry}
+                    onChange={e => setForm(f => ({ ...f, betEntry: clampMoney(Number(e.target.value)) }))}
+                  />
+                </label>
+              </div>
+
+              <div className="tl-money-panel">
+                <div className="tl-money-head">
+                  <div>
+                    <div className="tl-money-title">Starting prize pool</div>
+                    <div className="tl-money-sub">Optional owner-funded prize before player entry fees are added.</div>
+                  </div>
+                  <strong>{formatMoney(form.prizePool)}</strong>
+                </div>
+                <div className="tl-money-options" aria-label="Starting prize pool presets">
+                  {PRIZE_PRESETS.map(amount => (
+                    <button
+                      key={amount}
+                      type="button"
+                      className={`tl-money-btn ${form.prizePool === amount ? 'active' : ''}`}
+                      onClick={() => setForm(f => ({ ...f, prizePool: amount }))}
+                    >
+                      ${amount}
+                    </button>
+                  ))}
+                </div>
+                <label className="tl-money-input-label">
+                  Custom starting prize
+                  <input
+                    type="number"
+                    min={0}
+                    max={MAX_TOURNAMENT_MONEY}
+                    step={1}
+                    value={form.prizePool}
+                    onChange={e => setForm(f => ({ ...f, prizePool: clampMoney(Number(e.target.value)) }))}
+                  />
+                </label>
+              </div>
+
+              <div className={`tl-money-summary ${form.betEntry > 0 ? 'paid' : 'free'}`}>
+                <strong>{form.betEntry > 0 ? 'Paid tournament' : 'Free tournament'}</strong>
+                <span>
+                  {form.betEntry > 0
+                    ? `Players pay ${formatMoney(form.betEntry)} on join. The fee is added to the prize pool and refunded only if they leave before the start.`
+                    : 'Players can join without a wallet charge.'}
+                </span>
+                <span>Starting prize pool: {formatMoney(form.prizePool)}.</span>
+              </div>
+
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '10px 0', marginTop: 4 }}
@@ -417,8 +516,12 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
                 <span className="tl-tag">{FORMAT_LABELS[tourn.format]}</span>
                 <span className="tl-tag">{tourn.timeControl}</span>
                 {tourn.rated && <span className="tl-tag rated">★ {t('tournament.rated')}</span>}
-                {tourn.betEntry > 0 && <span className="tl-tag bet">💰 ${tourn.betEntry} {t('tournament.entry').toLowerCase()}</span>}
-                {tourn.prizePool > 0 && <span className="tl-tag prize">🎁 ${tourn.prizePool}</span>}
+                {tourn.betEntry > 0 && <span className="tl-tag bet">{formatMoney(tourn.betEntry)} entry</span>}
+                {tourn.prizePool > 0 && <span className="tl-tag prize">{formatMoney(tourn.prizePool)} pool</span>}
+              </div>
+
+              <div className={`tl-money-row ${tourn.betEntry > 0 ? 'paid' : 'free'}`}>
+                {moneyLine(tourn)}
               </div>
 
               <div className="tl-card-rules">

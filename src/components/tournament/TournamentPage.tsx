@@ -58,6 +58,10 @@ function formatDuration(ms: number): string {
   return `${minutes}m`;
 }
 
+function formatMoney(value: number): string {
+  return `$${Number(value || 0).toFixed(2)}`;
+}
+
 function getLiveStatus(startsAt: number, durationMs: number, now: number) {
   const endsAt = startsAt + durationMs;
   if (now >= endsAt) return 'finished';
@@ -260,13 +264,14 @@ export const TournamentPage: React.FC = () => {
       : 'Late joining can still place you in the room, but new pairings are closed for the final 2 minutes.'
     : 'Players can register now, then enter the waiting room during the final 3 minutes before start.';
   const moneyRulesText = tournament.betEntry > 0
-    ? `Entry fee is $${Number(tournament.betEntry).toFixed(2)}. It is charged when you join and added to the prize pool. Leaving before the start refunds the entry fee; after the start, entry fees are not automatically refunded. Current prize pool: $${Number(tournament.prizePool).toFixed(2)}.`
-    : `No entry fee is required. Current prize pool: $${Number(tournament.prizePool).toFixed(2)}. Prize payout rules should be confirmed before real-money events.`;
+    ? `Entry fee is ${formatMoney(tournament.betEntry)}. It is charged when you join and added to the prize pool. Leaving before the start refunds the entry fee; after the start, entry fees are not automatically refunded. Current prize pool: ${formatMoney(tournament.prizePool)}.`
+    : `No entry fee is required. Current prize pool: ${formatMoney(tournament.prizePool)}. Prize payout rules should be confirmed before real-money events.`;
+  const entryLabel = tournament.betEntry > 0 ? formatMoney(tournament.betEntry) : '';
   const joinCta = hasJoined
     ? isRunning ? `🏳 ${t('tournament.withdraw')}` : `✕ ${t('common.cancel')}`
-    : isRunning ? `▶ Join & catch up`
-    : waitingRoomOpen ? `✓ Join waiting room`
-    : `✓ ${t('tournament.registerNow')}`;
+    : isRunning ? tournament.betEntry > 0 ? `Join for ${entryLabel} & catch up` : `Join & catch up`
+    : waitingRoomOpen ? tournament.betEntry > 0 ? `Join waiting room · ${entryLabel}` : `Join waiting room`
+    : tournament.betEntry > 0 ? `Register · ${entryLabel}` : t('tournament.registerNow');
 
   return (
     <div className="tp-page">
@@ -288,8 +293,8 @@ export const TournamentPage: React.FC = () => {
               <span>·</span>
               <span>Starts {formatStartTime(tournament.startsAt)}</span>
               {tournament.rated && <><span>·</span><span>★ {t('tournament.rated')}</span></>}
-              {tournament.betEntry > 0 && <><span>·</span><span>💰 ${tournament.betEntry} {t('tournament.entry').toLowerCase()}</span></>}
-              {tournament.prizePool > 0 && <><span>·</span><span className="tp-prize">🎁 ${tournament.prizePool} {t('tournament.prize').toLowerCase()}</span></>}
+              {tournament.betEntry > 0 && <><span>·</span><span>{formatMoney(tournament.betEntry)} {t('tournament.entry').toLowerCase()}</span></>}
+              {tournament.prizePool > 0 && <><span>·</span><span className="tp-prize">{formatMoney(tournament.prizePool)} {t('tournament.prize').toLowerCase()}</span></>}
             </div>
           </div>
         </div>
@@ -346,6 +351,15 @@ export const TournamentPage: React.FC = () => {
           </span>
         </div>
       )}
+
+      <div className={`tp-money-notice ${tournament.betEntry > 0 ? 'paid' : 'free'}`}>
+        <strong>{tournament.betEntry > 0 ? `Paid tournament · ${formatMoney(tournament.betEntry)} entry` : 'Free tournament'}</strong>
+        <span>
+          {tournament.betEntry > 0
+            ? `Your wallet is charged when you join. Entry fees go into the prize pool, now ${formatMoney(tournament.prizePool)}. Leaving before start refunds the entry fee.`
+            : `No wallet charge is required to join. Current prize pool: ${formatMoney(tournament.prizePool)}.`}
+        </span>
+      </div>
 
       <div className="tp-clarity-panel">
         <div className="tp-clarity-head">
@@ -485,7 +499,9 @@ export const TournamentPage: React.FC = () => {
               </div>
               {isUpcoming && !hasJoined && (
                 <button className="btn tp-btn-join" style={{ marginTop: 16 }} onClick={handleJoin}>
-                  {waitingRoomOpen ? '✓ Join waiting room' : `✓ ${t('tournament.registerNow')}`}
+                  {waitingRoomOpen
+                    ? tournament.betEntry > 0 ? `Join waiting room · ${entryLabel}` : 'Join waiting room'
+                    : tournament.betEntry > 0 ? `Register · ${entryLabel}` : t('tournament.registerNow')}
                 </button>
               )}
               {isRunning && hasJoined && pairingOpen && (
@@ -759,13 +775,13 @@ export const TournamentPage: React.FC = () => {
             {tournament.betEntry > 0 && (
               <div className="tp-info-card">
                 <div className="tp-info-label">{t('tournament.entry')}</div>
-                <div className="tp-info-val">💰 ${tournament.betEntry}</div>
+                <div className="tp-info-val">{formatMoney(tournament.betEntry)}</div>
               </div>
             )}
             {tournament.prizePool > 0 && (
               <div className="tp-info-card">
                 <div className="tp-info-label">{t('tournament.prizePool')}</div>
-                <div className="tp-info-val prize">🎁 ${tournament.prizePool}</div>
+                <div className="tp-info-val prize">{formatMoney(tournament.prizePool)}</div>
               </div>
             )}
             <div className="tp-info-card">
