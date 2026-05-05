@@ -374,22 +374,21 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
               </button>
               {isLoggedIn && (
                 <button
-                  className="header-avatar-btn"
+                  className="header-profile-btn"
                   onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`)}
                   title={t('header.profileTitle', { name: user.name })}
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, padding: '4px 8px', minWidth: 48 }}
                 >
-                  <span className="header-avatar-letter">{user.name[0]?.toUpperCase()}</span>
-                  <span style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1 }}>
-                    {user.rating[universe]}
+                  <span className="header-profile-initial">{user.name[0]?.toUpperCase()}</span>
+                  <span className="header-profile-meta">
+                    <span className="header-profile-name">{user.name}</span>
+                    <span className="header-profile-rating">
+                      {user.rating[universe]}
                     {lastRatingChange && lastRatingChange.universe === universe && Date.now() - lastRatingChange.playedAt < 120_000 && (
-                      <span style={{
-                        marginLeft: 3, fontWeight: 800,
-                        color: lastRatingChange.delta >= 0 ? '#22c55e' : '#ef4444',
-                      }}>
+                      <span className={lastRatingChange.delta >= 0 ? 'rating-delta-up' : 'rating-delta-down'}>
                         {lastRatingChange.delta >= 0 ? '+' : ''}{lastRatingChange.delta}
                       </span>
                     )}
+                    </span>
                   </span>
                 </button>
               )}

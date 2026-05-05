@@ -2825,6 +2825,23 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
 });
 
 // ── REST: Users ──────────────────────────────────────────────────────────────
+app.get('/api/users/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || typeof q !== 'string') return res.json([]);
+    const results = await prisma.$queryRaw`
+      SELECT id, username, "chessRating" as "chessRating", "checkersRating" as "checkersRating", country
+      FROM "User"
+      WHERE username ILIKE ${q + '%'}
+      LIMIT 10
+    `;
+    res.json(results);
+  } catch (err) {
+    console.error('[Search] Error:', err);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 app.get('/api/users/:username', async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { username: req.params.username } });
@@ -3297,24 +3314,6 @@ app.post('/api/correspondence/:id/draw', requireAuth, async (req, res) => {
     });
     res.json(updated);
   } catch { res.status(500).json({ error: 'Failed' }); }
-});
-
-// ── REST: Users ──────────────────────────────────────────────────────────────
-app.get('/api/users/search', async (req, res) => {
-  try {
-    const { q } = req.query;
-    if (!q || typeof q !== 'string') return res.json([]);
-    const results = await prisma.$queryRaw`
-      SELECT id, username, "chessRating" as "chessRating", "checkersRating" as "checkersRating", country
-      FROM "User"
-      WHERE username ILIKE ${q + '%'}
-      LIMIT 10
-    `;
-    res.json(results);
-  } catch (err) {
-    console.error('[Search] Error:', err);
-    res.status(500).json({ error: 'Search failed' });
-  }
 });
 
 app.get('/api/friends', requireAuth, async (req, res) => {

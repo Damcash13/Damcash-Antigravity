@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useUniverseStore, useUserStore } from '../../stores';
 import { useLeaderboardStore, LeaderboardEntry, TimeCategory } from '../../stores/leaderboardStore';
 import { ratingBand } from '../../lib/elo';
+import { countryFlag, countryName } from '../../lib/countries';
 import '../../styles/leaderboard.css';
 
 // ── Mini sparkline ────────────────────────────────────────────────────────────
@@ -77,7 +78,11 @@ const Podium: React.FC<{ entries: LeaderboardEntry[] }> = ({ entries }) => {
             <TitleBadge title={entry.title} />
             {entry.name}
           </div>
-          <div className="podium-country">{entry.country}</div>
+          {entry.country && (
+            <div className="podium-country" title={countryName(entry.country)}>
+              {countryFlag(entry.country) || entry.country.toUpperCase()}
+            </div>
+          )}
           <div className="podium-rating" style={{ color: band.color }}>{entry.rating}</div>
           <div className="podium-band" style={{ color: band.color }}>{band.label}</div>
         </div>
@@ -290,7 +295,11 @@ export const LeaderboardPage: React.FC = () => {
                     {entry.name}
                     {isMe && <span className="lb-you-chip">you</span>}
                   </div>
-                  <div className="lb-player-country">{entry.country}</div>
+                  {entry.country && (
+                    <div className="lb-player-country" title={countryName(entry.country)}>
+                      {countryFlag(entry.country) || entry.country.toUpperCase()}
+                    </div>
+                  )}
                 </div>
               </div>
 

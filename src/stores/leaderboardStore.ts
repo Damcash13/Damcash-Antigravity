@@ -55,7 +55,7 @@ export const useLeaderboardStore = create<LeaderboardState>((set) => ({
           rank: d.rank ?? (i + 1),
           id:   d.id,
           name: d.username,
-          country: '🏴',
+          country: d.country || '',
           rating, peak, gamesPlayed: games,
           wins, losses, draws,
           streak: 0,

@@ -1325,30 +1325,78 @@ button,
   line-height: 1;
 }
 
-/* Profile avatar button in header */
-.header-avatar-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid transparent;
+.header-profile-btn {
+  min-width: 116px;
+  max-width: 176px;
+  min-height: 38px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: border-color 0.15s, transform 0.15s;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 4px 10px 4px 5px;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
   flex-shrink: 0;
+  color: var(--text-1);
+  font-family: var(--font);
 }
-.header-avatar-btn:hover {
-  border-color: var(--text-1);
-  transform: scale(1.08);
+
+.header-profile-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-3);
+  transform: translateY(-1px);
 }
-.header-avatar-letter {
+
+.header-profile-initial {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 14px;
   font-weight: 900;
   color: #000;
   line-height: 1;
+  flex-shrink: 0;
 }
+
+.header-profile-meta {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  text-align: left;
+  line-height: 1.05;
+}
+
+.header-profile-name {
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.header-profile-rating {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.rating-delta-up,
+.rating-delta-down {
+  margin-left: 4px;
+  font-weight: 900;
+}
+
+.rating-delta-up { color: #22c55e; }
+.rating-delta-down { color: #ef4444; }
 
 /* ===== HAMBURGER MENU ===== */
 .hamburger-btn {
@@ -3153,6 +3201,10 @@ html, body {
   .dm-bubble { max-width: 92%; }
   .pairing-grid { grid-template-columns: repeat(2, 1fr); }
   .header-right { gap: 4px; }
+  .header-profile-btn { min-width: 72px; max-width: 86px; padding-right: 8px; gap: 6px; }
+  .header-profile-initial { width: 28px; height: 28px; font-size: 13px; }
+  .header-profile-name { display: none; }
+  .header-profile-rating { font-size: 10px; line-height: 1; }
   /* On very narrow phones hide the logo wordmark, keep only the icon */
   .logo-wordmark { display: none; }
   .player-bar { padding: 6px 8px; gap: 6px; }
