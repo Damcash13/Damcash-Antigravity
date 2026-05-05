@@ -119,6 +119,17 @@ export const ChessBoard: React.FC<Props> = ({
     return (file + rank) % 2 === 0;
   };
 
+  const getPremoveTargets = useCallback((g: Chess, from: Square): Square[] => {
+    try {
+      const fenParts = g.fen().split(' ');
+      fenParts[1] = playerColor;
+      const premoveGame = new Chess(fenParts.join(' '));
+      return premoveGame.moves({ square: from, verbose: true }).map(m => m.to as Square);
+    } catch {
+      return [];
+    }
+  }, [playerColor]);
+
   const handleSquareClick = useCallback((sq: Square) => {
     const g = gameRef.current;
     const sel = selectedRef.current;
@@ -127,22 +138,44 @@ export const ChessBoard: React.FC<Props> = ({
 
     // ── Opponent's turn: premove mode ────────────────────────────────────────
     if (g.turn() !== playerColor) {
-      if (piece && piece.color === playerColor) {
-        setSelected(sq);
-        setPremoveFrom(sq);
+      if (premove && (premove.from === sq || premove.to === sq)) {
+        onClearPremove?.();
+        setSelected(null);
+        setPremoveFrom(null);
+        setLegalMoves([]);
         play('premove');
         return;
       }
+
+      if (piece && piece.color === playerColor) {
+        const targets = getPremoveTargets(g, sq);
+        if (targets.length === 0) {
+          setSelected(null);
+          setPremoveFrom(null);
+          setLegalMoves([]);
+          return;
+        }
+        onClearPremove?.();
+        setSelected(sq);
+        setPremoveFrom(sq);
+        setLegalMoves(targets);
+        play('premove');
+        return;
+      }
+
       const pmFrom = premoveFromRef.current;
-      if (pmFrom && g.get(pmFrom)?.color === playerColor) {
+      if (pmFrom && legal.includes(sq)) {
         onPremove?.(pmFrom, sq);
         setPremoveFrom(null);
         setSelected(null);
+        setLegalMoves([]);
         play('premove');
         return;
       }
+
       setSelected(null);
       setPremoveFrom(null);
+      setLegalMoves([]);
       return;
     }
 
@@ -164,7 +197,7 @@ export const ChessBoard: React.FC<Props> = ({
       setSelected(null); setLegalMoves([]); return;
     }
     setSelected(null); setLegalMoves([]);
-  }, [playerColor, onMove, play, onPremove, onClearPremove]);
+  }, [playerColor, onMove, play, onPremove, onClearPremove, premove, getPremoveTargets]);
 
   const handlePromotion = (piece: PieceSymbol) => {
     if (promotionPending) { onMove(promotionPending.from, promotionPending.to, piece); setPromotionPending(null); }
@@ -219,11 +252,24 @@ export const ChessBoard: React.FC<Props> = ({
     if (cellEl) {
       const targetSq = cellEl.getAttribute('data-sq') as Square;
       if (targetSq && targetSq !== drag.sq) {
-        handleSquareClick(targetSq);
+        const g = gameRef.current;
+        if (g.turn() !== playerColor) {
+          const targets = getPremoveTargets(g, drag.sq);
+          if (targets.includes(targetSq)) {
+            onClearPremove?.();
+            onPremove?.(drag.sq, targetSq);
+            play('premove');
+          }
+          setSelected(null);
+          setPremoveFrom(null);
+          setLegalMoves([]);
+        } else {
+          handleSquareClick(targetSq);
+        }
       }
     }
     setDragState(null);
-  }, [handleSquareClick]);
+  }, [getPremoveTargets, handleSquareClick, onClearPremove, onPremove, play, playerColor]);
 
   const isPremoveSquare = (sq: Square) =>
     premove?.from === sq || premove?.to === sq ||

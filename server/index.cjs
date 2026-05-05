@@ -1382,6 +1382,26 @@ io.on('connection', (socket) => {
     if (!payload || typeof payload.roomId !== 'string') return;
     const room = rooms.get(payload.roomId);
     if (!room) return;
+    const emitMoveRejected = (reason) => {
+      const lastMove = room.moves[room.moves.length - 1] || {};
+      socket.emit('move:rejected', {
+        reason,
+        from: payload.from,
+        to: payload.to,
+        fen: room.chessEngine ? room.chessEngine.fen() : (lastMove.fen || null),
+        board: lastMove.board || null,
+        moves: room.moves.map(m => ({
+          from: m.from,
+          to: m.to,
+          promotion: m.promotion,
+          san: m.san,
+          fen: m.fen,
+          board: m.board,
+        })),
+        whiteTime: room.whiteTime,
+        blackTime: room.blackTime,
+      });
+    };
     // Verify sender is an actual participant (not a spectator injecting moves)
     const isParticipant = room.players.white === socket.id || room.players.black === socket.id;
     if (!isParticipant) return;
@@ -1397,24 +1417,10 @@ io.on('connection', (socket) => {
     // Verify turn order: white moves on even indices (0, 2, 4…), black on odd (1, 3, 5…)
     const expectedWhite = room.moves.length % 2 === 0;
     const senderIsWhite = room.players.white === socket.id;
-    if (senderIsWhite !== expectedWhite) return; // out of turn — reject silently
-
-    // ── Update authoritative clocks ──────────────────────────────────────
-    const now = Date.now();
-    const elapsed = now - room.lastMoveTime;
-    const tc = parseTimeControl(room.config?.timeControl || '5+0');
-    
-    if (senderIsWhite) {
-      room.whiteTime = Math.max(0, room.whiteTime - elapsed + tc.increment);
-    } else {
-      room.blackTime = Math.max(0, room.blackTime - elapsed + tc.increment);
+    if (senderIsWhite !== expectedWhite) {
+      emitMoveRejected('out_of_turn');
+      return;
     }
-    room.lastMoveTime = now;
-    
-    // Attach times to payload for client synchronization
-    payload.whiteTime = room.whiteTime;
-    payload.blackTime = room.blackTime;
-    payload.by = socket.id;
 
     // ── Chess: server-side move validation via chess.js ──────────────────
     if (room.chessEngine) {
@@ -1424,15 +1430,30 @@ io.on('connection', (socket) => {
         promotion: payload.promotion || undefined,
       });
       if (!moveResult) {
-        // Illegal move — reject silently (don't relay to opponent)
         log.warn(`[MOVE] Illegal chess move rejected: ${payload.from}->${payload.to} in room ${payload.roomId}`);
-        socket.emit('move:rejected', { reason: 'illegal', from: payload.from, to: payload.to });
+        emitMoveRejected('illegal');
         return;
       }
       // Attach the validated SAN and FEN to the payload for consistency
       payload.san = moveResult.san;
       payload.fen = room.chessEngine.fen();
     }
+
+    // ── Update authoritative clocks after the move is accepted ───────────
+    const now = Date.now();
+    const elapsed = now - room.lastMoveTime;
+    const tc = parseTimeControl(room.config?.timeControl || '5+0');
+
+    if (senderIsWhite) {
+      room.whiteTime = Math.max(0, room.whiteTime - elapsed + tc.increment);
+    } else {
+      room.blackTime = Math.max(0, room.blackTime - elapsed + tc.increment);
+    }
+    room.lastMoveTime = now;
+
+    payload.whiteTime = room.whiteTime;
+    payload.blackTime = room.blackTime;
+    payload.by = socket.id;
     payload.moveNumber = room.moves.length + 1;
 
     room.moves.push({ ...payload, player: socket.id });

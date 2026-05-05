@@ -470,11 +470,37 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
           if (pmGame.isGameOver()) handleGameOver(pmGame);
         } else {
           setGame(newGame);
+          addNotification('Queued premove cancelled. The position changed.', 'info');
         }
         setPremove(null);
       } else {
         setGame(newGame);
       }
+    };
+
+    const handleMoveRejected = (data: any) => {
+      setPremove(null);
+      if (Array.isArray(data?.moves)) {
+        try {
+          const rebuilt = new Chess();
+          for (const m of data.moves) {
+            if (m?.from && m?.to) rebuilt.move({ from: m.from, to: m.to, promotion: m.promotion || 'q' });
+          }
+          setGame(rebuilt);
+          setMoveHistory(rebuilt.history());
+          const last = data.moves[data.moves.length - 1];
+          setLastMove(last?.from && last?.to ? { from: last.from as Square, to: last.to as Square } : null);
+        } catch {
+          if (data?.fen) {
+            try { setGame(new Chess(data.fen)); } catch { /* Ignore invalid server sync. */ }
+          }
+        }
+      } else if (data?.fen) {
+        try { setGame(new Chess(data.fen)); } catch { /* Ignore invalid server sync. */ }
+      }
+      if (data?.whiteTime !== undefined) setWhiteTime(data.whiteTime);
+      if (data?.blackTime !== undefined) setBlackTime(data.blackTime);
+      addNotification('Move not accepted. Board synced with the server.', 'warning');
     };
 
     const handleSocketChat = (msg: any) => {
@@ -621,6 +647,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     socket.on('game-start', handleGameStart);
     socket.on('spectate:list', handleSpectateList);
     socket.on('move', handleSocketMove);
+    socket.on('move:rejected', handleMoveRejected);
     socket.on('chat', handleSocketChat);
     socket.on('game-over', handleGameOverEmit);
     socket.on('draw:offer', handleDrawOffer);
@@ -657,6 +684,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       socket.off('game-start', handleGameStart);
       socket.off('spectate:list', handleSpectateList);
       socket.off('move', handleSocketMove);
+      socket.off('move:rejected', handleMoveRejected);
       socket.off('chat', handleSocketChat);
       socket.off('game-over', handleGameOverEmit);
       socket.off('draw:offer', handleDrawOffer);
@@ -803,6 +831,19 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
             onPremove={(from, to) => setPremove({ from, to })}
             onClearPremove={() => setPremove(null)}
           />
+          {premove && gameStatus === 'playing' && (
+            <div className="premove-status" role="status">
+              <div className="premove-status-copy">
+                <strong>Premove queued</strong>
+                <span>
+                  {premove.from.toUpperCase()} -&gt; {premove.to.toUpperCase()} will play after your opponent moves if it is still legal.
+                </span>
+              </div>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPremove(null)}>
+                Cancel
+              </button>
+            </div>
+          )}
           {gameStatus === 'ended' && (
             <div className="game-over-overlay">
               <div className="game-over-box">
