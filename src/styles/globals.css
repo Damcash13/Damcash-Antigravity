@@ -1829,6 +1829,10 @@ html, body {
   max-width: 100%;
 }
 
+.lobby-player-list .phc-anchor {
+  display: block;
+}
+
 .phc-card {
   position: absolute;
   left: 0;
@@ -2006,7 +2010,7 @@ html, body {
   color: #fff;
 }
 
-.phc-btn-stats, .phc-btn-message {
+.phc-btn-stats, .phc-btn-message, .phc-btn-block {
   background: var(--bg-2);
 }
 
@@ -2019,6 +2023,16 @@ html, body {
 .phc-btn-profile:hover {
   background: var(--bg-1);
   color: var(--text-1);
+}
+
+.phc-btn-block {
+  color: #ef4444;
+}
+
+.phc-btn-block:hover {
+  border-color: rgba(239,68,68,0.55);
+  background: rgba(239,68,68,0.1);
+  color: #ef4444;
 }
 
 /* ===== LANGUAGE SWITCHER ===== */

@@ -6,6 +6,7 @@ import { useUniverseStore, useUserStore } from '../../stores';
 import { useInviteStore, OnlinePlayer } from '../../stores/inviteStore';
 import { supabase } from '../../lib/supabase';
 import { countryFlag } from '../../lib/countries';
+import { PlayerHoverCard } from '../common/PlayerHoverCard';
 
 const MAX_CHAT_LEN = 300;
 function sanitizeChat(str: unknown, maxLen = MAX_CHAT_LEN): string {
@@ -492,50 +493,53 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
               const theirSeek = seeks.find(s => s.socketId === player.socketId && s.universe === universe);
 
               const canChallenge = !isMe && !theirSeek;
-              const { openConfig } = useInviteStore.getState();
-
-              const handleChallenge = () => {
-                if (!canChallenge) return;
-                openConfig({ socketId: player.socketId, name: player.name });
-              };
 
               return (
-                <div
+                <PlayerHoverCard
                   key={player.socketId}
-                  className={`lobby-player-card ${isMe ? 'me' : ''} ${canChallenge ? 'challengeable' : ''}`}
-                  onClick={handleChallenge}
+                  username={player.name}
+                  rating={myRating}
+                  wins={0}
+                  losses={0}
+                  draws={0}
+                  games={0}
+                  country={player.country}
                 >
-                  <div className="lobby-player-avatar" style={{ background: isMe ? 'var(--accent)' : undefined }}>
-                    {player.name[0]?.toUpperCase()}
-                  </div>
-                  <div className="lobby-player-info">
-                    <div className="lobby-player-name">
-                      {player.name}
-                      {isMe && <span className="lobby-you-badge">{t('lobby.you')}</span>}
+                  <div
+                    className={`lobby-player-card ${isMe ? 'me' : ''} ${canChallenge ? 'actionable' : ''}`}
+                  >
+                    <div className="lobby-player-avatar" style={{ background: isMe ? 'var(--accent)' : undefined }}>
+                      {player.name[0]?.toUpperCase()}
                     </div>
-                    <div className="lobby-player-sub">
-                      {player.universe === 'chess' ? '♟' : '⬤'} {myRating}
-                      {theirSeek && (
-                        <span className="lobby-seeking-pill">
-                          {t('lobby.seeking')} {theirSeek.timeControl}
+                    <div className="lobby-player-info">
+                      <div className="lobby-player-name">
+                        {player.name}
+                        {isMe && <span className="lobby-you-badge">{t('lobby.you')}</span>}
+                      </div>
+                      <div className="lobby-player-sub">
+                        {player.universe === 'chess' ? '♟' : '⬤'} {myRating}
+                        {theirSeek && (
+                          <span className="lobby-seeking-pill">
+                            {t('lobby.seeking')} {theirSeek.timeControl}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <StatusDot status={theirSeek ? 'seeking' : player.status} />
+                      {canChallenge && (
+                        <span className="lobby-challenge-btn" aria-label={`Open actions for ${player.name}`}>
+                          ⋮
                         </span>
+                      )}
+                      {theirSeek && (
+                        <button className="lobby-join-btn" onClick={(e) => { e.stopPropagation(); handleAccept(theirSeek); }}>
+                          {t('tournament.join')}
+                        </button>
                       )}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <StatusDot status={theirSeek ? 'seeking' : player.status} />
-                    {canChallenge && (
-                      <span className="lobby-challenge-btn" aria-label={`Challenge ${player.name}`}>
-                        ⚔
-                      </span>
-                    )}
-                    {theirSeek && (
-                      <button className="lobby-join-btn" onClick={(e) => { e.stopPropagation(); handleAccept(theirSeek); }}>
-                        {t('tournament.join')}
-                      </button>
-                    )}
-                  </div>
-                </div>
+                </PlayerHoverCard>
               );
             })
           )}

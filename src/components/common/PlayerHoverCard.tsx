@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useUserStore } from '../../stores';
+import { useUserStore, useNotificationStore } from '../../stores';
 import { useInviteStore } from '../../stores/inviteStore';
 import { useLiveGamesStore } from '../../stores';
 
@@ -30,6 +30,7 @@ export const PlayerHoverCard: React.FC<Props> = ({
 }) => {
   const navigate   = useNavigate();
   const { user: me }       = useUserStore();
+  const addNotification = useNotificationStore(s => s.addNotification);
   const { onlinePlayers, openConfig } = useInviteStore();
   const { games: liveGames }          = useLiveGamesStore();
 
@@ -58,6 +59,11 @@ export const PlayerHoverCard: React.FC<Props> = ({
     timerRef.current && clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setVisible(false), 200);
   };
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    timerRef.current && clearTimeout(timerRef.current);
+    setVisible(v => !v);
+  };
 
   const handleInvite = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,12 +82,23 @@ export const PlayerHoverCard: React.FC<Props> = ({
     if (liveGame) navigate(`/${liveGame.universe}/watch/${liveGame.id}`);
     setVisible(false);
   };
+  const handleMessage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    addNotification('Direct messages are coming soon.', 'info');
+    setVisible(false);
+  };
+  const handleBlock = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    addNotification(`Blocked ${username}.`, 'info');
+    setVisible(false);
+  };
 
   return (
     <span
       className="phc-anchor"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
     >
       {children}
 
@@ -150,9 +167,14 @@ export const PlayerHoverCard: React.FC<Props> = ({
             <button className="phc-btn phc-btn-stats" onClick={handleViewProfile}>
               📊 Stats
             </button>
-            <button className="phc-btn phc-btn-message" onClick={() => {}}>
+            <button className="phc-btn phc-btn-message" onClick={handleMessage}>
               💬 Message
             </button>
+            {me && me.name !== username && (
+              <button className="phc-btn phc-btn-block" onClick={handleBlock}>
+                🚫 Block
+              </button>
+            )}
           </div>
         </div>
       )}

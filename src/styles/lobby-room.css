@@ -481,8 +481,8 @@
 .lobby-player-card:last-child { border-bottom: none; }
 .lobby-player-card:hover { background: var(--bg-2); }
 .lobby-player-card.me { background: rgba(var(--accent-rgb, 56,189,248), 0.07); }
-.lobby-player-card.challengeable { cursor: pointer; }
-.lobby-player-card.challengeable:active { background: var(--bg-3); }
+.lobby-player-card.actionable { cursor: pointer; }
+.lobby-player-card.actionable:active { background: var(--bg-3); }
 
 .lobby-player-avatar {
   width: 32px;
@@ -543,7 +543,7 @@
   align-items: center;
   justify-content: center;
 }
-.lobby-player-card.challengeable:hover .lobby-challenge-btn {
+.lobby-player-card.actionable:hover .lobby-challenge-btn {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-dim);
