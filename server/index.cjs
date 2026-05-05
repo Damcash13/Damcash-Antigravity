@@ -1893,6 +1893,14 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 // ── REST: Tournaments ────────────────────────────────────────────────────────
+function getTournamentLifecycle(tournament, nowMs = Date.now()) {
+  const startsAt = new Date(tournament.startsAt).getTime();
+  const endsAt = startsAt + (Number(tournament.durationMs) || 0);
+  if (nowMs >= endsAt) return 'finished';
+  if (nowMs >= startsAt) return 'running';
+  return 'upcoming';
+}
+
 app.get('/api/tournaments', async (req, res) => {
   try {
     const ts = await prisma.tournament.findMany({
@@ -1905,6 +1913,7 @@ app.get('/api/tournaments', async (req, res) => {
     });
     res.json(ts.map(t => ({
       ...t,
+      status: getTournamentLifecycle(t),
       playerCount: t.players.length,
       players: t.players.map(p => ({
         id: p.id, userId: p.userId, score: p.score,
@@ -1983,7 +1992,8 @@ app.post('/api/tournaments/:id/join', requireAuth, async (req, res) => {
       include: { _count: { select: { players: true } } },
     });
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
-    if (tournament.status !== 'upcoming') return res.status(400).json({ error: 'Tournament is not open for registration' });
+    const lifecycle = getTournamentLifecycle(tournament);
+    if (lifecycle === 'finished') return res.status(400).json({ error: 'Tournament has finished' });
     if (tournament._count.players >= tournament.maxPlayers) return res.status(400).json({ error: 'Tournament is full' });
 
     const alreadyJoined = await prisma.tournamentPlayer.findFirst({ where: { tournamentId, userId } });
@@ -2039,6 +2049,7 @@ app.get('/api/tournaments/:id', async (req, res) => {
     if (!t) return res.status(404).json({ error: 'Not found' });
     res.json({
       ...t,
+      status: getTournamentLifecycle(t),
       playerCount: t.players.length,
       players: t.players.map(p => ({
         id: p.id, userId: p.userId, score: p.score,

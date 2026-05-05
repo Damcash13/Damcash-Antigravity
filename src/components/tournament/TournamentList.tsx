@@ -13,6 +13,7 @@ const STATUS_COLORS: Record<TournamentStatus, string> = {
 };
 
 const TIME_CONTROLS = ['1+0', '2+1', '3+0', '3+2', '5+0', '5+3', '10+0', '10+5', '15+10', '30+0'];
+const JOIN_WINDOW_MS = 3 * 60_000;
 
 interface CreateForm {
   name: string;
@@ -52,6 +53,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<CreateForm>({ ...DEFAULT_FORM, universe: universe as 'chess' | 'checkers' });
+  const [now, setNow] = useState(Date.now());
 
   const handleCreate = async () => {
     if (!form.name.trim()) { addNotification('Tournament name is required', 'error'); return; }
@@ -81,10 +83,10 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
   };
 
   useEffect(() => { fetchTournaments(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const visible = tournaments
-    .filter(tObj => tObj.universe === universe)
-    .filter(tObj => filter === 'all' || tObj.status === filter);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const FORMAT_LABELS: Record<string, string> = {
     arena: t('tournament.arena'),
@@ -92,24 +94,46 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
     roundrobin: t('tournament.roundRobin'),
   };
 
+  const liveStatus = (tObj: Tournament): TournamentStatus => {
+    const end = tObj.startsAt + tObj.durationMs;
+    if (now >= end) return 'finished';
+    if (now >= tObj.startsAt) return 'running';
+    return 'upcoming';
+  };
+
+  const exactTimeStr = (ts: number): string =>
+    new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const shortCountdown = (ms: number): string => {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
   const timeUntilStr = (ts: number): string => {
-    const diff = ts - Date.now();
+    const diff = ts - now;
     if (diff <= 0) return t('tournament.running');
+    if (diff <= JOIN_WINDOW_MS) return `Waiting room open · ${shortCountdown(diff)}`;
     const h = Math.floor(diff / 3_600_000);
     const m = Math.floor((diff % 3_600_000) / 60_000);
-    if (h > 0) return `${t('tournament.startsIn')} ${h}h ${m}m`;
-    return `${t('tournament.startsIn')} ${m}m`;
+    const relative = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    return `Starts ${exactTimeStr(ts)} · in ${relative}`;
   };
 
   const timeLeftStr = (tObj: Tournament): string => {
     const end = tObj.startsAt + tObj.durationMs;
-    const diff = end - Date.now();
+    const diff = end - now;
     if (diff <= 0) return t('tournament.finished');
     const h = Math.floor(diff / 3_600_000);
     const m = Math.floor((diff % 3_600_000) / 60_000);
-    if (h > 0) return `${h}h ${m}m ${t('tournament.timeRemaining').toLowerCase()}`;
-    return `${m}m ${t('tournament.timeRemaining').toLowerCase()}`;
+    const left = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    return `Late join open · ${left} left`;
   };
+
+  const visible = tournaments
+    .filter(tObj => tObj.universe === universe)
+    .filter(tObj => filter === 'all' || liveStatus(tObj) === filter);
 
   return (
     <div className="tl-container">
@@ -311,58 +335,61 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
       )}
 
       <div className="tl-grid">
-        {visible.map(tourn => (
-          <div
-            key={tourn.id}
-            className={`tl-card ${tourn.status === 'running' ? 'running' : ''}`}
-            onClick={() => onSelectTournament(tourn.id)}
-          >
-            {/* Header */}
-            <div className="tl-card-head">
-              <span className="tl-card-icon">{tourn.icon}</span>
-              <div className="tl-card-status-wrap">
-                <span
-                  className="tl-status-dot"
-                  style={{ background: STATUS_COLORS[tourn.status] }}
-                />
-                <span className="tl-status-label" style={{ color: STATUS_COLORS[tourn.status] }}>
-                  {tourn.status === 'running'  ? t('tournament.running') :
-                   tourn.status === 'upcoming' ? t('tournament.upcoming') : t('tournament.finished')}
-                </span>
+        {visible.map(tourn => {
+          const status = liveStatus(tourn);
+          return (
+            <div
+              key={tourn.id}
+              className={`tl-card ${status === 'running' ? 'running' : ''}`}
+              onClick={() => onSelectTournament(tourn.id)}
+            >
+              {/* Header */}
+              <div className="tl-card-head">
+                <span className="tl-card-icon">{tourn.icon}</span>
+                <div className="tl-card-status-wrap">
+                  <span
+                    className="tl-status-dot"
+                    style={{ background: STATUS_COLORS[status] }}
+                  />
+                  <span className="tl-status-label" style={{ color: STATUS_COLORS[status] }}>
+                    {status === 'running'  ? t('tournament.running') :
+                     status === 'upcoming' ? t('tournament.upcoming') : t('tournament.finished')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="tl-card-name">{tourn.name}</div>
+              <div className="tl-card-desc">{tourn.description}</div>
+
+              {/* Tags */}
+              <div className="tl-tags">
+                <span className="tl-tag">{FORMAT_LABELS[tourn.format]}</span>
+                <span className="tl-tag">{tourn.timeControl}</span>
+                {tourn.rated && <span className="tl-tag rated">★ {t('tournament.rated')}</span>}
+                {tourn.betEntry > 0 && <span className="tl-tag bet">💰 ${tourn.betEntry} {t('tournament.entry').toLowerCase()}</span>}
+                {tourn.prizePool > 0 && <span className="tl-tag prize">🎁 ${tourn.prizePool}</span>}
+              </div>
+
+              {/* Footer */}
+              <div className="tl-card-footer">
+                <div className="tl-footer-info">
+                  <span>👥 {tourn.players.length}{tourn.maxPlayers ? `/${tourn.maxPlayers}` : ''}</span>
+                  <span>·</span>
+                  <span>
+                    {status === 'running'
+                      ? timeLeftStr(tourn)
+                      : status === 'upcoming'
+                      ? timeUntilStr(tourn.startsAt)
+                      : t('tournament.finished')}
+                  </span>
+                </div>
+                <button className="tl-enter-btn">
+                  {status === 'running' ? 'Join / watch →' : `${t('leaderboard.viewAll')} →`}
+                </button>
               </div>
             </div>
-
-            <div className="tl-card-name">{tourn.name}</div>
-            <div className="tl-card-desc">{tourn.description}</div>
-
-            {/* Tags */}
-            <div className="tl-tags">
-              <span className="tl-tag">{FORMAT_LABELS[tourn.format]}</span>
-              <span className="tl-tag">{tourn.timeControl}</span>
-              {tourn.rated && <span className="tl-tag rated">★ {t('tournament.rated')}</span>}
-              {tourn.betEntry > 0 && <span className="tl-tag bet">💰 ${tourn.betEntry} {t('tournament.entry').toLowerCase()}</span>}
-              {tourn.prizePool > 0 && <span className="tl-tag prize">🎁 ${tourn.prizePool}</span>}
-            </div>
-
-            {/* Footer */}
-            <div className="tl-card-footer">
-              <div className="tl-footer-info">
-                <span>👥 {tourn.players.length}{tourn.maxPlayers ? `/${tourn.maxPlayers}` : ''}</span>
-                <span>·</span>
-                <span>
-                  {tourn.status === 'running'
-                    ? timeLeftStr(tourn)
-                    : tourn.status === 'upcoming'
-                    ? timeUntilStr(tourn.startsAt)
-                    : t('tournament.finished')}
-                </span>
-              </div>
-              <button className="tl-enter-btn">
-                {tourn.status === 'running' ? `${t('lobby.watch')} →` : `${t('leaderboard.viewAll')} →`}
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

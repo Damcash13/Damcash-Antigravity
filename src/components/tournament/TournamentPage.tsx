@@ -9,6 +9,7 @@ import { AppErrorBoundary } from '../common/AppErrorBoundary';
 import '../../styles/tournaments.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+const JOIN_WINDOW_MS = 3 * 60_000;
 
 function formatCountdown(ms: number): string {
   if (ms <= 0) return '00:00:00';
@@ -24,6 +25,22 @@ function timeAgo(ts: number): string {
   if (m < 1) return 'just now';
   if (m < 60) return `${m}m ago`;
   return `${Math.floor(m / 60)}h ago`;
+}
+
+function formatStartTime(ts: number): string {
+  return new Date(ts).toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function getLiveStatus(startsAt: number, durationMs: number, now: number) {
+  const endsAt = startsAt + durationMs;
+  if (now >= endsAt) return 'finished';
+  if (now >= startsAt) return 'running';
+  return 'upcoming';
 }
 
 // ── Medal helper ──────────────────────────────────────────────────────────────
@@ -71,6 +88,7 @@ export const TournamentPage: React.FC = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'standings' | 'pairings' | 'games' | 'info'>('standings');
   const [joining, setJoining] = useState(false);
+  const [now, setNow] = useState(Date.now());
 
   const FORMAT_LABEL: Record<string, string> = {
     arena: `🎪 ${t('tournament.arena')}`,
@@ -100,6 +118,11 @@ export const TournamentPage: React.FC = () => {
       };
     }
   }, [id, fetchOne]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // If no id, show the list
   if (!id) {
@@ -134,7 +157,6 @@ export const TournamentPage: React.FC = () => {
   const myName   = user?.name || '';
   const hasJoined = !!myName && tournament.players.some(p => p.name === myName);
 
-  const now        = Date.now();
   const endsAt     = tournament.startsAt + tournament.durationMs;
 
   const handleJoin = async () => {
@@ -162,8 +184,18 @@ export const TournamentPage: React.FC = () => {
     );
   }, [tournament.players]);
 
-  const isRunning  = tournament.status === 'running';
-  const isUpcoming = tournament.status === 'upcoming';
+  const status = getLiveStatus(tournament.startsAt, tournament.durationMs, now);
+  const isRunning  = status === 'running';
+  const isUpcoming = status === 'upcoming';
+  const isFinished = status === 'finished';
+  const startsIn = tournament.startsAt - now;
+  const waitingRoomOpen = isUpcoming && startsIn <= JOIN_WINDOW_MS;
+  const waitingRoomOpensAt = tournament.startsAt - JOIN_WINDOW_MS;
+  const joinCta = hasJoined
+    ? isRunning ? `🏳 ${t('tournament.withdraw')}` : `✕ ${t('common.cancel')}`
+    : isRunning ? `▶ Join & catch up`
+    : waitingRoomOpen ? `✓ Join waiting room`
+    : `✓ ${t('tournament.registerNow')}`;
 
   return (
     <div className="tp-page">
@@ -182,6 +214,8 @@ export const TournamentPage: React.FC = () => {
               <span>{FORMAT_LABEL[tournament.format]}</span>
               <span>·</span>
               <span>⏱ {tournament.timeControl}</span>
+              <span>·</span>
+              <span>Starts {formatStartTime(tournament.startsAt)}</span>
               {tournament.rated && <><span>·</span><span>★ {t('tournament.rated')}</span></>}
               {tournament.betEntry > 0 && <><span>·</span><span>💰 ${tournament.betEntry} {t('tournament.entry').toLowerCase()}</span></>}
               {tournament.prizePool > 0 && <><span>·</span><span className="tp-prize">🎁 ${tournament.prizePool} {t('tournament.prize').toLowerCase()}</span></>}
@@ -195,23 +229,41 @@ export const TournamentPage: React.FC = () => {
             <TournamentCountdown targetTs={endsAt} label={t('tournament.timeRemaining')} />
           )}
           {isUpcoming && (
-            <TournamentCountdown targetTs={tournament.startsAt} label={t('tournament.startsIn')} />
+            <TournamentCountdown
+              targetTs={tournament.startsAt}
+              label={waitingRoomOpen ? 'Waiting room countdown' : t('tournament.startsIn')}
+            />
           )}
 
           {/* CTA */}
-          {tournament.status !== 'finished' && (
+          {!isFinished && (
             <button
               className={`btn ${hasJoined ? 'tp-btn-withdraw' : 'tp-btn-join'}`}
               onClick={handleJoin}
               disabled={joining}
             >
-              {joining ? '…' : hasJoined
-                ? isRunning ? `🏳 ${t('tournament.withdraw')}` : `✕ ${t('common.cancel')}`
-                : isRunning ? `▶ ${t('tournament.join')}` : `✓ ${t('tournament.registerNow')}`}
+              {joining ? '…' : joinCta}
             </button>
           )}
         </div>
       </div>
+
+      {!isFinished && (
+        <div className={`tp-start-notice ${isRunning ? 'running' : waitingRoomOpen ? 'open' : ''}`}>
+          <strong>
+            {isRunning
+              ? 'Tournament in progress'
+              : waitingRoomOpen
+              ? 'Waiting room open'
+              : `Waiting room opens ${formatStartTime(waitingRoomOpensAt)}`}
+          </strong>
+          <span>
+            {isRunning
+              ? 'Late joining is open, so new players can still enter and catch up.'
+              : `Starts ${formatStartTime(tournament.startsAt)}. Players can wait from H-3 until the tournament begins.`}
+          </span>
+        </div>
+      )}
 
       {/* ── Stats bar ── */}
       <div className="tp-stats-bar">
@@ -264,7 +316,7 @@ export const TournamentPage: React.FC = () => {
               </div>
               {isUpcoming && !hasJoined && (
                 <button className="btn tp-btn-join" style={{ marginTop: 16 }} onClick={handleJoin}>
-                  ✓ {t('tournament.registerNow')}
+                  {waitingRoomOpen ? '✓ Join waiting room' : `✓ ${t('tournament.registerNow')}`}
                 </button>
               )}
             </div>
@@ -457,6 +509,14 @@ export const TournamentPage: React.FC = () => {
       {activeTab === 'info' && (
         <div className="tp-info-panel">
           <div className="tp-info-grid">
+            <div className="tp-info-card">
+              <div className="tp-info-label">{t('tournament.startsAt')}</div>
+              <div className="tp-info-val">{formatStartTime(tournament.startsAt)}</div>
+            </div>
+            <div className="tp-info-card">
+              <div className="tp-info-label">Waiting room</div>
+              <div className="tp-info-val">{formatStartTime(waitingRoomOpensAt)}</div>
+            </div>
             <div className="tp-info-card">
               <div className="tp-info-label">{t('tournament.format')}</div>
               <div className="tp-info-val">{FORMAT_LABEL[tournament.format]}</div>

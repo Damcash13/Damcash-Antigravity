@@ -158,9 +158,12 @@
 
 .tl-footer-info {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 12px;
   color: var(--text-3);
+  min-width: 0;
 }
 
 .tl-enter-btn {
@@ -309,6 +312,50 @@
   transition: all 0.15s;
 }
 .tp-btn-withdraw:hover { color: #ef4444; border-color: #ef4444; }
+
+.tp-start-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: -4px 0 16px;
+  padding: 12px 16px;
+}
+
+.tp-start-notice strong {
+  color: var(--text-1);
+  flex-shrink: 0;
+}
+
+.tp-start-notice.open {
+  border-color: rgba(59,130,246,0.35);
+  background: rgba(59,130,246,0.08);
+}
+
+.tp-start-notice.running {
+  border-color: rgba(34,197,94,0.35);
+  background: rgba(34,197,94,0.08);
+}
+
+@media (max-width: 640px) {
+  .tp-hero-right,
+  .tp-countdown-wrap {
+    align-items: flex-start;
+    text-align: left;
+    width: 100%;
+  }
+
+  .tp-start-notice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
 
 /* ── Stats bar ── */
 .tp-stats-bar {
