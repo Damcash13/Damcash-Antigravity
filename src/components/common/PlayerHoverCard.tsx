@@ -54,12 +54,13 @@ export const PlayerHoverCard: React.FC<Props> = ({
 
   // Is this player in any live game right now?
   const liveGame = liveGames.find(
-    g => g.status === 'playing' &&
+    g => g.universe === universe &&
+      g.status === 'playing' &&
       (g.white.name === username || g.black.name === username)
   );
 
   // Is this player online (connected via socket)?
-  const onlineEntry = onlinePlayers.find(p => p.name === username);
+  const onlineEntry = onlinePlayers.find(p => p.name === username && p.universe === universe);
   const isPlaying = !!liveGame;
   const isOnline  = !!onlineEntry || isPlaying;
 
@@ -87,7 +88,7 @@ export const PlayerHoverCard: React.FC<Props> = ({
       setVisible(false);
       return;
     }
-    if (onlineEntry) openConfig({ socketId: onlineEntry.socketId, name: onlineEntry.name });
+    if (onlineEntry) openConfig({ socketId: onlineEntry.socketId, name: onlineEntry.name, universe: onlineEntry.universe });
     setVisible(false);
   };
 

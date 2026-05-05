@@ -14,15 +14,16 @@ export const PlayerSearchBar: React.FC<Props> = ({ onInvite }) => {
   const { universe } = useUniverseStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+  const universePlayers = onlinePlayers.filter((p) => p.universe === universe);
 
   // Filter local online players by query
   const results = query.length >= 1
-    ? onlinePlayers
+    ? universePlayers
         .filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
         .slice(0, 8)
-    : onlinePlayers.slice(0, 6);   // show first 6 when focused with no query
+    : universePlayers.slice(0, 6);   // show first 6 when focused with no query
 
-  const showDrop = focused && (query.length >= 1 || onlinePlayers.length > 0);
+  const showDrop = focused && (query.length >= 1 || universePlayers.length > 0);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -90,7 +91,7 @@ export const PlayerSearchBar: React.FC<Props> = ({ onInvite }) => {
             background: 'var(--bg-2)',
           }}>
             <span>Online Players</span>
-            <span style={{ color: 'var(--accent)' }}>{onlinePlayers.length} online</span>
+            <span style={{ color: 'var(--accent)' }}>{universePlayers.length} online</span>
           </div>
 
           {results.length === 0 ? (

@@ -3,6 +3,7 @@ import { socket } from '../../lib/socket';
 import { useInviteStore, IncomingInvite } from '../../stores/inviteStore';
 import { useNotifCenterStore } from '../../stores/notifCenterStore';
 import { useSound } from '../../hooks/useSound';
+import { useUniverseStore } from '../../stores';
 
 // Single invite card
 const InviteCard: React.FC<{ invite: IncomingInvite }> = ({ invite }) => {
@@ -118,11 +119,16 @@ const InviteCard: React.FC<{ invite: IncomingInvite }> = ({ invite }) => {
 
 export const IncomingInviteToast: React.FC = () => {
   const { incoming, addIncoming, dismissIncoming } = useInviteStore();
+  const currentUniverse = useUniverseStore(s => s.universe);
   const { push: pushNotif } = useNotifCenterStore();
   const { play } = useSound();
 
   useEffect(() => {
     const handleInviteReceived = (data: IncomingInvite) => {
+      if (data.config.universe !== useUniverseStore.getState().universe) {
+        socket.emit('invite:decline', { inviteId: data.inviteId, fromSocketId: data.fromSocketId });
+        return;
+      }
       addIncoming(data);
       play('notification');
       pushNotif({
@@ -145,7 +151,7 @@ export const IncomingInviteToast: React.FC = () => {
       socket.off('invite:received', handleInviteReceived);
       socket.off('invite:cancelled', handleInviteCancelled);
     };
-  }, [addIncoming, dismissIncoming, play]);
+  }, [addIncoming, currentUniverse, dismissIncoming, play]);
 
   if (incoming.length === 0) return null;
 

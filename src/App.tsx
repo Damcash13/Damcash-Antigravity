@@ -87,6 +87,7 @@ export default function App() {
   const openConfig      = useInviteStore(s => s.openConfig);
   const closeConfig     = useInviteStore(s => s.closeConfig);
   const configOpen      = useInviteStore(s => s.configOpen);
+  const updatePresenceUniverse = useInviteStore(s => s.updatePresenceUniverse);
 
   const initFriends        = useFriendsStore(s => s.initialize);
   const syncOnlinePlayers  = useFriendsStore(s => s.syncOnlinePlayers);
@@ -132,6 +133,11 @@ export default function App() {
     document.body.classList.toggle('chess-universe', universe === 'chess');
     document.body.classList.toggle('checkers-universe', universe === 'checkers');
   }, [universe]);
+
+  useEffect(() => {
+    if (!user) return;
+    updatePresenceUniverse(universe);
+  }, [universe, updatePresenceUniverse, user]);
 
   useEffect(() => {
     const handlePlayersOnline = (list: OnlinePlayer[]) => {
@@ -222,12 +228,27 @@ export default function App() {
 
   const handleInvitePlayer = (player: OnlinePlayer) => {
     if (!user) { setShowAuth(true); return; }
-    openConfig({ socketId: player.socketId, name: player.name });
+    if (player.universe !== universe) {
+      useNotificationStore.getState().addNotification(
+        `${player.name} is active in ${player.universe === 'chess' ? 'Chess' : 'Checkers'}. Switch universes to challenge them.`,
+        'warning',
+      );
+      return;
+    }
+    openConfig({ socketId: player.socketId, name: player.name, universe: player.universe });
   };
 
   const handleChallengeFriendDirect = (socketId: string, name: string) => {
     if (!user) { setShowAuth(true); return; }
-    openConfig({ socketId, name });
+    const target = useInviteStore.getState().onlinePlayers.find(p => p.socketId === socketId);
+    if (!target || target.universe !== universe) {
+      useNotificationStore.getState().addNotification(
+        `${name} is not available in the ${universe === 'chess' ? 'Chess' : 'Checkers'} lobby right now.`,
+        'warning',
+      );
+      return;
+    }
+    openConfig({ socketId, name, universe: target.universe });
   };
 
   return (

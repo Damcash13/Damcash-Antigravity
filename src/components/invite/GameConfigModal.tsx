@@ -71,11 +71,16 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
     const handleInviteAccepted = () => {
       onClose();
     };
+    const handleRoomError = () => {
+      setStep('config');
+    };
     socket.on('room:created', handleRoomCreated);
     socket.on('invite:accepted', handleInviteAccepted);
+    socket.on('room:error', handleRoomError);
     return () => {
       socket.off('room:created', handleRoomCreated);
       socket.off('invite:accepted', handleInviteAccepted);
+      socket.off('room:error', handleRoomError);
     };
   }, [config, setMyRoom, onClose]);
 
@@ -87,18 +92,20 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
 
   const handleSendInvite = () => {
     if (!configTarget) return;
+    const requestConfig = { ...config, universe: currentUniverse, betAmount: effectiveBet };
     socket.emit('invite:send', {
       targetSocketId: configTarget.socketId,
-      config: { ...config, betAmount: effectiveBet },
+      config: requestConfig,
       fromName: user?.name || 'Guest',
-      fromRating: user?.rating[config.universe] || 1500,
+      fromRating: user?.rating[currentUniverse] || 1500,
     });
     setStep('waiting');
   };
 
   const handleCreateRoom = () => {
+    const requestConfig = { ...config, universe: currentUniverse, betAmount: effectiveBet };
     socket.emit('room:create', {
-      config: { ...config, betAmount: effectiveBet },
+      config: requestConfig,
       creatorName: user?.name || 'Guest',
     });
   };
@@ -235,21 +242,19 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
               {/* Universe */}
               <div>
                 <label style={labelStyle}>{t('createGame.gameType')}</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {(['chess', 'checkers'] as const).map((u) => (
-                    <button
-                      key={u}
-                      onClick={() => setConfig((c) => ({ ...c, universe: u }))}
-                      style={{
-                        ...choiceBtn,
-                        borderColor: config.universe === u ? 'var(--accent)' : 'var(--border)',
-                        background: config.universe === u ? 'var(--accent-dim)' : 'var(--bg-2)',
-                        color: config.universe === u ? 'var(--accent)' : 'var(--text-2)',
-                      }}
-                    >
-                      {u === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}`}
-                    </button>
-                  ))}
+                <div style={{
+                  padding: '10px 12px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-2)',
+                  borderRadius: 8,
+                  color: 'var(--text-1)',
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}>
+                  {currentUniverse === 'chess' ? t('profile.chess') : t('profile.checkers')}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>
+                  Challenges and room requests use the universe you are currently viewing.
                 </div>
               </div>
 
@@ -387,7 +392,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
                 display: 'flex', gap: 16, flexWrap: 'wrap',
               }}>
                 {[
-                  { label: t('createGame.gameType'), value: config.universe === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}` },
+                  { label: t('createGame.gameType'), value: currentUniverse === 'chess' ? t('profile.chess') : t('profile.checkers') },
                   { label: t('tournament.timeControl'), value: config.timeControl },
                   { label: t('createGame.color'), value: config.colorPref === 'random' ? '🎲' : config.colorPref === 'white' ? '⬜' : '⬛' },
                   { label: t('betting.betAmount'), value: effectiveBet > 0 ? `$${effectiveBet}` : t('createGame.noBet') },
@@ -410,7 +415,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
                 {t('game.waitingForOpponent')}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                {t('createGame.inviteSent')} · {config.universe} · {config.timeControl}
+                {t('createGame.inviteSent')} · {currentUniverse} · {config.timeControl}
                 {effectiveBet > 0 ? ` · $${effectiveBet}` : ''}
               </div>
               <button className="btn btn-secondary" onClick={() => { socket.emit('invite:cancel'); setStep('config'); }}>

@@ -13,7 +13,8 @@ export const OnlinePlayersList: React.FC<Props> = ({ onInvite }) => {
   const { onlinePlayers } = useInviteStore();
   const { universe } = useUniverseStore();
 
-  const visible = onlinePlayers.slice(0, 8);
+  const universePlayers = onlinePlayers.filter(p => p.universe === universe);
+  const visible = universePlayers.slice(0, 8);
 
   if (visible.length === 0) return null;
 
@@ -29,7 +30,7 @@ export const OnlinePlayersList: React.FC<Props> = ({ onInvite }) => {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
         <span>{t('lobby.onlinePlayers')}</span>
-        <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{onlinePlayers.length}</span>
+        <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{universePlayers.length}</span>
       </div>
 
       {visible.map((player) => (
@@ -76,9 +77,9 @@ export const OnlinePlayersList: React.FC<Props> = ({ onInvite }) => {
         </PlayerHoverCard>
       ))}
 
-      {onlinePlayers.length > 8 && (
+      {universePlayers.length > 8 && (
         <div style={{ padding: '4px 12px', fontSize: 11, color: 'var(--accent)', cursor: 'pointer' }}>
-          {t('social.moreOnline', { count: onlinePlayers.length - 8 })}
+          {t('social.moreOnline', { count: universePlayers.length - 8 })}
         </div>
       )}
     </div>

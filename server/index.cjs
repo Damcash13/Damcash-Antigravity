@@ -135,6 +135,14 @@ function sanitizeMoney(val) {
   return Math.min(Math.round(n * 100) / 100, MAX_BET); // round to cents, cap
 }
 
+function normalizeUniverse(value) {
+  return value === 'checkers' ? 'checkers' : 'chess';
+}
+
+function universeLabel(value) {
+  return normalizeUniverse(value) === 'checkers' ? 'Checkers' : 'Chess';
+}
+
 /** Socket-level rate limiter — returns true if the event should be dropped */
 const socketEventCounts = new Map(); // socketId → { count, resetAt }
 function socketRateLimit(socketId, maxPerMinute = 60) {
@@ -709,6 +717,7 @@ io.on('connection', (socket) => {
 
   // ── Register player ──────────────────────────────────────────────────────
   socket.on('player:register', async ({ name, rating, universe, gamesPlayed, country }) => {
+    const safeUniverse = normalizeUniverse(universe);
     if (socket.user) {
       socketToUserId.set(socket.id, socket.user.id);
       userIdToSocketId.set(socket.user.id, socket.id);
@@ -735,13 +744,31 @@ io.on('connection', (socket) => {
         ? { chess: authProfile.chessGames, checkers: authProfile.checkersGames }
         : (gamesPlayed || { chess: 0, checkers: 0 }),
       status: 'idle',
-      universe: universe || 'chess',
+      universe: safeUniverse,
       country: country || '',
       registeredAt: Date.now(),
     });
     broadcastPlayerList();
     socket.emit('players:online', Array.from(players.entries()).map(([id, info]) => ({ socketId: id, ...info })));
     socket.emit('seeks:list', Array.from(seeks.entries()).map(([seekId, s]) => ({ seekId, ...s })));
+  });
+
+  socket.on('player:update-universe', ({ universe }) => {
+    const p = players.get(socket.id);
+    if (!p) return;
+    const nextUniverse = normalizeUniverse(universe);
+    if (normalizeUniverse(p.universe) !== nextUniverse && p.status === 'seeking') {
+      removeSeekBySocket(socket.id);
+      for (const [, q] of queue) {
+        const i = q.indexOf(socket.id);
+        if (i !== -1) q.splice(i, 1);
+      }
+      p.status = 'idle';
+      p.currentTC = null;
+    }
+    p.universe = nextUniverse;
+    players.set(socket.id, p);
+    broadcastPlayerList();
   });
 
   // ── Global Lobby Chat ───────────────────────────────────────────────────
@@ -764,6 +791,7 @@ io.on('connection', (socket) => {
   // ── Quick pairing (matchmaking queue) ───────────────────────────────────
   // Registered as both 'seek' (LobbyTab) and 'seek:create' (App.tsx home page)
   const handleSeek = ({ timeControl, universe, betAmount, rated, config: rawConfig }) => {
+    universe = normalizeUniverse(universe || rawConfig?.universe || players.get(socket.id)?.universe);
     if (socketRateLimit(socket.id, 10)) {
       socket.emit('room:error', { message: 'Too many seek requests. Please wait.' });
       return;
@@ -785,7 +813,7 @@ io.on('connection', (socket) => {
 
     // Update player status
     const p = players.get(socket.id);
-    if (p) { p.status = 'seeking'; p.currentTC = timeControl; players.set(socket.id, p); broadcastPlayerList(); }
+    if (p) { p.status = 'seeking'; p.currentTC = timeControl; p.universe = universe; players.set(socket.id, p); broadcastPlayerList(); }
 
     // Remove any stale entry of this socket from the queue to prevent self-matching
     const existingIdx = q.indexOf(socket.id);
@@ -820,9 +848,13 @@ io.on('connection', (socket) => {
       // Remove the opponent's seek from the public list (clears timeout too)
       removeSeekBySocket(matchedId);
       const roomId = `room-${genId()}`;
-      const config = rawConfig || {
-        universe, timeControl, betAmount: betAmount || 0,
-        colorPref: 'random', rated: rated !== false,
+      const config = {
+        ...(rawConfig || {
+          timeControl,
+          colorPref: 'random',
+          rated: rated !== false,
+        }),
+        universe, timeControl, betAmount: safeBet,
       };
       startRoom(roomId, matchedId, socket.id, config);
       broadcastSeeks();
@@ -838,7 +870,7 @@ io.on('connection', (socket) => {
         country: playerInfo.country || '',
         timeControl,
         universe,
-        betAmount: betAmount || 0,
+        betAmount: safeBet,
         rated: rated !== false,
         createdAt: Date.now(),
       });
@@ -876,6 +908,13 @@ io.on('connection', (socket) => {
     if (seek.socketId === socket.id) { socket.emit('room:error', { message: 'Cannot accept your own seek' }); return; }
     if (seek.rated !== false && !socket.user) {
       socket.emit('room:error', { message: 'You must be signed in to play rated games' });
+      return;
+    }
+    const acceptor = players.get(socket.id);
+    if (!acceptor || normalizeUniverse(acceptor.universe) !== seek.universe) {
+      socket.emit('room:error', {
+        message: `This table is in the ${universeLabel(seek.universe)} lobby. Switch universes to join it.`,
+      });
       return;
     }
 
@@ -1030,16 +1069,32 @@ io.on('connection', (socket) => {
 
   // ── Direct invite ────────────────────────────────────────────────────────
   socket.on('invite:send', ({ targetSocketId, config }) => {
+    const sender = players.get(socket.id);
+    const target = players.get(targetSocketId);
+    if (!sender || !target) {
+      socket.emit('room:error', { message: 'That player is no longer available.' });
+      return;
+    }
+
+    const inviteUniverse = normalizeUniverse(config?.universe || sender.universe);
+    if (normalizeUniverse(sender.universe) !== inviteUniverse || normalizeUniverse(target.universe) !== inviteUniverse) {
+      socket.emit('room:error', {
+        message: `You can only challenge players who are in the ${universeLabel(inviteUniverse)} lobby.`,
+      });
+      return;
+    }
+
+    const safeConfig = { ...config, universe: inviteUniverse };
     const inviteId = genId();
     const expiresAt = Date.now() + 30_000;
-    invites.set(inviteId, { fromId: socket.id, toId: targetSocketId, config, expiresAt });
+    invites.set(inviteId, { fromId: socket.id, toId: targetSocketId, config: safeConfig, expiresAt });
 
     io.to(targetSocketId).emit('invite:received', {
       inviteId,
       fromSocketId: socket.id,
-      fromName:   players.get(socket.id)?.name          || 'Unknown',
-      fromRating: players.get(socket.id)?.rating?.chess || 1500,
-      config,
+      fromName:   sender.name || 'Unknown',
+      fromRating: sender.rating?.[inviteUniverse] || 1500,
+      config: safeConfig,
       expiresAt,
     });
 
@@ -1052,6 +1107,21 @@ io.on('connection', (socket) => {
     if (!invite) { socket.emit('invite:expired'); return; }
     if (invite.toId !== socket.id) { socket.emit('invite:expired'); return; }
     invites.delete(inviteId);
+
+    const inviteUniverse = normalizeUniverse(invite.config?.universe);
+    const inviter = players.get(invite.fromId);
+    const accepter = players.get(socket.id);
+    if (!inviter || !accepter || normalizeUniverse(inviter.universe) !== inviteUniverse || normalizeUniverse(accepter.universe) !== inviteUniverse) {
+      socket.emit('room:error', {
+        message: `This challenge is no longer available in the ${universeLabel(inviteUniverse)} lobby.`,
+      });
+      if (inviter) {
+        io.to(invite.fromId).emit('invite:declined', {
+          byName: accepter?.name || 'Opponent',
+        });
+      }
+      return;
+    }
 
     const roomId = `room-${genId()}`;
     // Notify the inviter so they can navigate immediately
@@ -1090,16 +1160,26 @@ io.on('connection', (socket) => {
 
   // ── Room code flow ───────────────────────────────────────────────────────
   socket.on('room:create', ({ config, creatorName }) => {
+    const creator = players.get(socket.id);
+    const roomUniverse = normalizeUniverse(config?.universe || creator?.universe);
+    if (creator && normalizeUniverse(creator.universe) !== roomUniverse) {
+      socket.emit('room:error', {
+        message: `Create the room from the ${universeLabel(roomUniverse)} lobby first.`,
+      });
+      return;
+    }
+
+    const safeConfig = { ...config, universe: roomUniverse };
     const code = genCode();
     const roomId = `room-${genId()}`;
     const expiresAt = Date.now() + 10 * 60_000; // 10 min
-    codes.set(code, { roomId, config, creatorId: socket.id, expiresAt });
+    codes.set(code, { roomId, config: safeConfig, creatorId: socket.id, expiresAt });
 
     // Update name if given
-    const p = players.get(socket.id);
+    const p = creator || players.get(socket.id);
     if (p && creatorName) { p.name = creatorName; players.set(socket.id, p); }
 
-    socket.emit('room:created', { code, roomId, config, expiresAt });
+    socket.emit('room:created', { code, roomId, config: safeConfig, expiresAt });
 
     // Auto-expire code
     setTimeout(() => codes.delete(code), 10 * 60_000);

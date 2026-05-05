@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFriendsStore, Friend } from '../../stores/friendsStore';
+import { useUniverseStore } from '../../stores';
 import { socket } from '../../lib/socket';
 import { api } from '../../lib/api';
 
@@ -23,7 +24,7 @@ const Dot: React.FC<{ online: boolean; status: Friend['status'] }> = ({ online, 
 };
 
 // ── Friend row ────────────────────────────────────────────────────────────────
-const FriendRow: React.FC<{ f: Friend; onChallenge: () => void; onRemove: () => void }> = ({ f, onChallenge, onRemove }) => {
+const FriendRow: React.FC<{ f: Friend; canChallenge: boolean; onChallenge: () => void; onRemove: () => void }> = ({ f, canChallenge, onChallenge, onRemove }) => {
   const { t } = useTranslation();
   const [hover, setHover] = useState(false);
 
@@ -71,7 +72,7 @@ const FriendRow: React.FC<{ f: Friend; onChallenge: () => void; onRemove: () => 
       </div>
 
       {/* Actions (show on hover) */}
-      {hover && f.online && f.socketId && (
+      {hover && canChallenge && (
         <button
           onClick={onChallenge}
           style={{
@@ -223,6 +224,7 @@ interface Props {
 
 export const FriendsPanel: React.FC<Props> = ({ onChallenge }) => {
   const { t } = useTranslation();
+  const universe = useUniverseStore(s => s.universe);
   const { friends, requests, removeFriend, addFriend, removeRequest } = useFriendsStore();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -302,6 +304,7 @@ export const FriendsPanel: React.FC<Props> = ({ onChallenge }) => {
                 <FriendRow
                   key={f.name}
                   f={f}
+                  canChallenge={Boolean(f.socketId && f.universe === universe)}
                   onChallenge={() => f.socketId && onChallenge(f.socketId, f.name)}
                   onRemove={() => removeFriend(f.name)}
                 />

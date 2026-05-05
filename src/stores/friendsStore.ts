@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { api } from '../lib/api';
 import { useUserStore } from './index';
+import type { Universe } from '../types';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -11,6 +12,7 @@ export interface Friend {
   rating: { chess: number; checkers: number };
   online: boolean;
   status: 'idle' | 'playing' | 'seeking';
+  universe?: Universe;
   socketId?: string;    // current socket if online
   currentTC?: string;   // time control they're playing/seeking (e.g. '5+0')
   addedAt: number;
@@ -32,7 +34,7 @@ interface FriendsStore {
   addFriend: (f: Friend) => void;
   removeFriend: (name: string) => void;
   updateOnline: (socketId: string, online: boolean, status?: Friend['status']) => void;
-  syncOnlinePlayers: (players: Array<{ socketId: string; name: string; rating: any; status: string; currentTC?: string }>) => void;
+  syncOnlinePlayers: (players: Array<{ socketId: string; name: string; rating: any; status: string; universe?: Universe; currentTC?: string }>) => void;
   addRequest: (r: FriendRequest) => void;
   removeRequest: (id: string) => void;
   initialize: () => Promise<void>;
@@ -69,8 +71,8 @@ export const useFriendsStore = create<FriendsStore>()(
           friends: s.friends.map(f => {
             const match = players.find(p => p.name === f.name);
             return match
-              ? { ...f, online: true, socketId: match.socketId, status: match.status as Friend['status'], currentTC: match.currentTC || undefined }
-              : { ...f, online: false, socketId: undefined, currentTC: undefined };
+              ? { ...f, online: true, socketId: match.socketId, status: match.status as Friend['status'], universe: match.universe, currentTC: match.currentTC || undefined }
+              : { ...f, online: false, socketId: undefined, universe: undefined, currentTC: undefined };
           }),
         })),
 

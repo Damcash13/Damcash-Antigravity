@@ -339,7 +339,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
   const band   = ratingBand(rating);
   const joined = new Date(profile.createdAt).toLocaleDateString([], { year: 'numeric', month: 'long' });
   const isBlocked = blockedUsers.includes(profile.username.trim().toLowerCase());
-  const onlineEntry = onlinePlayers.find(p => p.name === profile.username);
+  const onlineEntry = onlinePlayers.find(p => p.name === profile.username && p.universe === universe);
 
   const handleChallenge = () => {
     if (isBlocked) {
@@ -350,7 +350,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
       addNotification(`${profile.username} is not online right now.`, 'info');
       return;
     }
-    openConfig({ socketId: onlineEntry.socketId, name: onlineEntry.name });
+    openConfig({ socketId: onlineEntry.socketId, name: onlineEntry.name, universe: onlineEntry.universe });
   };
 
   const handleReport = async () => {

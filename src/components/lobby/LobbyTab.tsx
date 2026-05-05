@@ -280,12 +280,13 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
   const visibleSeeks = seeks.filter(s => s.universe === universe && !isBlockedName(s.name));
   const mySeek       = visibleSeeks.find(s => s.socketId === socket.id);
 
-  // Filter online players
-  const filteredPlayers = onlinePlayers.filter(p =>
+  // Filter online players to the active universe only.
+  const universePlayers = onlinePlayers.filter(p => p.universe === universe);
+  const filteredPlayers = universePlayers.filter(p =>
     !isBlockedName(p.name) &&
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const totalOnline = onlinePlayers.filter(p => !isBlockedName(p.name)).length;
+  const totalOnline = universePlayers.filter(p => !isBlockedName(p.name)).length;
   const visibleChatMessages = chatMuted ? [] : chatMessages.filter(m => {
     const isMe = m.senderName === user?.name || m.senderId === user?.id || m.senderId === socket.id;
     return m.universe === universe && (isMe || (!isBlockedName(m.senderName) && !isMutedName(m.senderName)));
@@ -498,7 +499,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
           ) : (
             filteredPlayers.map(player => {
               const isMe = player.socketId === socket.id;
-              const myRating = player.universe === 'chess'
+              const myRating = universe === 'chess'
                 ? player.rating.chess
                 : player.rating.checkers;
 
@@ -581,7 +582,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
               ) : (
                 visibleChatMessages.map(msg => {
                   const isMe = msg.senderName === user?.name || msg.senderId === user?.id || msg.senderId === socket.id;
-                  const chatPlayer = onlinePlayers.find(p => p.name === msg.senderName);
+                  const chatPlayer = onlinePlayers.find(p => p.name === msg.senderName && p.universe === universe);
                   const chatRating = chatPlayer
                     ? universe === 'chess' ? chatPlayer.rating.chess : chatPlayer.rating.checkers
                     : 1500;

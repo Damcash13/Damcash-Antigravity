@@ -6,7 +6,7 @@
 import { useEffect } from 'react';
 import { socket } from '../lib/socket';
 import { useUserStore, RatingEntry } from '../stores';
-import { useNotificationStore } from '../stores';
+import { useNotificationStore, useUniverseStore } from '../stores';
 
 export function useRatingUpdates() {
   const { user, gamesPlayed, updateRating, isLoggedIn } = useUserStore();
@@ -19,7 +19,7 @@ export function useRatingUpdates() {
       name:        user.name,
       rating:      user.rating,
       gamesPlayed: gamesPlayed,
-      universe:    'chess',
+      universe:    useUniverseStore.getState().universe,
       country:     user.country || '',
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

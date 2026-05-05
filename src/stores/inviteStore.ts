@@ -29,6 +29,7 @@ export interface OnlinePlayer {
   status: 'idle' | 'playing' | 'seeking';
   universe: Universe;
   country?: string;
+  currentTC?: string;
 }
 
 export interface IncomingInvite {
@@ -61,11 +62,12 @@ interface InviteStore {
   clearMyRoom: () => void;
 
   // Config modal state
-  configTarget: { socketId: string; name: string } | null;  // null = create open room
+  configTarget: { socketId: string; name: string; universe?: Universe } | null;  // null = create open room
   configOpen: boolean;
-  openConfig: (target?: { socketId: string; name: string }) => void;
+  openConfig: (target?: { socketId: string; name: string; universe?: Universe }) => void;
   closeConfig: () => void;
   initPresence: (username: string, rating: { chess: number; checkers: number }) => void;
+  updatePresenceUniverse: (universe: Universe) => void;
 }
 
 export const useInviteStore = create<InviteStore>((set) => ({
@@ -135,6 +137,7 @@ export const useInviteStore = create<InviteStore>((set) => ({
             rating: p.rating || { chess: 1500, checkers: 1450 },
             status: p.status || 'idle',
             universe: p.universe || 'chess',
+            currentTC: p.currentTC || undefined,
           });
         }
         set({ onlinePlayers: players });
@@ -151,5 +154,21 @@ export const useInviteStore = create<InviteStore>((set) => ({
           });
         }
       });
+  },
+
+  updatePresenceUniverse: (universe) => {
+    socket.emit('player:update-universe', { universe });
+
+    const channel = (window as any).__presenceChannel;
+    const user = useUserStore.getState().user;
+    if (!channel || !user) return;
+
+    channel.track({
+      online_at: new Date().toISOString(),
+      username: user.name,
+      rating: user.rating,
+      socketId: socket.id,
+      universe,
+    });
   },
 }));

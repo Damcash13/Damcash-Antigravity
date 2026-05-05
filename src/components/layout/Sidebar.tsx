@@ -31,7 +31,7 @@ export const Sidebar: React.FC<Props> = ({
     .filter(t_ => t_.universe === universe)
     .slice(0, 4);
 
-  const playerCount = onlinePlayers.length;
+  const playerCount = onlinePlayers.filter(p => p.universe === universe).length;
   const gameCount   = games.filter(g => g.universe === universe && g.status === 'playing').length;
 
   return (
