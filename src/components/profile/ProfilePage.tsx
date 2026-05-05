@@ -12,6 +12,7 @@ import { useSafetyStore } from '../../stores/safetyStore';
 import { useDirectMessageStore } from '../../stores/directMessageStore';
 import { AvatarUpload } from './AvatarUpload';
 import { countryFlag, countryName } from '../../lib/countries';
+import { displayTournamentName } from '../../lib/tournamentDisplay';
 import { formatLocalDate, formatLocalDateTime, getUserTimeZone } from '../../lib/timezone';
 import '../../styles/profile.css';
 
@@ -1373,7 +1374,7 @@ export const ProfilePage: React.FC = () => {
             })).map(tn => (
               <div key={tn.id} className="pf-tourn-row" onClick={() => navigate(`/${tn.universe}/tournament/${tn.id}`)}>
                 <div className="pf-tourn-info">
-                  <div className="pf-tourn-name">{tn.name}</div>
+                  <div className="pf-tourn-name">{displayTournamentName(tn)}</div>
                   <div className="pf-tourn-meta">
                     {tn.timeControl} · {tn.format}
                     {tn.betEntry > 0 && <span style={{ color: '#f59e0b', marginLeft: 6 }}>${tn.betEntry} entry</span>}

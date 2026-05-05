@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiAdminDashboard } from '../../lib/api';
 import { useNotificationStore, useUniverseStore } from '../../stores';
+import { displayTournamentName } from '../../lib/tournamentDisplay';
 import { formatLocalDateTime, getUserTimeZone } from '../../lib/timezone';
 
 const formatDuration = (ms: number | null | undefined) => {
@@ -185,7 +186,7 @@ export const AdminSafetyPage: React.FC = () => {
           <div className="head"><span>Name</span><span>Status</span><span>Starts</span><span>Players</span><span>Games</span><span>Prize</span></div>
           {dashboard.tournaments.recent.slice(0, 12).map(tournament => (
             <div key={tournament.id}>
-              <span>{tournament.name}</span>
+              <span>{displayTournamentName(tournament)}</span>
               <span className={`admin-pill ${tournament.lifecycle}`}>{tournament.lifecycle}</span>
               <span>{formatTime(tournament.startsAt)}</span>
               <span>{tournament.playerCount}</span>

@@ -6,6 +6,8 @@ import { OnlinePlayersList } from '../invite/OnlinePlayersList';
 import { OnlinePlayer, useInviteStore } from '../../stores/inviteStore';
 import { useTournamentStore } from '../../stores/tournamentStore';
 import { FriendsPanel } from '../social/FriendsPanel';
+import { displayTournamentName } from '../../lib/tournamentDisplay';
+import { formatLocalDateTime } from '../../lib/timezone';
 
 interface Props {
   onCreateGame: () => void;
@@ -108,9 +110,9 @@ export const Sidebar: React.FC<Props> = ({
             onClick={() => navigate(`/${universe}/tournament/${t_.id}`)}
           >
             <div className="tournament-info">
-              <div className="tournament-name">{t_.name}</div>
+              <div className="tournament-name">{displayTournamentName(t_)}</div>
               <div className="tournament-meta">
-                {t_.players.length} {t('lobby.players')}
+                {formatLocalDateTime(t_.startsAt, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }, true)} · {t_.players.length} {t('lobby.players')}
                 {t_.status === 'running' && (
                   <span style={{
                     marginLeft: 6,

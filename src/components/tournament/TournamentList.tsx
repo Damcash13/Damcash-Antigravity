@@ -4,6 +4,7 @@ import { useUniverseStore, useUserStore } from '../../stores';
 import { useTournamentStore, Tournament, TournamentStatus } from '../../stores/tournamentStore';
 import { api } from '../../lib/api';
 import { socket } from '../../lib/socket';
+import { displayTournamentName } from '../../lib/tournamentDisplay';
 import { formatLocalDateTime, getUserTimeZone } from '../../lib/timezone';
 import { useNotificationStore } from '../../stores';
 import '../../styles/tournaments.css';
@@ -510,7 +511,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
                 </div>
               </div>
 
-              <div className="tl-card-name">{tourn.name}</div>
+              <div className="tl-card-name">{displayTournamentName(tourn)}</div>
               <div className="tl-card-desc">{tourn.description}</div>
 
               {/* Tags */}

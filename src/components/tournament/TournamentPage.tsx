@@ -6,6 +6,7 @@ import { useTournamentStore } from '../../stores/tournamentStore';
 import { TournamentList } from './TournamentList';
 import { socket } from '../../lib/socket';
 import { AppErrorBoundary } from '../common/AppErrorBoundary';
+import { displayTournamentName } from '../../lib/tournamentDisplay';
 import { formatLocalDateTime, getTimeZoneLabel, getUserTimeZone } from '../../lib/timezone';
 import '../../styles/tournaments.css';
 
@@ -282,7 +283,7 @@ export const TournamentPage: React.FC = () => {
         <div className="tp-hero-left">
           <div className="tp-hero-icon">{tournament.icon}</div>
           <div>
-            <div className="tp-hero-name">{tournament.name}</div>
+            <div className="tp-hero-name">{displayTournamentName(tournament)}</div>
             <div className="tp-hero-meta">
               <span>{FORMAT_LABEL[tournament.format]}</span>
               <span>·</span>
