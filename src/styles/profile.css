@@ -136,6 +136,23 @@
   letter-spacing: 0.04em;
 }
 
+.pf-country-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
 .pf-hero-sub {
   display: flex;
   gap: 10px;
@@ -351,8 +368,6 @@
   gap: 10px;
 }
 
-.pf-stat-icon { font-size: 20px; flex-shrink: 0; }
-
 .pf-stat-body {}
 .pf-stat-val   { font-size: 18px; font-weight: 900; color: var(--text-1); }
 .pf-stat-label { font-size: 10px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -405,7 +420,6 @@
   border-color: rgba(249,115,22,0.35);
 }
 
-.pf-streak-icon { font-size: 36px; flex-shrink: 0; }
 .pf-streak-num  { font-size: 32px; font-weight: 900; color: #f97316; line-height: 1; }
 .pf-streak-label { font-size: 12px; color: var(--text-3); margin-top: 2px; }
 
@@ -623,8 +637,6 @@
 .pf-tourn-row:last-child { border-bottom: none; }
 .pf-tourn-row:hover { background: var(--bg-2); padding: 12px 8px; }
 
-.pf-tourn-icon { font-size: 24px; flex-shrink: 0; }
-
 .pf-tourn-info { flex: 1; }
 .pf-tourn-name { font-size: 14px; font-weight: 700; color: var(--text-1); }
 .pf-tourn-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
@@ -795,10 +807,6 @@
   background: rgba(56,189,248,0.08);
 }
 
-.pf-social-icon {
-  font-size: 13px;
-}
-
 /* ═══════════════════════════════════════════════════
    ACHIEVEMENTS
    ══════════════════════════════════════════════════════ */
@@ -827,11 +835,6 @@
 .pf-achievement.locked {
   opacity: 0.4;
   filter: grayscale(0.8);
-}
-
-.pf-achievement-icon {
-  font-size: 24px;
-  flex-shrink: 0;
 }
 
 .pf-achievement-info {

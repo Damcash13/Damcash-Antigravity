@@ -153,11 +153,11 @@ export const RatingCard: React.FC<Props> = ({ open, onClose }) => {
           <button
             className={`rc-utab ${universe === 'chess' ? 'active' : ''}`}
             onClick={() => setUniverse('chess')}
-          >♟ Chess</button>
+          >Chess</button>
           <button
             className={`rc-utab ${universe === 'checkers' ? 'active' : ''}`}
             onClick={() => setUniverse('checkers')}
-          >⬤ Draughts</button>
+          >Draughts</button>
         </div>
 
         <div className="rc-body">

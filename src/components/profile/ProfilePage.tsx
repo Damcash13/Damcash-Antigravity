@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore, useNotificationStore, RatingEntry } from '../../stores';
 import type { SocialLinks } from '../../types';
-import { countryFlag } from '../common/PlayerHoverCard';
 import { useTournamentStore } from '../../stores/tournamentStore';
 import { ratingBand, performanceRating } from '../../lib/elo';
 import { api, ApiUserProfile, ApiUserStats, ApiMatch, ApiFullStats } from '../../lib/api';
@@ -55,7 +54,7 @@ const ActivityHeatmap: React.FC<{ history: ActivityEntry[] }> = ({ history }) =>
   const DAYS  = 7;
   const now   = Date.now();
 
-  // Build bucket: day index → count
+  // Build bucket: day index to count
   const buckets: Record<number, number> = {};
   history.forEach(e => {
     const dayIdx = Math.floor((now - e.playedAt) / 86_400_000);
@@ -175,11 +174,10 @@ const RatingChart: React.FC<{ entries: RatingEntry[]; color: string; currentRati
 };
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
-const StatCard: React.FC<{ icon: string; label: string; value: string | number; sub?: string; color?: string }> = ({
-  icon, label, value, sub, color,
+const StatCard: React.FC<{ icon?: string; label: string; value: string | number; sub?: string; color?: string }> = ({
+  label, value, sub, color,
 }) => (
   <div className="pf-stat-card">
-    <div className="pf-stat-icon">{icon}</div>
     <div className="pf-stat-body">
       <div className="pf-stat-val" style={color ? { color } : undefined}>{value}</div>
       <div className="pf-stat-label">{label}</div>
@@ -190,21 +188,20 @@ const StatCard: React.FC<{ icon: string; label: string; value: string | number; 
 
 // ── Achievements ─────────────────────────────────────────────────────────────
 const ACHIEVEMENTS = [
-  { id: 'first_win',    icon: '🏆', label: 'First Victory',    desc: 'Win your first game',         check: (s: any) => (s?.chess?.wins ?? 0) + (s?.checkers?.wins ?? 0) >= 1 },
-  { id: 'ten_games',    icon: '🎮', label: 'Getting Started',  desc: 'Play 10 games',               check: (s: any) => (s?.totalGames ?? 0) >= 10 },
-  { id: 'fifty_games',  icon: '⚡', label: 'Veteran',          desc: 'Play 50 games',               check: (s: any) => (s?.totalGames ?? 0) >= 50 },
-  { id: 'streak_5',     icon: '🔥', label: 'On Fire',          desc: '5 win streak',                check: (s: any) => (s?.bestStreak ?? 0) >= 5 },
-  { id: 'streak_10',    icon: '💥', label: 'Unstoppable',      desc: '10 win streak',               check: (s: any) => (s?.bestStreak ?? 0) >= 10 },
-  { id: 'rating_1400',  icon: '📈', label: 'Advanced',         desc: 'Reach 1400 rating',           check: (s: any) => (s?.chess?.rating ?? 0) >= 1400 || (s?.checkers?.rating ?? 0) >= 1400 },
-  { id: 'rating_1800',  icon: '🌟', label: 'Expert',           desc: 'Reach 1800 rating',           check: (s: any) => (s?.chess?.rating ?? 0) >= 1800 || (s?.checkers?.rating ?? 0) >= 1800 },
-  { id: 'tournament',   icon: '🏅', label: 'Competitor',       desc: 'Join a tournament',           check: (s: any) => (s?.tournaments?.length ?? 0) >= 1 },
-  { id: 'bet_winner',   icon: '💰', label: 'High Roller',      desc: 'Win 5 bet games',             check: (s: any) => (s?.wallet?.betsWon ?? 0) >= 5 },
-  { id: 'both_games',   icon: '♟️', label: 'Dual Wielder',     desc: 'Play both chess & checkers',  check: (s: any) => (s?.chess?.games ?? 0) >= 1 && (s?.checkers?.games ?? 0) >= 1 },
+  { id: 'first_win',    label: 'First Victory',    desc: 'Win your first game',         check: (s: any) => (s?.chess?.wins ?? 0) + (s?.checkers?.wins ?? 0) >= 1 },
+  { id: 'ten_games',    label: 'Getting Started',  desc: 'Play 10 games',               check: (s: any) => (s?.totalGames ?? 0) >= 10 },
+  { id: 'fifty_games',  label: 'Veteran',          desc: 'Play 50 games',               check: (s: any) => (s?.totalGames ?? 0) >= 50 },
+  { id: 'streak_5',     label: 'On Fire',          desc: '5 win streak',                check: (s: any) => (s?.bestStreak ?? 0) >= 5 },
+  { id: 'streak_10',    label: 'Unstoppable',      desc: '10 win streak',               check: (s: any) => (s?.bestStreak ?? 0) >= 10 },
+  { id: 'rating_1400',  label: 'Advanced',         desc: 'Reach 1400 rating',           check: (s: any) => (s?.chess?.rating ?? 0) >= 1400 || (s?.checkers?.rating ?? 0) >= 1400 },
+  { id: 'rating_1800',  label: 'Expert',           desc: 'Reach 1800 rating',           check: (s: any) => (s?.chess?.rating ?? 0) >= 1800 || (s?.checkers?.rating ?? 0) >= 1800 },
+  { id: 'tournament',   label: 'Competitor',       desc: 'Join a tournament',           check: (s: any) => (s?.tournaments?.length ?? 0) >= 1 },
+  { id: 'bet_winner',   label: 'High Roller',      desc: 'Win 5 bet games',             check: (s: any) => (s?.wallet?.betsWon ?? 0) >= 5 },
+  { id: 'both_games',   label: 'Dual Player',      desc: 'Play both chess & checkers',  check: (s: any) => (s?.chess?.games ?? 0) >= 1 && (s?.checkers?.games ?? 0) >= 1 },
 ];
 
 const AchievementBadge: React.FC<{ achievement: typeof ACHIEVEMENTS[0]; unlocked: boolean }> = ({ achievement, unlocked }) => (
   <div className={`pf-achievement ${unlocked ? 'unlocked' : 'locked'}`} title={achievement.desc}>
-    <span className="pf-achievement-icon">{achievement.icon}</span>
     <div className="pf-achievement-info">
       <div className="pf-achievement-name">{achievement.label}</div>
       <div className="pf-achievement-desc">{achievement.desc}</div>
@@ -216,16 +213,15 @@ const AchievementBadge: React.FC<{ achievement: typeof ACHIEVEMENTS[0]; unlocked
 const SocialLinksRow: React.FC<{ links?: SocialLinks }> = ({ links }) => {
   if (!links) return null;
   const items = [
-    links.twitter  && { icon: '𝕏', label: 'Twitter',   url: `https://twitter.com/${links.twitter}` },
-    links.lichess  && { icon: '♞', label: 'Lichess',   url: `https://lichess.org/@/${links.lichess}` },
-    links.chessCom && { icon: '♚', label: 'Chess.com', url: `https://chess.com/member/${links.chessCom}` },
-  ].filter(Boolean) as { icon: string; label: string; url: string }[];
+    links.twitter  && { label: 'Twitter',   url: `https://twitter.com/${links.twitter}` },
+    links.lichess  && { label: 'Lichess',   url: `https://lichess.org/@/${links.lichess}` },
+    links.chessCom && { label: 'Chess.com', url: `https://chess.com/member/${links.chessCom}` },
+  ].filter(Boolean) as { label: string; url: string }[];
   if (items.length === 0) return null;
   return (
     <div className="pf-social-row">
       {items.map(item => (
         <a key={item.label} className="pf-social-link" href={item.url} target="_blank" rel="noopener noreferrer" title={item.label}>
-          <span className="pf-social-icon">{item.icon}</span>
           <span>{item.label}</span>
         </a>
       ))}
@@ -253,6 +249,25 @@ const matchRatingDeltaForUser = (match: ApiMatch, username: string) => {
 };
 
 const matchPlayedAt = (match: ApiMatch) => new Date(match.endedAt ?? match.createdAt).getTime();
+
+const profileUniverseLabel = (universe: string, t: any) =>
+  universe === 'chess' ? t('profile.chess') : t('profile.checkers');
+
+const resultLabel = (result: 'win' | 'draw' | 'loss' | null | undefined) =>
+  result === 'win' ? 'Win' : result === 'draw' ? 'Draw' : result === 'loss' ? 'Loss' : '—';
+
+const transactionTypeLabel = (type: string) => {
+  const labels: Record<string, string> = {
+    DEPOSIT: 'Deposit',
+    WITHDRAWAL: 'Withdraw',
+    BET_WON: 'Bet payout',
+    BET_PLACED: 'Bet escrow',
+    BET_REFUND: 'Bet refund',
+    TOURNAMENT_ENTRY: 'Tournament entry',
+    TOURNAMENT_REFUND: 'Tournament refund',
+  };
+  return labels[type] ?? type;
+};
 
 // ── Public profile (other users) ─────────────────────────────────────────────
 const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
@@ -295,10 +310,9 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
 
   if (error || !profile || !stats) return (
     <div className="pf-no-user">
-      <div style={{ fontSize: 56 }}>🔍</div>
       <h2 style={{ color: 'var(--text-1)', margin: '16px 0 8px' }}>{t('common.unknown')}</h2>
       <p style={{ color: 'var(--text-3)', marginBottom: 20 }}>No account with username <strong>{username}</strong></p>
-      <button className="btn btn-primary" onClick={() => navigate(-1)}>←</button>
+      <button className="btn btn-primary" onClick={() => navigate(-1)}>Back</button>
     </div>
   );
 
@@ -432,46 +446,46 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
           <div className="pf-hero-info">
             <div className="pf-hero-name-row">
               {profile.country && (
-                <span style={{ fontSize: 22, lineHeight: 1 }} title={profile.country}>
-                  {countryFlag(profile.country)}
+                <span className="pf-country-code" title={profile.country}>
+                  {profile.country.toUpperCase()}
                 </span>
               )}
               <h1 className="pf-hero-name">{profile.username}</h1>
               <span className="pf-rank-badge" style={{ background: band.color + '28', color: band.color }}>{band.label}</span>
               {me && me.name !== profile.username && (
-                <button className="btn btn-secondary btn-sm" style={{ marginLeft: 8 }}>➕ Follow</button>
+                <button className="btn btn-secondary btn-sm" style={{ marginLeft: 8 }}>Follow</button>
               )}
             </div>
             <div className="pf-hero-sub">
-              <span>🎮 {uStats.games} {t('common.games')}</span>
+              <span>{uStats.games} {t('common.games')}</span>
               <span>·</span>
               <span style={{ color: winRate >= 50 ? '#22c55e' : '#ef4444' }}>{winRate}% {t('common.winRate')}</span>
               <span>·</span>
-              <span>📅 {t('profile.memberSince')} {joined}</span>
+              <span>{t('profile.memberSince')} {joined}</span>
             </div>
             {me && me.name !== profile.username && (
               <div className="pf-safety-actions">
                 <button className="btn btn-primary btn-sm" onClick={handleChallenge} disabled={!onlineEntry || isBlocked}>
-                  ⚔ Challenge
+                  Challenge
                 </button>
                 <button className="btn btn-secondary btn-sm" onClick={handleMessage} disabled={isBlocked}>
-                  💬 Message
+                  Message
                 </button>
                 <button className="btn btn-secondary btn-sm" onClick={handleReport}>
-                  🚩 Report
+                  Report
                 </button>
                 <button className="btn btn-secondary btn-sm" onClick={handleReview}>
-                  🛡 Review
+                  Review
                 </button>
                 <button className="btn btn-secondary btn-sm pf-danger-btn" onClick={handleBlock}>
-                  {isBlocked ? '✅ Unblock' : '🚫 Block'}
+                  {isBlocked ? 'Unblock' : 'Block'}
                 </button>
               </div>
             )}
           </div>
           <div className="pf-universe-switch">
-            <button className={`pf-usw ${universe === 'chess' ? 'active' : ''}`} onClick={() => setUniverse('chess')}>♟ {t('profile.chess')}</button>
-            <button className={`pf-usw ${universe === 'checkers' ? 'active' : ''}`} onClick={() => setUniverse('checkers')}>⬤ {t('profile.checkers')}</button>
+            <button className={`pf-usw ${universe === 'chess' ? 'active' : ''}`} onClick={() => setUniverse('chess')}>{t('profile.chess')}</button>
+            <button className={`pf-usw ${universe === 'checkers' ? 'active' : ''}`} onClick={() => setUniverse('checkers')}>{t('profile.checkers')}</button>
           </div>
         </div>
       </div>
@@ -508,7 +522,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
             <div className="pf-kpi-lbl">{t('profile.memberSince')}</div>
           </div>
           <div className="pf-kpi">
-            <div className="pf-kpi-val">{fullStats?.bestStreak ?? 0}🔥</div>
+            <div className="pf-kpi-val">{fullStats?.bestStreak ?? 0}</div>
             <div className="pf-kpi-lbl">{t('profile.bestStreak')}</div>
           </div>
         </div>
@@ -517,25 +531,25 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
           <div className="pf-main-col">
             {/* Rating card */}
             <div className="pf-section">
-              <div className="pf-section-title">📊 {t('common.rating')}</div>
+              <div className="pf-section-title">{t('common.rating')}</div>
               <div className="pf-rating-banner">
                 <div>
                   <div className="pf-big-rating" style={{ color: band.color }}>{rating}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
-                    {universe === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}`} — {band.label}
+                    {profileUniverseLabel(universe, t)} — {band.label}
                   </div>
                 </div>
               </div>
               <div className="pf-rating-row">
-                <div className="pf-mini-badge"><span>🏔 {t('profile.peak')}</span><strong>{uStats.peak}</strong></div>
-                <div className="pf-mini-badge"><span>🎮 {t('common.games')}</span><strong>{uStats.games}</strong></div>
-                <div className="pf-mini-badge"><span>📈 {t('common.winRate')}</span><strong>{winRate}%</strong></div>
-                <div className="pf-mini-badge"><span>🎯 {t('profile.favouriteTC')}</span><strong>{uStats.favouriteTC ?? '—'}</strong></div>
+                <div className="pf-mini-badge"><span>{t('profile.peak')}</span><strong>{uStats.peak}</strong></div>
+                <div className="pf-mini-badge"><span>{t('common.games')}</span><strong>{uStats.games}</strong></div>
+                <div className="pf-mini-badge"><span>{t('common.winRate')}</span><strong>{winRate}%</strong></div>
+                <div className="pf-mini-badge"><span>{t('profile.favouriteTC')}</span><strong>{uStats.favouriteTC ?? '—'}</strong></div>
               </div>
             </div>
 
             <div className="pf-section">
-              <div className="pf-section-title">📈 {t('common.rating')}</div>
+              <div className="pf-section-title">{t('common.rating')}</div>
               <div className="pf-rating-banner">
                 <div>
                   <div className="pf-big-rating" style={{ color: band.color }}>{rating}</div>
@@ -550,7 +564,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
 
             {/* W/D/L */}
             <div className="pf-section">
-              <div className="pf-section-title">🎮 {t('profile.history')} — {universe === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}`}</div>
+              <div className="pf-section-title">{t('profile.history')} — {profileUniverseLabel(universe, t)}</div>
               <div className="pf-wdl-bar-wrap">
                 <div className="pf-wdl-bar">
                   <div className="pf-wdl-w" style={{ flex: uStats.wins   || 0.01 }} />
@@ -567,14 +581,14 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
             </div>
 
             <div className="pf-section">
-              <div className="pf-section-title">📅 Activity</div>
+              <div className="pf-section-title">Activity</div>
               <ActivityHeatmap history={publicActivity} />
             </div>
 
             {/* Recent games */}
             {publicRecentGames.length > 0 && (
               <div className="pf-section">
-                <div className="pf-section-title">⏱ {t('profile.recentGames')}</div>
+                <div className="pf-section-title">{t('profile.recentGames')}</div>
                 <div className="pf-hist-head pf-public-games">
                   <span>{t('common.player')}</span>
                   <span className="c">{t('common.white')}/{t('common.black')}</span>
@@ -591,9 +605,9 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
                   return (
                     <div key={g.id} className="pf-hist-row pf-public-games">
                       <span className="pf-hist-opp">vs {opp}</span>
-                      <span className="c pf-dim">{isWhite ? '♙ White' : '♟ Black'}</span>
+                      <span className="c pf-dim">{isWhite ? 'White' : 'Black'}</span>
                       <span className={`c pf-result ${rc}`}>
-                        {myResult === 'win' ? '🏆 Win' : myResult === 'draw' ? '🤝 Draw' : myResult === 'loss' ? '💀 Loss' : '—'}
+                        {resultLabel(myResult)}
                       </span>
                       <span className="c pf-dim" style={{ fontSize: 11 }}>{g.timeControl}</span>
                       <span className="c pf-dim" style={{ fontSize: 11 }}>
@@ -601,7 +615,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
                       </span>
                       <span className="c">
                         {g.pgn
-                          ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>▶</button>
+                          ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>Replay</button>
                           : <span style={{ color: 'var(--text-3)', fontSize: 11 }}>—</span>
                         }
                       </span>
@@ -671,7 +685,6 @@ export const ProfilePage: React.FC = () => {
   if (!user) {
     return (
       <div className="pf-no-user">
-        <div style={{ fontSize: 56 }}>👤</div>
         <h2 style={{ color: 'var(--text-1)', margin: '16px 0 8px' }}>{t('common.login')}</h2>
         <p style={{ color: 'var(--text-3)', marginBottom: 20 }}>{t('auth.playAsGuest')}</p>
         <button className="btn btn-primary" onClick={() => navigate('/')}>{t('lobby.lobby')}</button>
@@ -764,14 +777,14 @@ export const ProfilePage: React.FC = () => {
                 user.name[0]?.toUpperCase()
               )}
             </div>
-            {currentStreak >= 3 && <div className="pf-streak-badge">🔥 {currentStreak}</div>}
+            {currentStreak >= 3 && <div className="pf-streak-badge">Streak {currentStreak}</div>}
             <div className="pf-online-dot" title="Online" />
           </div>
           <div className="pf-hero-info">
             <div className="pf-hero-name-row">
               {user.country && (
-                <span style={{ fontSize: 24, lineHeight: 1 }} title={user.country}>
-                  {countryFlag(user.country)}
+                <span className="pf-country-code" title={user.country}>
+                  {user.country.toUpperCase()}
                 </span>
               )}
               {editName ? (
@@ -799,11 +812,11 @@ export const ProfilePage: React.FC = () => {
                         try { await saveUsername(nameInput); } catch {}
                       }
                     }}
-                  >✓</button>
+                  >Save</button>
                 </div>
               ) : (
                 <h1 className="pf-hero-name" onClick={() => { setEditName(true); setNameInput(user.name); }}>
-                  {user.name} <span className="pf-edit-icon">✏️</span>
+                  {user.name} <span className="pf-edit-icon">Edit</span>
                 </h1>
               )}
               <span className="pf-rank-badge" style={{ background: band.color + '28', color: band.color }}>
@@ -812,23 +825,23 @@ export const ProfilePage: React.FC = () => {
             </div>
             {user.bio && <p className="pf-hero-bio">{user.bio}</p>}
             <div className="pf-hero-sub">
-              <span>💰 ${Number(user.walletBalance).toFixed(2)}</span>
+              <span>${Number(user.walletBalance).toFixed(2)}</span>
               <span>·</span>
-              <span>🎮 {totalGames} {t('common.games')}</span>
+              <span>{totalGames} {t('common.games')}</span>
               <span>·</span>
               <span style={{ color: winRate >= 50 ? '#22c55e' : '#ef4444' }}>
                 {winRate}% {t('common.winRate')}
               </span>
               <span>·</span>
-              <span>📅 {fullStats ? new Date(fullStats.joinedAt).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '—'}</span>
+              <span>{fullStats ? new Date(fullStats.joinedAt).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '—'}</span>
             </div>
             <SocialLinksRow links={user.socialLinks} />
           </div>
 
           {/* Universe switch */}
           <div className="pf-universe-switch">
-            <button className={`pf-usw ${universe === 'chess' ? 'active' : ''}`} onClick={() => setUniverse('chess')}>♟ {t('profile.chess')}</button>
-            <button className={`pf-usw ${universe === 'checkers' ? 'active' : ''}`} onClick={() => setUniverse('checkers')}>⬤ {t('profile.checkers')}</button>
+            <button className={`pf-usw ${universe === 'chess' ? 'active' : ''}`} onClick={() => setUniverse('chess')}>{t('profile.chess')}</button>
+            <button className={`pf-usw ${universe === 'checkers' ? 'active' : ''}`} onClick={() => setUniverse('checkers')}>{t('profile.checkers')}</button>
           </div>
         </div>
       </div>
@@ -840,13 +853,9 @@ export const ProfilePage: React.FC = () => {
                            tabKey === 'Rating'      ? t('common.rating')       :
                            tabKey === 'History'     ? t('profile.history')     :
                            tabKey === 'Tournaments' ? t('profile.tournaments') : t('profile.settings');
-          const tabIcon  = tabKey === 'Overview'    ? '🏠' :
-                           tabKey === 'Rating'      ? '📈' :
-                           tabKey === 'History'     ? '📜' :
-                           tabKey === 'Tournaments' ? '🏆' : '⚙️';
           return (
             <button key={tabKey} className={`pf-tab ${tab === tabKey ? 'active' : ''}`} onClick={() => setTab(tabKey)}>
-              {tabIcon} {tabLabel}
+              {tabLabel}
             </button>
           );
         })}
@@ -911,27 +920,27 @@ export const ProfilePage: React.FC = () => {
             <div className="pf-main-col">
               {/* Rating card */}
               <div className="pf-section">
-                <div className="pf-section-title">📊 {t('common.rating')}</div>
+                <div className="pf-section-title">{t('common.rating')}</div>
                 <div className="pf-rating-banner">
                   <div>
                     <div className="pf-big-rating" style={{ color: band.color }}>{rating}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
-                      {universe === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}`} — {band.label}
+                      {profileUniverseLabel(universe, t)} — {band.label}
                     </div>
                   </div>
                   <Sparkline data={sparkData} color={band.color} width={180} height={55} />
                 </div>
                 <div className="pf-rating-row">
-                  <div className="pf-mini-badge"><span>🏔 {t('profile.peak')}</span><strong>{peak}</strong></div>
-                  <div className="pf-mini-badge"><span>📉 Low</span><strong>{low}</strong></div>
-                  <div className="pf-mini-badge"><span>🎯 Perf.</span><strong>{perfRating}</strong></div>
-                  <div className="pf-mini-badge"><span>🔥 {t('profile.bestStreak')}</span><strong>{bestStreak}</strong></div>
+                  <div className="pf-mini-badge"><span>{t('profile.peak')}</span><strong>{peak}</strong></div>
+                  <div className="pf-mini-badge"><span>Low</span><strong>{low}</strong></div>
+                  <div className="pf-mini-badge"><span>Perf.</span><strong>{perfRating}</strong></div>
+                  <div className="pf-mini-badge"><span>{t('profile.bestStreak')}</span><strong>{bestStreak}</strong></div>
                 </div>
               </div>
 
               {/* W/D/L — by universe */}
               <div className="pf-section">
-                <div className="pf-section-title">🎮 {t('profile.history')} — {universe === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}`}</div>
+                <div className="pf-section-title">{t('profile.history')} — {profileUniverseLabel(universe, t)}</div>
                 {(() => {
                   const uv = fullStats?.[universe];
                   const w = uv?.wins ?? wins, d = uv?.draws ?? draws, l = uv?.losses ?? losses, g = uv?.games ?? totalGames;
@@ -952,10 +961,10 @@ export const ProfilePage: React.FC = () => {
                         </div>
                       </div>
                       <div className="pf-stat-row">
-                        <StatCard icon="🏆" label={t('common.wins')}   value={w} color="#22c55e" />
-                        <StatCard icon="🤝" label={t('common.draws')}  value={d} color="#94a3b8" />
-                        <StatCard icon="💀" label={t('common.losses')} value={l} color="#ef4444" />
-                        <StatCard icon="📈" label={t('common.winRate')} value={`${wr}%`} color={wr >= 50 ? '#22c55e' : '#ef4444'} />
+                        <StatCard label={t('common.wins')} value={w} color="#22c55e" />
+                        <StatCard label={t('common.draws')} value={d} color="#94a3b8" />
+                        <StatCard label={t('common.losses')} value={l} color="#ef4444" />
+                        <StatCard label={t('common.winRate')} value={`${wr}%`} color={wr >= 50 ? '#22c55e' : '#ef4444'} />
                       </div>
                     </>
                   );
@@ -964,7 +973,7 @@ export const ProfilePage: React.FC = () => {
 
               {/* Activity heatmap */}
               <div className="pf-section">
-                <div className="pf-section-title">📅 Activity (Last 6 months)</div>
+                <div className="pf-section-title">Activity (Last 6 months)</div>
                 <ActivityHeatmap history={activityEntries} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 11, color: 'var(--text-3)' }}>
                   <span>Less</span>
@@ -977,7 +986,7 @@ export const ProfilePage: React.FC = () => {
 
               {/* Achievements */}
               <div className="pf-section">
-                <div className="pf-section-title">🏅 Achievements</div>
+                <div className="pf-section-title">Achievements</div>
                 <div className="pf-achievements-grid">
                   {ACHIEVEMENTS.map(a => (
                     <AchievementBadge key={a.id} achievement={a} unlocked={a.check(fullStats)} />
@@ -991,7 +1000,6 @@ export const ProfilePage: React.FC = () => {
               {/* Streak */}
               {currentStreak > 0 && (
                 <div className="pf-section pf-streak-card">
-                  <div className="pf-streak-icon">🔥</div>
                   <div>
                     <div className="pf-streak-num">{currentStreak}</div>
                     <div className="pf-streak-label">Win streak!</div>
@@ -1001,7 +1009,7 @@ export const ProfilePage: React.FC = () => {
 
               {/* Wallet & earnings */}
               <div className="pf-section">
-                <div className="pf-section-title">💰 {t('profile.walletSummary')}</div>
+                <div className="pf-section-title">{t('profile.walletSummary')}</div>
                 <div className="pf-wallet-bal">${Number(user.walletBalance).toFixed(2)}</div>
                 <div className="pf-wallet-grid">
                   <div className="pf-wallet-stat"><span>{t('profile.deposited')}</span><strong>${Number(fullStats?.wallet.totalDeposited ?? 0).toFixed(2)}</strong></div>
@@ -1026,7 +1034,7 @@ export const ProfilePage: React.FC = () => {
 
               {/* Recent games */}
               <div className="pf-section">
-                <div className="pf-section-title">⏱ {t('profile.recentGames')}</div>
+                <div className="pf-section-title">{t('profile.recentGames')}</div>
                 {recentMatches.length === 0 && last10.length === 0 ? (
                   <div className="pf-empty-small">{t('profile.noGamesYet')}</div>
                 ) : recentMatches.length > 0 ? recentMatches.map(g => {
@@ -1037,7 +1045,7 @@ export const ProfilePage: React.FC = () => {
                       <span className={`pf-result-dot ${result ?? ''}`} />
                       <div className="pf-recent-info">
                         <div className="pf-recent-opp">vs {matchOpponentName(g, user.name)}</div>
-                        <div className="pf-recent-tc">{g.universe === 'chess' ? '♟' : '⬤'} {g.timeControl}</div>
+                        <div className="pf-recent-tc">{profileUniverseLabel(g.universe, t)} · {g.timeControl}</div>
                       </div>
                       <div className={`pf-recent-delta ${delta == null || delta >= 0 ? 'pos' : 'neg'}`}>
                         {delta == null ? '—' : `${delta >= 0 ? '+' : ''}${delta}`}
@@ -1049,7 +1057,7 @@ export const ProfilePage: React.FC = () => {
                     <span className={`pf-result-dot ${e.result}`} />
                     <div className="pf-recent-info">
                       <div className="pf-recent-opp">vs {e.opponent} ({e.opponentRating})</div>
-                      <div className="pf-recent-tc">{e.universe === 'chess' ? '♟' : '⬤'} {e.timeControl ?? ''}</div>
+                      <div className="pf-recent-tc">{profileUniverseLabel(e.universe, t)} · {e.timeControl ?? ''}</div>
                     </div>
                     <div className={`pf-recent-delta ${e.delta >= 0 ? 'pos' : 'neg'}`}>
                       {e.delta >= 0 ? '+' : ''}{e.delta}
@@ -1066,15 +1074,15 @@ export const ProfilePage: React.FC = () => {
       {tab === 'Rating' && (
         <div className="pf-tab-body">
           <div className="pf-section">
-            <div className="pf-section-title">📈 {t('common.rating')}</div>
+            <div className="pf-section-title">{t('common.rating')}</div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div>
                 <span className="pf-big-rating" style={{ color: band.color }}>{rating}</span>
                 <span style={{ color: 'var(--text-3)', fontSize: 13, marginLeft: 8 }}>{band.label}</span>
               </div>
               <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
-                <span>🏔 {t('profile.peak')}: <strong>{peak}</strong></span>
-                <span>📉 Low: <strong>{low}</strong></span>
+                <span>{t('profile.peak')}: <strong>{peak}</strong></span>
+                <span>Low: <strong>{low}</strong></span>
               </div>
             </div>
             <RatingChart entries={[...history].reverse().slice(-60)} color={band.color} currentRating={rating} />
@@ -1082,7 +1090,7 @@ export const ProfilePage: React.FC = () => {
 
           {/* Per-band explanation */}
           <div className="pf-section">
-            <div className="pf-section-title">🎖 Rating bands</div>
+            <div className="pf-section-title">Rating bands</div>
             <div className="pf-bands-grid">
               {[
                 [1000, 'Beginner',          '#94a3b8'],
@@ -1103,7 +1111,7 @@ export const ProfilePage: React.FC = () => {
                       <div className="pf-band-name" style={isActive ? { color: color as string, fontWeight: 800 } : {}}>{label as string}</div>
                       <div className="pf-band-range">{threshold}+</div>
                     </div>
-                    {isActive && <span className="pf-band-you">← You</span>}
+                    {isActive && <span className="pf-band-you">You</span>}
                   </div>
                 );
               })}
@@ -1112,12 +1120,12 @@ export const ProfilePage: React.FC = () => {
 
           {/* Performance */}
           <div className="pf-section">
-            <div className="pf-section-title">🎯 {t('profile.yourStats')}</div>
+            <div className="pf-section-title">{t('profile.yourStats')}</div>
             <div className="pf-stat-row">
-              <StatCard icon="🎯" label="Perf." value={perfRating} />
-              <StatCard icon="📊" label={t('common.games')} value={totalGames} />
-              <StatCard icon="⚡" label="K-factor" value={totalGames < 30 ? '40' : rating >= 2400 ? '10' : '32'} sub={totalGames < 30 ? 'Provisional' : 'Standard'} />
-              <StatCard icon="📈" label={t('profile.bestStreak')} value={`${bestStreak}W`} color="#f59e0b" />
+              <StatCard label="Perf." value={perfRating} />
+              <StatCard label={t('common.games')} value={totalGames} />
+              <StatCard label="K-factor" value={totalGames < 30 ? '40' : rating >= 2400 ? '10' : '32'} sub={totalGames < 30 ? 'Provisional' : 'Standard'} />
+              <StatCard label={t('profile.bestStreak')} value={`${bestStreak}W`} color="#f59e0b" />
             </div>
           </div>
         </div>
@@ -1128,7 +1136,7 @@ export const ProfilePage: React.FC = () => {
         <div className="pf-tab-body">
           <div className="pf-section">
             {apiGames.length > 0 ? (
-              /* API games — have IDs + PGN → show Replay links */
+              /* API games have IDs and PGN, so show Replay links */
               (() => {
                 const allFiltered = apiGames.filter(g => g.universe === universe);
                 const filtered = allFiltered.filter(g => {
@@ -1140,7 +1148,7 @@ export const ProfilePage: React.FC = () => {
                 const paged = filtered.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE);
                 return (
                   <>
-                    <div className="pf-section-title">📜 {t('profile.history')} — {filtered.length} {t('common.games')}</div>
+                    <div className="pf-section-title">{t('profile.history')} — {filtered.length} {t('common.games')}</div>
                     <div className="pf-filter-bar">
                       {(['all', 'win', 'draw', 'loss'] as const).map(f => (
                         <button
@@ -1148,13 +1156,12 @@ export const ProfilePage: React.FC = () => {
                           className={`pf-filter-btn ${historyFilter === f ? 'active' : ''}`}
                           onClick={() => { setHistoryFilter(f); setHistoryPage(0); }}
                         >
-                          {f === 'all' ? `All (${allFiltered.length})` : f === 'win' ? '🏆 Wins' : f === 'draw' ? '🤝 Draws' : '💀 Losses'}
+                          {f === 'all' ? `All (${allFiltered.length})` : f === 'win' ? 'Wins' : f === 'draw' ? 'Draws' : 'Losses'}
                         </button>
                       ))}
                     </div>
                     {filtered.length === 0 ? (
                       <div className="pf-empty">
-                        <div style={{ fontSize: 48 }}>🎮</div>
                         <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 12 }}>{t('profile.noGamesYet')}</div>
                       </div>
                     ) : (
@@ -1178,9 +1185,9 @@ export const ProfilePage: React.FC = () => {
                             <div key={g.id} className="pf-hist-row pf-game-history">
                               <span className="pf-hist-num">{filtered.length - (historyPage * HISTORY_PAGE_SIZE + idx)}</span>
                               <span className="pf-hist-opp">{opp}</span>
-                              <span className="c pf-dim" style={{ fontSize: 11 }}>{isWhite ? '♙ White' : '♟ Black'}</span>
+                              <span className="c pf-dim" style={{ fontSize: 11 }}>{isWhite ? 'White' : 'Black'}</span>
                               <span className={`c pf-result ${rc}`} title={g.resultReason ?? undefined}>
-                                {myResult === 'win' ? '🏆 Win' : myResult === 'draw' ? '🤝 Draw' : myResult === 'loss' ? '💀 Loss' : '—'}
+                                {resultLabel(myResult)}
                               </span>
                               <span className="c pf-dim" style={{ fontSize: 11 }}>{g.timeControl}</span>
                               <span className={`c pf-delta ${delta == null || delta >= 0 ? 'pos' : 'neg'}`}>
@@ -1189,7 +1196,7 @@ export const ProfilePage: React.FC = () => {
                               <span className="c pf-dim" style={{ fontSize: 11 }}>{new Date(g.endedAt ?? g.createdAt).toLocaleDateString()}</span>
                               <span className="c">
                                 {g.pgn
-                                  ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>▶ Replay</button>
+                                  ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>Replay</button>
                                   : <span style={{ color: 'var(--text-3)', fontSize: 11 }}>—</span>
                                 }
                               </span>
@@ -1198,9 +1205,9 @@ export const ProfilePage: React.FC = () => {
                         })}
                         {totalPages > 1 && (
                           <div className="pf-pagination">
-                            <button className="btn btn-ghost btn-sm" disabled={historyPage === 0} onClick={() => setHistoryPage(p => p - 1)}>← Prev</button>
+                            <button className="btn btn-ghost btn-sm" disabled={historyPage === 0} onClick={() => setHistoryPage(p => p - 1)}>Previous</button>
                             <span className="pf-page-info">Page {historyPage + 1} of {totalPages}</span>
-                            <button className="btn btn-ghost btn-sm" disabled={historyPage >= totalPages - 1} onClick={() => setHistoryPage(p => p + 1)}>Next →</button>
+                            <button className="btn btn-ghost btn-sm" disabled={historyPage >= totalPages - 1} onClick={() => setHistoryPage(p => p + 1)}>Next</button>
                           </div>
                         )}
                       </>
@@ -1211,10 +1218,9 @@ export const ProfilePage: React.FC = () => {
             ) : (
               /* Fallback: local ratingHistory */
               <>
-                <div className="pf-section-title">📜 {t('profile.history')} — {history.length} {t('common.games')}</div>
+                <div className="pf-section-title">{t('profile.history')} — {history.length} {t('common.games')}</div>
                 {history.length === 0 ? (
                   <div className="pf-empty">
-                    <div style={{ fontSize: 48 }}>🎮</div>
                     <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 12 }}>{t('profile.noGamesYet')}</div>
                   </div>
                 ) : (
@@ -1236,7 +1242,7 @@ export const ProfilePage: React.FC = () => {
                           <span className="pf-hist-opp">{e.opponent}</span>
                           <span className="c pf-dim">{e.opponentRating}</span>
                           <span className={`c pf-result ${rc}`}>
-                            {e.result === 'win' ? '🏆 Win' : e.result === 'draw' ? '🤝 Draw' : e.result === 'loss' ? '💀 Loss' : ''}
+                            {resultLabel(e.result)}
                           </span>
                           <span className="c" style={{ fontWeight: 700 }}>{e.after}</span>
                           <span className={`c pf-delta ${e.delta >= 0 ? 'pos' : 'neg'}`}>{e.delta >= 0 ? '+' : ''}{e.delta}</span>
@@ -1253,7 +1259,7 @@ export const ProfilePage: React.FC = () => {
           {/* Wallet transaction history */}
           {fullStats && (
             <div className="pf-section" style={{ marginTop: 16 }}>
-              <div className="pf-section-title">💳 {t('profile.transactionHistory')}</div>
+              <div className="pf-section-title">{t('profile.transactionHistory')}</div>
               {fullStats.wallet.transactions.length === 0 ? (
                 <div className="pf-empty-small">
                   No wallet activity yet. Deposits, withdrawals, bet escrow, payouts, refunds, and tournament entry fees will be listed here.
@@ -1267,12 +1273,6 @@ export const ProfilePage: React.FC = () => {
                     <span className="c">Date</span>
                   </div>
                   {fullStats.wallet.transactions.slice(0, 50).map(tx => {
-                    const typeLabel: Record<string, string> = {
-                      DEPOSIT: '⬇ Deposit', WITHDRAWAL: '⬆ Withdraw',
-                      BET_WON: '🏆 Bet payout', BET_PLACED: '🎲 Bet escrow',
-                      BET_REFUND: '↩ Bet refund', TOURNAMENT_ENTRY: '🏆 Tournament entry',
-                      TOURNAMENT_REFUND: '↩ Tournament refund',
-                    };
                     const amount = Number(tx.amount);
                     const positive = amount >= 0;
                     return (
@@ -1281,7 +1281,7 @@ export const ProfilePage: React.FC = () => {
                           className="pf-hist-opp"
                           title={tx.matchId ? `${tx.type.startsWith('TOURNAMENT') ? 'Tournament' : 'Match'} ${tx.matchId}` : tx.stripeSessionId ? `Stripe ${tx.stripeSessionId}` : undefined}
                         >
-                          {typeLabel[tx.type] ?? tx.type}
+                          {transactionTypeLabel(tx.type)}
                         </span>
                         <span className="c" style={{ fontWeight: 700, color: positive ? '#22c55e' : '#ef4444' }}>
                           {positive ? '+' : '-'}${Math.abs(amount).toFixed(2)}
@@ -1331,10 +1331,9 @@ export const ProfilePage: React.FC = () => {
             </div>
           )}
           <div className="pf-section">
-            <div className="pf-section-title">🏆 {t('profile.tournamentHistory')} ({fullStats?.tournaments.length ?? myTournaments.length})</div>
+            <div className="pf-section-title">{t('profile.tournamentHistory')} ({fullStats?.tournaments.length ?? myTournaments.length})</div>
             {(fullStats?.tournaments.length === 0 || (!fullStats && myTournaments.length === 0)) ? (
               <div className="pf-empty">
-                <div style={{ fontSize: 48 }}>🏆</div>
                 <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 12 }}>{t('profile.noTournamentsYet')}</div>
                 <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => navigate(`/${universe}/tournaments`)}>
                   {t('tournament.join')}
@@ -1347,13 +1346,12 @@ export const ProfilePage: React.FC = () => {
                 startsAt: String(tn.startsAt), score: me?.score ?? 0, wins: me?.wins ?? 0, draws: me?.draws ?? 0, losses: me?.losses ?? 0 };
             })).map(tn => (
               <div key={tn.id} className="pf-tourn-row" onClick={() => navigate(`/${tn.universe}/tournament/${tn.id}`)}>
-                <span className="pf-tourn-icon">{tn.icon}</span>
                 <div className="pf-tourn-info">
                   <div className="pf-tourn-name">{tn.name}</div>
                   <div className="pf-tourn-meta">
                     {tn.timeControl} · {tn.format}
-                    {tn.betEntry > 0 && <span style={{ color: '#f59e0b', marginLeft: 6 }}>💰 ${tn.betEntry} entry</span>}
-                    {tn.prizePool > 0 && <span style={{ color: '#22c55e', marginLeft: 6 }}>🎁 ${tn.prizePool} pool</span>}
+                    {tn.betEntry > 0 && <span style={{ color: '#f59e0b', marginLeft: 6 }}>${tn.betEntry} entry</span>}
+                    {tn.prizePool > 0 && <span style={{ color: '#22c55e', marginLeft: 6 }}>${tn.prizePool} pool</span>}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
                     {new Date(tn.startsAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -1376,7 +1374,7 @@ export const ProfilePage: React.FC = () => {
       {tab === 'Settings' && (
         <div className="pf-tab-body">
           <div className="pf-section">
-            <div className="pf-section-title">👤 {t('profile.editProfile')}</div>
+            <div className="pf-section-title">{t('profile.editProfile')}</div>
             <div className="pf-settings-grid">
               <div className="pf-setting-row">
                 <span className="pf-setting-label">{t('profile.flagPreview')}</span>
@@ -1429,7 +1427,7 @@ export const ProfilePage: React.FC = () => {
               </div>
               <div className="pf-setting-row">
                 <span className="pf-setting-label">
-                  {t('profile.country')} {countryCode && <span style={{ fontSize: 16 }}>{countryFlag(countryCode)}</span>}
+                  {t('profile.country')} {countryCode && <span className="pf-country-code">{countryCode}</span>}
                 </span>
                 <div className="pf-setting-val">
                   <input
@@ -1443,13 +1441,13 @@ export const ProfilePage: React.FC = () => {
                 </div>
               </div>
               <div className="pf-setting-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-                <span className="pf-setting-label">🔗 Social Links</span>
+                <span className="pf-setting-label">Social Links</span>
                 <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '6px 10px', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-3)' }}>𝕏 Twitter</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Twitter</span>
                   <input className="pf-setting-input" placeholder="username" value={socialTwitter} onChange={e => setSocialTwitter(e.target.value)} />
-                  <span style={{ fontSize: 12, color: 'var(--text-3)' }}>♞ Lichess</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Lichess</span>
                   <input className="pf-setting-input" placeholder="username" value={socialLichess} onChange={e => setSocialLichess(e.target.value)} />
-                  <span style={{ fontSize: 12, color: 'var(--text-3)' }}>♚ Chess.com</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Chess.com</span>
                   <input className="pf-setting-input" placeholder="username" value={socialChessCom} onChange={e => setSocialChessCom(e.target.value)} />
                 </div>
               </div>
@@ -1485,7 +1483,7 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           <div className="pf-section">
-            <div className="pf-section-title">🎨 Preferences</div>
+            <div className="pf-section-title">Preferences</div>
             <div className="pf-settings-grid">
               {[
                 { label: 'Show rating change after game',    key: 'show_elo',     default: true },
@@ -1503,7 +1501,7 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           <div className="pf-section">
-            <div className="pf-section-title">🔴 Danger zone</div>
+            <div className="pf-section-title">Danger zone</div>
             <div className="pf-danger-row">
               <div>
                 <div style={{ fontWeight: 700, color: 'var(--text-1)' }}>Reset rating history</div>
