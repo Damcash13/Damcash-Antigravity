@@ -99,6 +99,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const premoveRef = useRef(premove);
   premoveRef.current = premove;
   const computerMovePending = useRef(false);
+  const timeoutClaimedRef = useRef(false);
 
   useEffect(() => {
     setFlipped(myColor === 'b');
@@ -363,6 +364,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   };
 
   const handleNewGame = () => {
+    timeoutClaimedRef.current = false;
     setGame(new Chess());
     setWhiteTime(timeControl.initial);
     setBlackTime(timeControl.initial);
@@ -476,6 +478,8 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     };
 
     const handleGameOverEmit = (data: any) => {
+      if (data.whiteTime !== undefined) setWhiteTime(data.whiteTime);
+      if (data.blackTime !== undefined) setBlackTime(data.blackTime);
       setGameStatus('ended');
       if (data.result === 'resign') {
         setResult(t('game.opponentResigned'));
@@ -483,6 +487,10 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       } else if (data.result === 'draw') {
         setResult(t('game.drawAgreement'));
         play('gameEnd');
+      } else if (data.result === 'timeout') {
+        const didWin = data.winner === (playerColor === 'w' ? 'white' : 'black');
+        setResult(didWin ? t('game.youWon') : t('game.youLost'));
+        play(didWin ? 'victory' : 'defeat');
       } else {
         setResult(t('game.gameOver'));
         play('gameEnd');
@@ -587,6 +595,12 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       setSavingResult(false);
       setRatingChange({ delta: entry.delta, before: entry.before, after: entry.after });
     };
+    const handleFlagDenied = (data: any) => {
+      timeoutClaimedRef.current = false;
+      setSavingResult(false);
+      if (data?.color === 'white' && data.remaining !== undefined) setWhiteTime(data.remaining);
+      if (data?.color === 'black' && data.remaining !== undefined) setBlackTime(data.remaining);
+    };
 
     const handleBerserkEvent = (data: { socketId: string; color: 'white' | 'black' }) => {
       if (data.socketId !== socket.id) setOpponentBerserk(true);
@@ -608,6 +622,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     socket.on('room:cancelled', handleRoomCancelled);
     socket.on('room:players', handleRoomPlayers);
     socket.on('rating:update', handleRatingUpdate);
+    socket.on('flag:denied', handleFlagDenied);
     socket.on('player-disconnected', handlePlayerDisconnected);
     socket.on('player-reconnected',  handlePlayerReconnected);
     socket.on('room:berserk', handleBerserkEvent);
@@ -643,6 +658,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       socket.off('room:cancelled', handleRoomCancelled);
       socket.off('room:players', handleRoomPlayers);
       socket.off('rating:update', handleRatingUpdate);
+      socket.off('flag:denied', handleFlagDenied);
       socket.off('player-disconnected', handlePlayerDisconnected);
       socket.off('player-reconnected',  handlePlayerReconnected);
       socket.off('room:berserk', handleBerserkEvent);
@@ -681,6 +697,17 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
 
   const isPlayerTurn = currentTurn === playerColor;
   const inCheck = game.isCheck();
+
+  const handleClockExpire = useCallback(() => {
+    if (timeoutClaimedRef.current || gameStatus !== 'playing') return;
+    timeoutClaimedRef.current = true;
+    if (isOnline) {
+      setSavingResult(true);
+      socket.emit('flag:claim', { roomId });
+    } else {
+      handleGameOver(gameRef.current);
+    }
+  }, [gameStatus, isOnline, roomId]);
 
   // Format moves for display
   const movePairs: { num: number; white: string; black: string }[] = [];
@@ -724,7 +751,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
             timeMs={playerColor === 'w' ? blackTime : whiteTime}
             active={gameStatus === 'playing' && currentTurn !== playerColor && moveHistory.length > 0}
             onTick={(ms) => playerColor === 'w' ? setBlackTime(ms) : setWhiteTime(ms)}
-            onExpire={() => handleGameOver(game)}
+            onExpire={handleClockExpire}
           />
         </div>
 
@@ -850,7 +877,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
             timeMs={playerColor === 'w' ? whiteTime : blackTime}
             active={gameStatus === 'playing' && currentTurn === playerColor && moveHistory.length > 0}
             onTick={(ms) => playerColor === 'w' ? setWhiteTime(ms) : setBlackTime(ms)}
-            onExpire={() => handleGameOver(game)}
+            onExpire={handleClockExpire}
           />
         </div>
 

@@ -27,6 +27,12 @@ const PuzzleStreakPage = lazy(() => import('./components/puzzles/PuzzleStreakPag
 const PuzzleStormPage = lazy(() => import('./components/puzzles/PuzzleStormPage').then(m => ({ default: m.PuzzleStormPage })));
 const BoardEditorPage = lazy(() => import('./components/tools/BoardEditorPage').then(m => ({ default: m.BoardEditorPage })));
 const GameReplayPage = lazy(() => import('./components/games/GameReplayPage').then(m => ({ default: m.GameReplayPage })));
+const OpeningExplorerPage = lazy(() => import('./components/tools/OpeningExplorerPage').then(m => ({ default: m.OpeningExplorerPage })));
+const MyStudiesPage = lazy(() => import('./components/tools/MyStudiesPage').then(m => ({ default: m.MyStudiesPage })));
+const EndgameTrainingPage = lazy(() => import('./components/tools/EndgameTrainingPage').then(m => ({ default: m.EndgameTrainingPage })));
+const CoordinatesPage = lazy(() => import('./components/tools/CoordinatesPage').then(m => ({ default: m.CoordinatesPage })));
+const GameImporterPage = lazy(() => import('./components/tools/GameImporterPage').then(m => ({ default: m.GameImporterPage })));
+const ComingSoonPage = lazy(() => import('./components/common/ComingSoonPage').then(m => ({ default: m.ComingSoonPage })));
 
 // ── Lobby wrapper ─────────────────────────────────────────────────────────────
 
@@ -62,6 +68,7 @@ export default function App() {
   const location = useLocation();
 
   const user = useUserStore(s => s.user);
+  const isLoggedIn = useUserStore(s => s.isLoggedIn);
   const restoreSession = useUserStore(s => s.restoreSession);
   const listenToAuthChanges = useUserStore(s => s.listenToAuthChanges);
   const universe = useUniverseStore(s => s.universe);
@@ -102,6 +109,11 @@ export default function App() {
   }, [location.pathname, setUniverse]);
 
   useEffect(() => {
+    document.body.classList.toggle('chess-universe', universe === 'chess');
+    document.body.classList.toggle('checkers-universe', universe === 'checkers');
+  }, [universe]);
+
+  useEffect(() => {
     const handlePlayersOnline = (list: OnlinePlayer[]) => {
       const others = list.filter((p) => p.socketId !== socket.id);
       setOnlinePlayers(others);
@@ -122,6 +134,7 @@ export default function App() {
 
     const handleRoomError = (data: any) => {
       useNotificationStore.getState().addNotification(data.message || 'Room error', 'error');
+      setSearching(null);
     };
 
     socket.on('players:online', handlePlayersOnline);
@@ -151,6 +164,11 @@ export default function App() {
     if (mode === 'computer') {
       navigate(`/${universe}/play/computer/${tc}`);
     } else {
+      if (!isLoggedIn) {
+        setShowAuth(true);
+        useNotificationStore.getState().addNotification('Please sign in to play rated online games.', 'warning');
+        return;
+      }
       setSearching({ tc, mode });
       socket.emit('seek', { timeControl: tc, universe, betAmount: 0, rated: true });
     }
@@ -219,6 +237,13 @@ export default function App() {
 
             <Route path="/:universe/analysis" element={<main className="main-content"><AnalysisBoard /></main>} />
             <Route path="/:universe/editor"   element={<main className="main-content"><BoardEditorPage /></main>} />
+            <Route path="/:universe/board-editor" element={<main className="main-content"><BoardEditorPage /></main>} />
+            <Route path="/:universe/opening-explorer" element={<main className="main-content"><OpeningExplorerPage /></main>} />
+            <Route path="/:universe/my-studies" element={<ProtectedRoute><main className="main-content"><MyStudiesPage /></main></ProtectedRoute>} />
+            <Route path="/:universe/endgame-training" element={<main className="main-content"><EndgameTrainingPage /></main>} />
+            <Route path="/:universe/coordinates" element={<main className="main-content"><CoordinatesPage /></main>} />
+            <Route path="/:universe/import" element={<main className="main-content"><GameImporterPage /></main>} />
+            <Route path="/:universe/coming-soon/:feature" element={<main className="main-content"><ComingSoonPage /></main>} />
 
             <Route path="/:universe/puzzles"        element={<main className="main-content"><PuzzlesPage /></main>} />
             <Route path="/:universe/puzzle-streak" element={<main className="main-content"><PuzzleStreakPage /></main>} />

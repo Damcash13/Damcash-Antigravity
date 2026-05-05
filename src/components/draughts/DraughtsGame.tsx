@@ -94,6 +94,7 @@ export const DraughtsGame: React.FC = () => {
   const userRef = useRef(user);
   userRef.current = user;
   const computerMovePending = useRef(false);
+  const timeoutClaimedRef = useRef(false);
 
   useEffect(() => {
     setFlipped(playerColor === 'black');
@@ -336,6 +337,7 @@ export const DraughtsGame: React.FC = () => {
   };
 
   const handleNewGame = () => {
+    timeoutClaimedRef.current = false;
     setBoard(createInitialBoard());
     setTurn('white');
     setSelected(null);
@@ -415,9 +417,16 @@ export const DraughtsGame: React.FC = () => {
     };
 
     const handleGameOverEmit = (data: any) => {
+      if (data.whiteTime !== undefined) setWhiteTime(data.whiteTime);
+      if (data.blackTime !== undefined) setBlackTime(data.blackTime);
       setGameStatus('ended');
       if (data.result === 'resign') { setResult(t('game.opponentResigned')); play('victory'); }
       else if (data.result === 'draw') { setResult(t('game.drawAgreement')); play('gameEnd'); }
+      else if (data.result === 'timeout') {
+        const didWin = data.winner === playerColor;
+        setResult(didWin ? t('game.youWon') : t('game.youLost'));
+        play(didWin ? 'victory' : 'defeat');
+      }
       else { setResult(t('game.gameOver')); play('gameEnd'); }
     };
 
@@ -513,6 +522,12 @@ export const DraughtsGame: React.FC = () => {
       setSavingResult(false);
       setRatingChange({ delta: entry.delta, before: entry.before, after: entry.after });
     };
+    const handleFlagDenied = (data: any) => {
+      timeoutClaimedRef.current = false;
+      setSavingResult(false);
+      if (data?.color === 'white' && data.remaining !== undefined) setWhiteTime(data.remaining);
+      if (data?.color === 'black' && data.remaining !== undefined) setBlackTime(data.remaining);
+    };
 
     const handleBerserkEvent = (data: { socketId: string; color: 'white' | 'black' }) => {
       if (data.socketId !== socket.id) setOpponentBerserk(true);
@@ -536,6 +551,7 @@ export const DraughtsGame: React.FC = () => {
     socket.on('room:cancelled', handleRoomCancelled);
     socket.on('room:players', handleRoomPlayers);
     socket.on('rating:update', handleRatingUpdate);
+    socket.on('flag:denied', handleFlagDenied);
     socket.on('room:berserk', handleBerserkEvent);
 
     // Attempt rejoin if this socket is new but we have a stored token for this room
@@ -571,6 +587,7 @@ export const DraughtsGame: React.FC = () => {
       socket.off('room:cancelled', handleRoomCancelled);
       socket.off('room:players', handleRoomPlayers);
       socket.off('rating:update', handleRatingUpdate);
+      socket.off('flag:denied', handleFlagDenied);
       socket.off('room:berserk', handleBerserkEvent);
     };
   }, [isOnline, playerColor, play, makeMove, handleGameEnd, timeControl.increment]);
@@ -604,6 +621,17 @@ export const DraughtsGame: React.FC = () => {
     socket.emit('berserk:activate', { roomId });
     addNotification('⚡ Berserk! Time halved — wins earn +1 bonus point', 'info');
   }, [isBerserk, isOnline, playerColor, roomId, addNotification]);
+
+  const handleClockExpire = useCallback(() => {
+    if (timeoutClaimedRef.current || gameStatus !== 'playing') return;
+    timeoutClaimedRef.current = true;
+    if (isOnline) {
+      setSavingResult(true);
+      socket.emit('flag:claim', { roomId });
+    } else {
+      handleGameEnd(turnRef.current === 'white' ? 'black' : 'white', boardRef.current);
+    }
+  }, [gameStatus, isOnline, roomId, handleGameEnd]);
 
   // Count pieces
   const whitePieces = board.flat().filter(p => p?.color === 'white').length;
@@ -639,7 +667,7 @@ export const DraughtsGame: React.FC = () => {
             timeMs={playerColor === 'white' ? blackTime : whiteTime}
             active={gameStatus === 'playing' && turn !== playerColor && moveHistory.length > 0}
             onTick={(ms) => playerColor === 'white' ? setBlackTime(ms) : setWhiteTime(ms)}
-            onExpire={() => handleGameEnd(playerColor, board)}
+            onExpire={handleClockExpire}
           />
         </div>
 
@@ -775,7 +803,7 @@ export const DraughtsGame: React.FC = () => {
             timeMs={playerColor === 'white' ? whiteTime : blackTime}
             active={gameStatus === 'playing' && turn === playerColor && moveHistory.length > 0}
             onTick={(ms) => playerColor === 'white' ? setWhiteTime(ms) : setBlackTime(ms)}
-            onExpire={() => handleGameEnd(playerColor === 'white' ? 'black' : 'white', board)}
+            onExpire={handleClockExpire}
           />
         </div>
 

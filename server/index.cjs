@@ -1403,6 +1403,52 @@ io.on('connection', (socket) => {
     if (p) { p.status = 'idle'; p.currentTC = null; players.set(socket.id, p); broadcastPlayerList(); }
   });
 
+  socket.on('flag:claim', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room || room.settling) return;
+
+    const isParticipant = room.players.white === socket.id || room.players.black === socket.id;
+    if (!isParticipant) return;
+    if (room.moves.length === 0) return;
+
+    const whiteToMove = room.moves.length % 2 === 0;
+    const flaggedColor = whiteToMove ? 'white' : 'black';
+    const now = Date.now();
+    const elapsed = Math.max(0, now - room.lastMoveTime);
+    const remaining = Math.max(0, (flaggedColor === 'white' ? room.whiteTime : room.blackTime) - elapsed);
+    if (remaining > 0) {
+      socket.emit('flag:denied', { roomId, remaining, color: flaggedColor });
+      return;
+    }
+
+    room.settling = true;
+    if (flaggedColor === 'white') room.whiteTime = 0;
+    else room.blackTime = 0;
+
+    const result = flaggedColor === 'white' ? 'loss' : 'win';
+    const winner = flaggedColor === 'white' ? 'black' : 'white';
+    const universe = room.config?.universe;
+    io.to(roomId).emit('game-over', {
+      result: 'timeout',
+      reason: `${winner === 'white' ? 'White' : 'Black'} wins on time`,
+      winner,
+      whiteTime: room.whiteTime,
+      blackTime: room.blackTime,
+      by: 'server',
+    });
+    if (room.config?.rated !== false) settleElo(roomId, result, universe);
+    settleBets(roomId, result);
+    [room.players.white, room.players.black].forEach(id => {
+      const p = players.get(id);
+      if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
+    });
+    rooms.delete(roomId);
+    reconnectTokens.delete(roomId);
+    broadcastPlayerList();
+    io.emit('tournament:global_update');
+    log.info(`[GAME] Timeout claimed in room ${roomId}: ${winner} wins`);
+  });
+
   // ── game:over — SECURED: only accepted for draughts (no server-side engine),
   // and only from actual participants. Chess game-over is detected server-side
   // after each validated move (see move handler above).

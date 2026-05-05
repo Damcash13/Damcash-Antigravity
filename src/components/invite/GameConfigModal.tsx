@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { socket } from '../../lib/socket';
 import { useUserStore, useUniverseStore } from '../../stores';
 import { useInviteStore, GameConfig, DEFAULT_CONFIG } from '../../stores/inviteStore';
@@ -33,7 +32,6 @@ interface Props {
 
 export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { user } = useUserStore();
   const { universe: currentUniverse } = useUniverseStore();
   const { configTarget, setMyRoom } = useInviteStore();
@@ -70,11 +68,8 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
       setMyRoom(data.code, config);
       setStep('code');
     };
-    const handleInviteAccepted = (data: any) => {
+    const handleInviteAccepted = () => {
       onClose();
-      // Navigate immediately using the data from the accept event
-      const color = data.color || (data.black === socket.id ? 'b' : 'w');
-      navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
     };
     socket.on('room:created', handleRoomCreated);
     socket.on('invite:accepted', handleInviteAccepted);
@@ -82,7 +77,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
       socket.off('room:created', handleRoomCreated);
       socket.off('invite:accepted', handleInviteAccepted);
     };
-  }, [config, setMyRoom]);
+  }, [config, setMyRoom, onClose]);
 
 
 

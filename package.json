@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:all": "concurrently -n \"API,UI\" -c \"yellow,cyan\" \"node server/index.cjs\" \"vite\"",
+    "dev:all": "concurrently -n \"API,UI\" -c \"yellow,cyan\" \"PORT=3002 node server/index.cjs\" \"vite\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "seed": "node server/seed.cjs",
