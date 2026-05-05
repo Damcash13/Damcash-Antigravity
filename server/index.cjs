@@ -2192,6 +2192,7 @@ app.get('/api/leaderboard', async (req, res) => {
 
 // ── REST: Tournaments ────────────────────────────────────────────────────────
 const TOURNAMENT_PAIRING_CUTOFF_MS = 2 * 60_000;
+const TOURNAMENT_FINISHED_VISIBLE_MS = 5 * 60_000;
 
 function getTournamentLifecycle(tournament, nowMs = Date.now()) {
   const startsAt = new Date(tournament.startsAt).getTime();
@@ -2201,10 +2202,17 @@ function getTournamentLifecycle(tournament, nowMs = Date.now()) {
   return 'upcoming';
 }
 
+function getTournamentEndMs(tournament) {
+  return new Date(tournament.startsAt).getTime() + (Number(tournament.durationMs) || 0);
+}
+
+function isTournamentVisibleInLobby(tournament, nowMs = Date.now()) {
+  if (getTournamentLifecycle(tournament, nowMs) !== 'finished') return true;
+  return nowMs < getTournamentEndMs(tournament) + TOURNAMENT_FINISHED_VISIBLE_MS;
+}
+
 function getTournamentPairingCutoff(tournament) {
-  return new Date(tournament.startsAt).getTime()
-    + (Number(tournament.durationMs) || 0)
-    - TOURNAMENT_PAIRING_CUTOFF_MS;
+  return getTournamentEndMs(tournament) - TOURNAMENT_PAIRING_CUTOFF_MS;
 }
 
 app.get('/api/tournaments', async (req, res) => {
@@ -2217,9 +2225,11 @@ app.get('/api/tournaments', async (req, res) => {
       },
       orderBy: { startsAt: 'asc' },
     });
-    res.json(ts.map(t => ({
+    const nowMs = Date.now();
+    const visibleTournaments = ts.filter(t => isTournamentVisibleInLobby(t, nowMs));
+    res.json(visibleTournaments.map(t => ({
       ...t,
-      status: getTournamentLifecycle(t),
+      status: getTournamentLifecycle(t, nowMs),
       playerCount: t.players.length,
       players: t.players.map(p => ({
         id: p.id, userId: p.userId, score: p.score,

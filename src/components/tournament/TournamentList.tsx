@@ -16,6 +16,7 @@ const STATUS_COLORS: Record<TournamentStatus, string> = {
 const TIME_CONTROLS = ['1+0', '2+1', '3+0', '3+2', '5+0', '5+3', '10+0', '10+5', '15+10', '30+0'];
 const JOIN_WINDOW_MS = 3 * 60_000;
 const PAIRING_CUTOFF_MS = 2 * 60_000;
+const FINISHED_VISIBLE_MS = 5 * 60_000;
 
 interface CreateForm {
   name: string;
@@ -158,8 +159,14 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
     return a.startsAt - b.startsAt;
   };
 
+  const isVisibleInLobby = (tObj: Tournament): boolean => {
+    if (liveStatus(tObj) !== 'finished') return true;
+    return now < tObj.startsAt + tObj.durationMs + FINISHED_VISIBLE_MS;
+  };
+
   const visible = tournaments
     .filter(tObj => tObj.universe === universe)
+    .filter(isVisibleInLobby)
     .filter(tObj => filter === 'all' || liveStatus(tObj) === filter)
     .sort(compareTournaments);
 
@@ -175,7 +182,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
     : filter === 'upcoming'
     ? 'Hourly events are created automatically ahead of time. Refresh in a few seconds or create a tournament now.'
     : filter === 'finished'
-    ? 'Completed tournament records will stay here permanently once games are played.'
+    ? 'Finished tournaments stay here for 5 minutes, then move out of the lobby while records remain available from profiles and direct links.'
     : 'Hourly tournaments are created automatically. If this stays empty, the server scheduler may need a restart.';
 
   return (
