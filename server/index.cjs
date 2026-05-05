@@ -3512,8 +3512,27 @@ app.all('/api/*', (_req, res) => {
 // ── Serve built frontend ─────────────────────────────────────────────────────
 const distPath = path.join(__dirname, '../dist');
 
-// Serve static assets (JS, CSS, images) but not index.html — we inject config into it
-app.use(express.static(distPath, { index: false }));
+// Serve static assets (JS, CSS, images) but not index.html — we inject config into it.
+// Hashed Vite assets can be cached, but the HTML shell must stay fresh because it
+// contains the current hashed script names.
+app.use(express.static(distPath, {
+  index: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else {
+      res.setHeader('Cache-Control', 'no-store');
+    }
+  },
+}));
+
+// If a browser asks for an old hashed asset after a new build, do not let the SPA
+// fallback return index.html as JavaScript. That causes a blank screen with
+// "text/html is not a valid JavaScript MIME type".
+app.get(['/assets/*', '/*.js', '/*.css', '/*.map'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(404).type('text/plain').send(`Asset not found: ${req.path}. Reload the app to fetch the latest build.`);
+});
 
 // Inject runtime Supabase config into index.html so the frontend works even when
 // VITE_ build-time env vars weren't available during the Docker build (Railway quirk)
@@ -3528,6 +3547,9 @@ app.get('*', (_req, res) => {
       AGORA_APP_ID: process.env.AGORA_APP_ID || process.env.VITE_AGORA_APP_ID || '',
     });
     const html = _indexHtmlCache.replace('</head>', `<script>window.__DC_CFG__=${cfg};</script></head>`);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.type('html').send(html);
   } catch {
     res.status(500).send('App not built — run npm run build first.');
