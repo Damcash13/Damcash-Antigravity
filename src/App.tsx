@@ -40,6 +40,8 @@ const CoordinatesPage = lazy(() => import('./components/tools/CoordinatesPage').
 const GameImporterPage = lazy(() => import('./components/tools/GameImporterPage').then(m => ({ default: m.GameImporterPage })));
 const ComingSoonPage = lazy(() => import('./components/common/ComingSoonPage').then(m => ({ default: m.ComingSoonPage })));
 const AdminSafetyPage = lazy(() => import('./components/admin/AdminSafetyPage').then(m => ({ default: m.AdminSafetyPage })));
+const CorrespondenceGame = lazy(() => import('./components/correspondence/CorrespondenceGame').then(m => ({ default: m.CorrespondenceGame })));
+const LegalPage = lazy(() => import('./components/common/LegalPage').then(m => ({ default: m.LegalPage })));
 
 // ── Lobby wrapper ─────────────────────────────────────────────────────────────
 
@@ -280,6 +282,8 @@ export default function App() {
 
         <Suspense fallback={<div className="spinner-overlay"><div className="spinner" /></div>}>
           <Routes>
+            <Route path="/terms" element={<LegalPage />} />
+            <Route path="/privacy" element={<LegalPage />} />
             <Route path="/" element={<Navigate to={`/${universe}`} replace />} />
 
             <Route path="/:universe" element={
@@ -300,6 +304,7 @@ export default function App() {
 
             <Route path="/:universe/tournaments"     element={<ProtectedRoute><main className="main-content"><TournamentPage /></main></ProtectedRoute>} />
             <Route path="/:universe/tournament/:id" element={<ProtectedRoute><main className="main-content"><TournamentPage /></main></ProtectedRoute>} />
+            <Route path="/:universe/correspondence/:id" element={<ProtectedRoute><main className="main-content"><CorrespondenceGame /></main></ProtectedRoute>} />
 
             <Route path="/:universe/profile/:name" element={<ProtectedRoute><main className="main-content"><ProfilePage /></main></ProtectedRoute>} />
             <Route path="/:universe/leaderboard"  element={<main className="main-content"><LeaderboardPage /></main>} />

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Chess, Square } from 'chess.js';
 import { useCorrespondenceStore, CorrGame } from '../../stores/correspondenceStore';
@@ -41,9 +41,13 @@ export const CorrespondenceGame: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useUserStore();
-  const { getGame, makeMove, resignGame, offerDraw } = useCorrespondenceStore();
+  const { getGame, makeMove, resignGame, offerDraw, fetchGames } = useCorrespondenceStore();
 
   const game = id ? getGame(id) : undefined;
+
+  useEffect(() => {
+    if (id && !game && user) fetchGames().catch(() => {});
+  }, [fetchGames, game, id, user]);
 
   const [lastFrom, setLastFrom] = useState<Square | null>(null);
   const [lastTo, setLastTo] = useState<Square | null>(null);

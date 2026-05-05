@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUniverseStore, useUserStore } from '../../stores';
@@ -39,13 +39,19 @@ export const CorrespondenceTab: React.FC = () => {
   const { t } = useTranslation();
   const { universe } = useUniverseStore();
   const { user } = useUserStore();
-  const { games, createGame } = useCorrespondenceStore();
+  const { games, createGame, fetchGames } = useCorrespondenceStore();
   const [panel, setPanel] = useState<Panel>('list');
   const [selectedTime, setSelectedTime] = useState(DAY_MS);
   const [opponentName, setOpponentName] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'waiting' | 'ended'>('all');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   const myName = user?.name || 'Guest';
+
+  useEffect(() => {
+    if (user) fetchGames().catch(() => {});
+  }, [fetchGames, user]);
 
   const filtered = games.filter(g =>
     g.universe === universe &&
@@ -53,13 +59,25 @@ export const CorrespondenceTab: React.FC = () => {
   );
 
   const handleCreate = async () => {
-    const game = await createGame({
-      universe,
-      timePerMove: selectedTime,
-      myName,
-      opponentName: opponentName.trim() || undefined,
-    });
-    navigate(`/${universe}/correspondence/${game.id}`);
+    if (!user) {
+      setCreateError('Sign in before starting a correspondence game.');
+      return;
+    }
+    setCreating(true);
+    setCreateError('');
+    try {
+      const game = await createGame({
+        universe,
+        timePerMove: selectedTime,
+        myName,
+        opponentName: opponentName.trim() || undefined,
+      });
+      navigate(`/${universe}/correspondence/${game.id}`);
+    } catch (err: any) {
+      setCreateError(err?.message || 'Could not create the correspondence game. Try again in a moment.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const isMyTurn = (g: CorrGame) =>
@@ -122,8 +140,22 @@ export const CorrespondenceTab: React.FC = () => {
             {opponentName && <span>👤 {opponentName}</span>}
           </div>
 
-          <button className="btn btn-accent corr-create-btn" onClick={handleCreate}>
-            {t('correspondence.startNewGame')}
+          {createError && (
+            <div style={{
+              border: '1px solid rgba(239,68,68,0.25)',
+              background: 'rgba(239,68,68,0.08)',
+              color: 'var(--text-2)',
+              borderRadius: 8,
+              padding: '10px 12px',
+              fontSize: 13,
+              marginBottom: 12,
+            }}>
+              {createError}
+            </div>
+          )}
+
+          <button className="btn btn-accent corr-create-btn" onClick={handleCreate} disabled={creating}>
+            {creating ? 'Creating...' : t('correspondence.startNewGame')}
           </button>
         </div>
       )}

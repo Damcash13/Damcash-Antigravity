@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useUserStore } from './index';
+import type { ApiCorrGame } from '../lib/api';
 
 export type CorrStatus = 'waiting' | 'active' | 'ended';
 export type CorrResult = 'white' | 'black' | 'draw' | null;
@@ -49,6 +51,26 @@ interface CorrespondenceStore {
 
 const INITIAL_CHESS_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
+function mapApiGame(g: ApiCorrGame): CorrGame {
+  const currentUserId = useUserStore.getState().user?.id;
+  return {
+    id: g.id,
+    universe: g.universe === 'checkers' ? 'checkers' : 'chess',
+    timePerMove: g.timePerMove,
+    whitePlayer: g.white.username,
+    blackPlayer: g.black?.username ?? 'Waiting for opponent...',
+    myColor: currentUserId && g.blackId === currentUserId ? 'black' : 'white',
+    moves: (Array.isArray(g.moves) ? g.moves : []) as CorrMove[],
+    currentTurn: g.currentTurn === 'black' ? 'black' : 'white',
+    status: (g.status === 'active' || g.status === 'ended') ? g.status : 'waiting',
+    result: (g.result === 'white' || g.result === 'black' || g.result === 'draw') ? g.result : null,
+    resultReason: g.resultReason ?? undefined,
+    createdAt: new Date(g.createdAt).getTime(),
+    lastMovedAt: new Date(g.updatedAt).getTime(),
+    currentPosition: g.currentPosition || (g.universe === 'chess' ? INITIAL_CHESS_FEN : 'initial'),
+  };
+}
+
 export const useCorrespondenceStore = create<CorrespondenceStore>()(
   persist(
     (set, get) => ({
@@ -58,52 +80,19 @@ export const useCorrespondenceStore = create<CorrespondenceStore>()(
         try {
           const { api } = await import('../lib/api');
           const data = await api.correspondence.list();
-          if (!data || data.length === 0) return;
-          const mapped: CorrGame[] = data.map(g => ({
-            id: g.id,
-            universe: g.universe as 'chess' | 'checkers',
-            timePerMove: g.timePerMove,
-            whitePlayer: g.white.username,
-            blackPlayer: g.black?.username ?? 'Waiting for opponent…',
-            myColor: 'white' as const, // overridden per-game by the component
-            moves: (g.moves as CorrMove[]) ?? [],
-            currentTurn: g.currentTurn as 'white' | 'black',
-            status: g.status as CorrStatus,
-            result: (g.result as CorrResult) ?? null,
-            resultReason: g.resultReason ?? undefined,
-            createdAt: new Date(g.createdAt).getTime(),
-            lastMovedAt: new Date(g.updatedAt).getTime(),
-            currentPosition: g.currentPosition,
-          }));
-          // Merge: API records override local ones by id
-          set(s => {
-            const localIds = new Set(mapped.map(g => g.id));
-            const kept = s.games.filter(g => !localIds.has(g.id));
-            return { games: [...mapped, ...kept] };
-          });
+          if (!data || data.length === 0) {
+            set({ games: [] });
+            return;
+          }
+          const mapped: CorrGame[] = data.map(mapApiGame);
+          set({ games: mapped });
         } catch { /* Fallback to persisted localStorage data */ }
       },
 
-      createGame: async ({ universe, timePerMove, myName, opponentName }) => {
-        const game: CorrGame = {
-          id: `corr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          universe,
-          timePerMove,
-          whitePlayer: myName,
-          blackPlayer: opponentName || 'Waiting for opponent…',
-          myColor: 'white',
-          moves: [],
-          currentTurn: 'white',
-          status: opponentName ? 'active' : 'waiting',
-          result: null,
-          createdAt: Date.now(),
-          lastMovedAt: Date.now(),
-          currentPosition: universe === 'chess' ? INITIAL_CHESS_FEN : 'initial',
-        };
-        try {
-          const { api } = await import('../lib/api');
-          await api.correspondence.create({ universe, timePerMove, opponentUsername: opponentName });
-        } catch {}
+      createGame: async ({ universe, timePerMove, opponentName }) => {
+        const { api } = await import('../lib/api');
+        const created = await api.correspondence.create({ universe, timePerMove, opponentUsername: opponentName });
+        const game = mapApiGame(created);
         set(s => ({ games: [game, ...s.games] }));
         return game;
       },
@@ -119,51 +108,24 @@ export const useCorrespondenceStore = create<CorrespondenceStore>()(
       },
 
       makeMove: async (gameId, move) => {
-        // Optimistic
-        set(s => ({
-          games: s.games.map(g => {
-            if (g.id !== gameId) return g;
-            const player = g.currentTurn;
-            const fullMove: CorrMove = { ...move, player, movedAt: Date.now() };
-            return {
-              ...g,
-              moves: [...g.moves, fullMove],
-              currentTurn: player === 'white' ? 'black' : 'white',
-              lastMovedAt: Date.now(),
-              currentPosition: move.fen || g.currentPosition,
-            };
-          }),
-        }));
-        try {
-          const { api } = await import('../lib/api');
-          await api.correspondence.move(gameId, move);
-        } catch {}
+        const { api } = await import('../lib/api');
+        const updated = await api.correspondence.move(gameId, move);
+        const mapped = mapApiGame(updated);
+        set(s => ({ games: s.games.map(g => g.id === gameId ? mapped : g) }));
       },
 
       resignGame: async (gameId) => {
-        set(s => ({
-          games: s.games.map(g => {
-            if (g.id !== gameId) return g;
-            const winner: CorrResult = g.myColor === 'white' ? 'black' : 'white';
-            return { ...g, status: 'ended', result: winner, resultReason: 'resignation' };
-          }),
-        }));
-        try {
-          const { api } = await import('../lib/api');
-          await api.correspondence.resign(gameId);
-        } catch {}
+        const { api } = await import('../lib/api');
+        const updated = await api.correspondence.resign(gameId);
+        const mapped = mapApiGame(updated);
+        set(s => ({ games: s.games.map(g => g.id === gameId ? mapped : g) }));
       },
 
       offerDraw: async (gameId) => {
-        set(s => ({
-          games: s.games.map(g =>
-            g.id === gameId ? { ...g, status: 'ended', result: 'draw', resultReason: 'agreement' } : g
-          ),
-        }));
-        try {
-          const { api } = await import('../lib/api');
-          await api.correspondence.draw(gameId);
-        } catch {}
+        const { api } = await import('../lib/api');
+        const updated = await api.correspondence.draw(gameId);
+        const mapped = mapApiGame(updated);
+        set(s => ({ games: s.games.map(g => g.id === gameId ? mapped : g) }));
       },
 
       getGame: (gameId) => get().games.find(g => g.id === gameId),

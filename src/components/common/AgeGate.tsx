@@ -11,6 +11,7 @@ const STORAGE_KEY = 'damcash_age_verified';
  * Cleared on logout (see stores/index.ts logout action).
  */
 export function AgeGate({ children }: { children: React.ReactNode }) {
+  const legalPath = typeof window !== 'undefined' && ['/terms', '/privacy'].includes(window.location.pathname);
   const [verified, setVerified] = useState<boolean>(() => {
     try { return localStorage.getItem(STORAGE_KEY) === 'yes'; } catch { return false; }
   });
@@ -36,7 +37,7 @@ export function AgeGate({ children }: { children: React.ReactNode }) {
     };
   }, [verified]);
 
-  if (verified) return <>{children}</>;
+  if (verified || legalPath) return <>{children}</>;
 
   if (declined) {
     return (

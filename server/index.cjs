@@ -3083,20 +3083,26 @@ app.get('/api/correspondence', requireAuth, async (req, res) => {
 app.post('/api/correspondence', requireAuth, async (req, res) => {
   try {
     const { universe, timePerMove, opponentUsername } = req.body;
+    const safeUniverse = normalizeUniverse(universe);
+    const safeTimePerMove = Number(timePerMove);
+    const allowedTimes = new Set([86_400_000, 259_200_000, 604_800_000, 1_209_600_000]);
+    if (!allowedTimes.has(safeTimePerMove)) return res.status(400).json({ error: 'Invalid time per move' });
     const CHESS_START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     let blackId = null;
-    if (opponentUsername) {
-      const opp = await prisma.user.findUnique({ where: { username: opponentUsername } });
+    const cleanOpponent = sanitizeText(opponentUsername, 40);
+    if (cleanOpponent) {
+      const opp = await prisma.user.findUnique({ where: { username: cleanOpponent } });
       if (!opp) return res.status(404).json({ error: 'Opponent not found' });
+      if (opp.id === req.user.id) return res.status(400).json({ error: 'Choose a different opponent' });
       blackId = opp.id;
     }
     const game = await prisma.correspondenceGame.create({
       data: {
-        universe,
-        timePerMove,
+        universe: safeUniverse,
+        timePerMove: safeTimePerMove,
         whiteId: req.user.id,
         blackId,
-        currentPosition: universe === 'chess' ? CHESS_START : 'initial',
+        currentPosition: safeUniverse === 'chess' ? CHESS_START : 'initial',
         status: blackId ? 'active' : 'waiting',
       },
       include: {
@@ -3108,7 +3114,7 @@ app.post('/api/correspondence', requireAuth, async (req, res) => {
   } catch { res.status(500).json({ error: 'Failed' }); }
 });
 
-app.get('/api/correspondence/:id', async (req, res) => {
+app.get('/api/correspondence/:id', requireAuth, async (req, res) => {
   try {
     const game = await prisma.correspondenceGame.findUnique({
       where: { id: req.params.id },
@@ -3118,6 +3124,9 @@ app.get('/api/correspondence/:id', async (req, res) => {
       },
     });
     if (!game) return res.status(404).json({ error: 'Not found' });
+    if (game.whiteId !== req.user.id && game.blackId !== req.user.id) {
+      return res.status(403).json({ error: 'Not a player in this game' });
+    }
     res.json(game);
   } catch { res.status(500).json({ error: 'Failed' }); }
 });
@@ -3127,6 +3136,7 @@ app.post('/api/correspondence/:id/move', requireAuth, async (req, res) => {
     const game = await prisma.correspondenceGame.findUnique({ where: { id: req.params.id } });
     if (!game) return res.status(404).json({ error: 'Not found' });
     if (game.status === 'ended') return res.status(400).json({ error: 'Game is over' });
+    if (game.status !== 'active') return res.status(400).json({ error: 'Game is not active yet' });
 
     const isWhite = game.whiteId === req.user.id;
     const isBlack = game.blackId === req.user.id;
@@ -3212,7 +3222,7 @@ app.post('/api/correspondence/:id/move', requireAuth, async (req, res) => {
       const opponent = moverColor === 'white' ? updated.black : updated.white;
       const mover    = moverColor === 'white' ? updated.white : updated.black;
       if (opponent?.email) {
-        sendTurnEmail(opponent.email, opponent.username, mover.username, updated.id, san || `${from}${to}`);
+        sendTurnEmail(opponent.email, opponent.username, mover.username, updated.id, san || `${from}${to}`, updated.universe);
       }
     }
 
@@ -3228,6 +3238,7 @@ app.post('/api/correspondence/:id/resign', requireAuth, async (req, res) => {
     const game = await prisma.correspondenceGame.findUnique({ where: { id: req.params.id } });
     if (!game) return res.status(404).json({ error: 'Not found' });
     if (game.status === 'ended') return res.status(400).json({ error: 'Game is already over' });
+    if (game.status !== 'active') return res.status(400).json({ error: 'Game is not active yet' });
     const isWhite = game.whiteId === req.user.id;
     const isBlack = game.blackId === req.user.id;
     if (!isWhite && !isBlack) return res.status(403).json({ error: 'Not a player in this game' });
@@ -3249,6 +3260,7 @@ app.post('/api/correspondence/:id/draw', requireAuth, async (req, res) => {
     const game = await prisma.correspondenceGame.findUnique({ where: { id: req.params.id } });
     if (!game) return res.status(404).json({ error: 'Not found' });
     if (game.status === 'ended') return res.status(400).json({ error: 'Game is already over' });
+    if (game.status !== 'active') return res.status(400).json({ error: 'Game is not active yet' });
     const isWhite = game.whiteId === req.user.id;
     const isBlack = game.blackId === req.user.id;
     if (!isWhite && !isBlack) return res.status(403).json({ error: 'Not a player in this game' });
@@ -4274,20 +4286,25 @@ if (process.env.SMTP_HOST) {
   });
 }
 
-async function sendTurnEmail(toEmail, toUsername, fromUsername, gameId, san) {
+async function sendTurnEmail(toEmail, toUsername, fromUsername, gameId, san, universe = 'chess') {
   if (!mailer) return;
+  const safeUniverse = normalizeUniverse(universe);
+  const safeGameId = encodeURIComponent(String(gameId));
+  const safeToUsername = sanitizeText(toUsername, 40);
+  const safeFromUsername = sanitizeText(fromUsername, 40);
+  const safeSan = sanitizeText(san, 20);
   try {
     await mailer.sendMail({
       from: process.env.SMTP_FROM || 'DamCash <noreply@damcash.com>',
       to: toEmail,
-      subject: `Your turn in correspondence game — ${fromUsername} played ${san}`,
+      subject: `Your turn in correspondence game — ${safeFromUsername} played ${safeSan}`,
       html: `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
           <h2 style="color:#6366f1">DamCash — Your turn!</h2>
-          <p>Hi <strong>${toUsername}</strong>,</p>
-          <p><strong>${fromUsername}</strong> just played <strong>${san}</strong> in your correspondence game.</p>
+          <p>Hi <strong>${safeToUsername}</strong>,</p>
+          <p><strong>${safeFromUsername}</strong> just played <strong>${safeSan}</strong> in your correspondence game.</p>
           <p>It's your turn to respond.</p>
-          <a href="${APP_URL}/correspondence/${gameId}"
+          <a href="${APP_URL}/${safeUniverse}/correspondence/${safeGameId}"
              style="display:inline-block;background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;margin-top:8px">
             Make your move →
           </a>

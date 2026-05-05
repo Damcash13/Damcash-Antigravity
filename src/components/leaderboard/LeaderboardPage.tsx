@@ -270,7 +270,7 @@ export const LeaderboardPage: React.FC = () => {
             <div
               key={entry.id}
               className={`lb-row ${isMe ? 'lb-row-me' : ''} ${entry.rank <= 3 ? 'lb-row-top' : ''}`}
-              onClick={() => isMe && navigate('/profile')}
+              onClick={() => isMe && navigate(`/${universe}/profile/${encodeURIComponent(entry.name)}`)}
               style={isMe ? { cursor: 'pointer' } : undefined}
             >
               {/* Rank */}
