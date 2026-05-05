@@ -17,86 +17,71 @@ const MiniSpark: React.FC<{ data: number[] }> = ({ data }) => {
   const pts = data.map((v, i) =>
     `${(i / (data.length - 1)) * W},${H - ((v - min) / rng) * H}`
   ).join(' ');
-  const up = data[data.length - 1] >= data[0];
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ display: 'block' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ display: 'block', color: 'var(--text-3)' }}>
       <polyline points={pts} fill="none"
-        stroke={up ? '#22c55e' : '#ef4444'}
+        stroke="currentColor"
         strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 };
 
-// ── Rank medal ────────────────────────────────────────────────────────────────
+// ── Rank display ──────────────────────────────────────────────────────────────
 function rankDisplay(rank: number) {
-  if (rank === 1) return <span className="lb-medal gold">🥇</span>;
-  if (rank === 2) return <span className="lb-medal silver">🥈</span>;
-  if (rank === 3) return <span className="lb-medal bronze">🥉</span>;
-  return <span className="lb-rank-num">#{rank}</span>;
+  return <span className="lb-rank-num">{rank}</span>;
 }
 
 // ── Title badge ───────────────────────────────────────────────────────────────
-const TITLE_COLORS: Record<string, string> = {
-  GM: '#fbbf24', IM: '#a78bfa', FM: '#60a5fa', CM: '#34d399', NM: '#94a3b8',
-};
 const TitleBadge: React.FC<{ title?: string }> = ({ title }) => {
   if (!title) return null;
   return (
-    <span className="lb-title-badge" style={{ color: TITLE_COLORS[title], borderColor: TITLE_COLORS[title] + '55' }}>
-      {title}
-    </span>
+    <span className="lb-title-badge">{title}</span>
   );
 };
 
 // ── Time control tabs config ──────────────────────────────────────────────────
-const TC_TAB_KEYS: { key: TimeCategory; timeKey: string; icon: string; color: string }[] = [
-  { key: 'overall',   timeKey: 'lobby.leaderboard', icon: '🏆', color: '#f59e0b' },
-  { key: 'bullet',    timeKey: 'time.bullet',    icon: '🔥', color: '#ef4444' },
-  { key: 'blitz',     timeKey: 'time.blitz',     icon: '⚡', color: '#f97316' },
-  { key: 'rapid',     timeKey: 'time.rapid',     icon: '🐢', color: '#22c55e' },
-  { key: 'classical', timeKey: 'time.classical', icon: '🏛️', color: '#3b82f6' },
+const TC_TAB_KEYS: { key: TimeCategory; timeKey: string }[] = [
+  { key: 'overall',   timeKey: 'lobby.leaderboard' },
+  { key: 'bullet',    timeKey: 'time.bullet' },
+  { key: 'blitz',     timeKey: 'time.blitz' },
+  { key: 'rapid',     timeKey: 'time.rapid' },
+  { key: 'classical', timeKey: 'time.classical' },
 ];
 
-// ── Top 3 podium ──────────────────────────────────────────────────────────────
-const Podium: React.FC<{ entries: LeaderboardEntry[] }> = ({ entries }) => {
-  const [first, second, third] = entries;
+// ── Top players ───────────────────────────────────────────────────────────────
+const TopPlayers: React.FC<{ entries: LeaderboardEntry[] }> = ({ entries }) => {
+  const first = entries[0];
   if (!first) return null;
 
-  const PodiumCard: React.FC<{ entry: LeaderboardEntry; pos: 1 | 2 | 3 }> = ({ entry, pos }) => {
-    const band = ratingBand(entry.rating);
-    const heights = { 1: 110, 2: 78, 3: 58 };
-    const medals  = { 1: '🥇', 2: '🥈', 3: '🥉' };
-    return (
-      <div className={`podium-card pos-${pos}`} style={{ '--podium-h': `${heights[pos]}px` } as React.CSSProperties}>
-        <div className="podium-player">
-          <div className="podium-avatar" style={{ borderColor: pos === 1 ? '#fbbf24' : pos === 2 ? '#94a3b8' : '#cd7f32' }}>
-            {entry.name[0].toUpperCase()}
-            {entry.online && <span className="podium-online-dot" />}
-          </div>
-          <div className="podium-medal">{medals[pos]}</div>
-          <div className="podium-name">
-            <TitleBadge title={entry.title} />
-            {entry.name}
-          </div>
-          {entry.country && (
-            <div className="podium-country" title={countryName(entry.country)}>
-              {countryFlag(entry.country) || entry.country.toUpperCase()}
-            </div>
-          )}
-          <div className="podium-rating" style={{ color: band.color }}>{entry.rating}</div>
-          <div className="podium-band" style={{ color: band.color }}>{band.label}</div>
-        </div>
-        <div className="podium-base" />
-      </div>
-    );
-  };
-
   return (
-    <div className="podium-wrap">
-      {second && <PodiumCard entry={second} pos={2} />}
-      {first  && <PodiumCard entry={first}  pos={1} />}
-      {third  && <PodiumCard entry={third}  pos={3} />}
-    </div>
+    <section className="lb-leaders-panel">
+      <div className="lb-leaders-heading">Top players</div>
+      <div className="lb-leaders-list">
+        {entries.map((entry) => {
+          const band = ratingBand(entry.rating);
+          return (
+            <div className="lb-leader-item" key={entry.id}>
+              <span className="lb-leader-rank">{entry.rank}</span>
+              <div className="lb-leader-main">
+                <div className="lb-leader-name">
+                  <TitleBadge title={entry.title} />
+                  <span>{entry.name}</span>
+                </div>
+                {entry.country && (
+                  <div className="lb-leader-country" title={countryName(entry.country)}>
+                    {countryFlag(entry.country) || entry.country.toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="lb-leader-rating">
+                <span>{entry.rating}</span>
+                <small>{band.label}</small>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 };
 
@@ -144,7 +129,7 @@ export const LeaderboardPage: React.FC = () => {
       <div className="lb-topbar">
         <div>
           <h1 className="lb-title">
-            {universe === 'chess' ? '♟' : '⬤'} {t('lobby.leaderboard')}
+            {t('lobby.leaderboard')}
           </h1>
           <p className="lb-subtitle">
             {activeTab.label} · {filtered.length} {t('leaderboard.player')}
@@ -155,7 +140,7 @@ export const LeaderboardPage: React.FC = () => {
         <div className="lb-search-wrap">
           <input
             className="lb-search"
-            placeholder={`🔍 ${t('lobby.searchPlayers')}`}
+            placeholder={t('lobby.searchPlayers')}
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(0); }}
           />
@@ -168,22 +153,19 @@ export const LeaderboardPage: React.FC = () => {
           <button
             key={tab.key}
             className={`lb-tc-tab ${tc === tab.key ? 'active' : ''}`}
-            style={tc === tab.key ? { borderColor: tab.color, color: tab.color } : {}}
             onClick={() => { setTc(tab.key); setPage(0); }}
             disabled={loading}
           >
-            <span className="lb-tc-icon">
-              {loading && tc === tab.key
-                ? <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', verticalAlign: 'middle' }} />
-                : tab.icon}
-            </span>
+            {loading && tc === tab.key && (
+              <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', verticalAlign: 'middle' }} />
+            )}
             <span>{tab.label}</span>
           </button>
         ))}
       </div>
 
-      {/* ── Podium (only on page 0 with no search) ── */}
-      {page === 0 && !search && <Podium entries={top3} />}
+      {/* ── Top players (only on page 0 with no search) ── */}
+      {page === 0 && !search && <TopPlayers entries={top3} />}
 
       {/* ── My position banner ── */}
       {myEntry && !search && (
@@ -192,7 +174,7 @@ export const LeaderboardPage: React.FC = () => {
           <span className="lb-my-rank-val">#{myEntry.rank}</span>
           <span className="lb-my-name">{myEntry.name}</span>
           <span className="lb-my-rating">{myEntry.rating}</span>
-          <span className="lb-my-band" style={{ color: ratingBand(myEntry.rating).color }}>
+          <span className="lb-my-band">
             {ratingBand(myEntry.rating).label}
           </span>
         </div>
@@ -201,7 +183,6 @@ export const LeaderboardPage: React.FC = () => {
       {/* ── Summary / Error ── */}
       {error ? (
         <div className="lb-error-banner">
-          <div style={{ fontSize: 32 }}>⚠️</div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 16 }}>{t('common.error')}</div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>{error}</div>
@@ -217,7 +198,7 @@ export const LeaderboardPage: React.FC = () => {
             <div className="lb-sc-label">{t('leaderboard.topPlayers')}</div>
           </div>
           <div className="lb-summary-card">
-            <div className="lb-sc-val" style={{ color: '#22c55e' }}>
+            <div className="lb-sc-val">
               {rawList.filter(e => e.online).length}
             </div>
             <div className="lb-sc-label">{t('common.online')}</div>
@@ -258,11 +239,7 @@ export const LeaderboardPage: React.FC = () => {
           </div>
         ) : pageSlice.length === 0 ? (
           <div className="lb-no-results">
-            {search ? (
-              <><span style={{ fontSize: 32 }}>🔍</span><span>{t('leaderboard.noPlayers')}</span></>
-            ) : (
-              <><span style={{ fontSize: 32 }}>🏆</span><span>{t('leaderboard.noPlayers')}</span></>
-            )}
+            <span>{t('leaderboard.noPlayers')}</span>
           </div>
         ) : pageSlice.map(entry => {
           const isMe  = user?.id === entry.id;
@@ -285,7 +262,7 @@ export const LeaderboardPage: React.FC = () => {
 
               {/* Player */}
               <div className="lb-col-player lb-player-cell">
-                <div className="lb-avatar" style={isMe ? { background: 'var(--accent)' } : undefined}>
+                <div className="lb-avatar">
                   {entry.name[0].toUpperCase()}
                   {entry.online && <span className="lb-online-dot" />}
                 </div>
@@ -305,8 +282,8 @@ export const LeaderboardPage: React.FC = () => {
 
               {/* Rating */}
               <div className="lb-col-center">
-                <span className="lb-rating" style={{ color: band.color }}>{entry.rating}</span>
-                <div className="lb-rating-band" style={{ color: band.color }}>{band.label}</div>
+                <span className="lb-rating">{entry.rating}</span>
+                <div className="lb-rating-band">{band.label}</div>
               </div>
 
               {/* Peak */}
@@ -326,9 +303,7 @@ export const LeaderboardPage: React.FC = () => {
 
               {/* Win % */}
               <div className="lb-col-center lb-hide-xs">
-                <span className={`lb-winpct ${winPct >= 60 ? 'great' : winPct >= 45 ? 'good' : 'low'}`}>
-                  {winPct}%
-                </span>
+                <span className="lb-winpct">{winPct}%</span>
               </div>
 
               {/* Trend */}
@@ -339,7 +314,7 @@ export const LeaderboardPage: React.FC = () => {
               {/* Streak */}
               <div className="lb-col-center">
                 {entry.streak > 0 ? (
-                  <span className="lb-streak">🔥 {entry.streak}</span>
+                  <span className="lb-streak">{entry.streak}</span>
                 ) : (
                   <span className="lb-dim">—</span>
                 )}
