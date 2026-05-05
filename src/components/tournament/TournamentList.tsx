@@ -85,7 +85,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
         betEntry: clampMoney(form.betEntry),
         prizePool: clampMoney(form.prizePool),
         description: form.betEntry > 0
-          ? `Paid tournament. Entry fee is ${formatMoney(form.betEntry)}; entry fees are added to the prize pool.`
+          ? `Paid tournament. Entry fee is ${formatMoney(form.betEntry)}; entry fees are added to the prize pool and paid to the top score at the end.`
           : `Free tournament. No wallet charge is required to join.`,
         startsAt,
       });
@@ -167,7 +167,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
 
   const moneyLine = (tObj: Tournament): string => {
     if (tObj.betEntry > 0) {
-      return `Entry fee ${formatMoney(tObj.betEntry)} · Prize pool ${formatMoney(tObj.prizePool)} · charged on join`;
+      return `Entry fee ${formatMoney(tObj.betEntry)} · Prize pool ${formatMoney(tObj.prizePool)} · top score wins`;
     }
     if (tObj.prizePool > 0) return `Free entry · Prize pool ${formatMoney(tObj.prizePool)}`;
     return 'Free entry · No wallet charge';
@@ -468,6 +468,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
                     ? `Players pay ${formatMoney(form.betEntry)} on join. The fee is added to the prize pool and refunded only if they leave before the start.`
                     : 'Players can join without a wallet charge.'}
                 </span>
+                <span>Prize payout: top score wins the pool; tied top scores split evenly.</span>
                 <span>Starting prize pool: {formatMoney(form.prizePool)}.</span>
               </div>
 

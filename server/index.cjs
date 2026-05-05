@@ -4499,6 +4499,7 @@ startServer().catch((err) => {
 
 const SCHEDULE_WINDOW_HOURS = 24;
 const HOURLY_TOURNAMENT_DURATION_MS = 60 * 60 * 1000;
+const TOURNAMENT_PAYOUT_TYPE = 'TOURNAMENT_PAYOUT';
 let schedulerTickInFlight = false;
 
 function utcHourStart(date = new Date()) {
@@ -4597,6 +4598,76 @@ async function createScheduledTournament({ name, icon, universe, timeControl, fo
   }
 }
 
+async function settleTournamentPrizePool(tournamentId) {
+  try {
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: {
+        players: {
+          include: { user: { select: { id: true, username: true } } },
+          orderBy: [{ score: 'desc' }, { wins: 'desc' }],
+        },
+      },
+    });
+    const poolCents = Math.round(Number(tournament?.prizePool || 0) * 100);
+    if (!tournament || poolCents <= 0 || tournament.players.length === 0) return 0;
+
+    const existingPayout = await prisma.transaction.findFirst({
+      where: { type: TOURNAMENT_PAYOUT_TYPE, matchId: tournament.id },
+      select: { id: true },
+    });
+    if (existingPayout) return 0;
+
+    const topScore = Math.max(...tournament.players.map(player => Number(player.score) || 0));
+    const winners = tournament.players.filter(player => Number(player.score || 0) === topScore);
+    if (winners.length === 0) return 0;
+
+    const baseShareCents = Math.floor(poolCents / winners.length);
+    const remainderCents = poolCents % winners.length;
+    let paidCount = 0;
+
+    await prisma.$transaction(async (tx) => {
+      const alreadyPaid = await tx.transaction.findFirst({
+        where: { type: TOURNAMENT_PAYOUT_TYPE, matchId: tournament.id },
+        select: { id: true },
+      });
+      if (alreadyPaid) return;
+
+      for (const [index, winner] of winners.entries()) {
+        const amountCents = baseShareCents + (index < remainderCents ? 1 : 0);
+        if (amountCents <= 0) continue;
+        const amount = amountCents / 100;
+        const wallet = await tx.wallet.upsert({
+          where: { userId: winner.userId },
+          create: { userId: winner.userId, balance: amount },
+          update: { balance: { increment: amount } },
+        });
+        await tx.transaction.create({
+          data: {
+            walletId: wallet.id,
+            amount,
+            type: TOURNAMENT_PAYOUT_TYPE,
+            status: 'COMPLETED',
+            matchId: tournament.id,
+            stripeSessionId: `tournament-payout:${tournament.id}:${winner.userId}`,
+          },
+        });
+        paidCount += 1;
+      }
+    });
+
+    if (paidCount > 0) {
+      log.info(`[Tournament] Paid $${(poolCents / 100).toFixed(2)} prize pool for ${tournament.name} to ${paidCount} winner(s)`);
+      io.to(`tournament:${tournament.id}`).emit('tournament:updated', { id: tournament.id });
+      io.emit('tournament:global_update');
+    }
+    return paidCount;
+  } catch (e) {
+    log.error('[Tournament] Failed to settle tournament prize pool:', e.message);
+    return 0;
+  }
+}
+
 async function refreshTournamentStatusFields(nowMs = Date.now()) {
   const tournaments = await prisma.tournament.findMany({
     select: { id: true, startsAt: true, durationMs: true, status: true },
@@ -4610,8 +4681,35 @@ async function refreshTournamentStatusFields(nowMs = Date.now()) {
       where: { id: update.id },
       data: { status: update.nextStatus },
     });
+    if (update.nextStatus === 'finished') {
+      await settleTournamentPrizePool(update.id);
+    }
   }
   return updates.length;
+}
+
+async function settleFinishedTournamentPrizePools() {
+  const paidRows = await prisma.transaction.findMany({
+    where: { type: TOURNAMENT_PAYOUT_TYPE, matchId: { not: null } },
+    select: { matchId: true },
+    distinct: ['matchId'],
+  });
+  const paidTournamentIds = paidRows.map(row => row.matchId).filter(Boolean);
+  const tournaments = await prisma.tournament.findMany({
+    where: {
+      status: 'finished',
+      prizePool: { gt: 0 },
+      ...(paidTournamentIds.length ? { id: { notIn: paidTournamentIds } } : {}),
+    },
+    select: { id: true },
+    orderBy: { startsAt: 'desc' },
+    take: 25,
+  });
+  let settled = 0;
+  for (const tournament of tournaments) {
+    settled += await settleTournamentPrizePool(tournament.id);
+  }
+  return settled;
 }
 
 async function ensureHourlyTournamentWindow(now = new Date()) {
@@ -4701,9 +4799,10 @@ async function runSchedulerTick() {
       ensureHourlyTournamentWindow(),
       ensureSpecialTournamentSchedule(),
     ]);
-    if (statusUpdates || hourlyCreated || specialCreated) {
+    const payoutsSettled = await settleFinishedTournamentPrizePools();
+    if (statusUpdates || hourlyCreated || specialCreated || payoutsSettled) {
       io.emit('tournament:global_update');
-      log.info(`[Scheduler] Synced tournaments — ${hourlyCreated} hourly created, ${specialCreated} special created, ${statusUpdates} statuses updated`);
+      log.info(`[Scheduler] Synced tournaments — ${hourlyCreated} hourly created, ${specialCreated} special created, ${statusUpdates} statuses updated, ${payoutsSettled} payouts settled`);
     }
   } catch (e) {
     log.error('[Scheduler] Tick failed:', e.message);

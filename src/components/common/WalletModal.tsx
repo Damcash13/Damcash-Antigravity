@@ -96,6 +96,7 @@ export const WalletModal: React.FC<Props> = ({ open, onClose }) => {
       BET_REFUND: { label: 'Bet refund', detail: 'Stake returned after draw or cancelled game.' },
       TOURNAMENT_ENTRY: { label: 'Tournament entry', detail: 'Entry fee added to the prize pool.' },
       TOURNAMENT_REFUND: { label: 'Tournament refund', detail: 'Entry fee returned before tournament start.' },
+      TOURNAMENT_PAYOUT: { label: 'Tournament payout', detail: 'Prize pool paid after final standings.' },
     };
     return labels[type] ?? { label: type.replace(/_/g, ' '), detail: 'Wallet ledger event.' };
   };

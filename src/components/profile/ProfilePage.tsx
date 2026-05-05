@@ -297,6 +297,7 @@ const transactionTypeLabel = (type: string) => {
     BET_REFUND: 'Bet refund',
     TOURNAMENT_ENTRY: 'Tournament entry',
     TOURNAMENT_REFUND: 'Tournament refund',
+    TOURNAMENT_PAYOUT: 'Tournament payout',
   };
   return labels[type] ?? type;
 };

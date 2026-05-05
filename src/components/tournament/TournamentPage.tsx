@@ -264,8 +264,10 @@ export const TournamentPage: React.FC = () => {
       : 'Late joining can still place you in the room, but new pairings are closed for the final 2 minutes.'
     : 'Players can register now, then enter the waiting room during the final 3 minutes before start.';
   const moneyRulesText = tournament.betEntry > 0
-    ? `Entry fee is ${formatMoney(tournament.betEntry)}. It is charged when you join and added to the prize pool. Leaving before the start refunds the entry fee; after the start, entry fees are not automatically refunded. Current prize pool: ${formatMoney(tournament.prizePool)}.`
-    : `No entry fee is required. Current prize pool: ${formatMoney(tournament.prizePool)}. Prize payout rules should be confirmed before real-money events.`;
+    ? `Entry fee is ${formatMoney(tournament.betEntry)}. It is charged when you join and added to the prize pool. Leaving before the start refunds the entry fee; after the start, entry fees are not automatically refunded. At the end, the top score receives the prize pool; tied top scores split it evenly. Current prize pool: ${formatMoney(tournament.prizePool)}.`
+    : tournament.prizePool > 0
+    ? `No entry fee is required. At the end, the top score receives the prize pool; tied top scores split it evenly. Current prize pool: ${formatMoney(tournament.prizePool)}.`
+    : `No entry fee is required. Current prize pool: ${formatMoney(tournament.prizePool)}.`;
   const entryLabel = tournament.betEntry > 0 ? formatMoney(tournament.betEntry) : '';
   const joinCta = hasJoined
     ? isRunning ? `🏳 ${t('tournament.withdraw')}` : `✕ ${t('common.cancel')}`
@@ -356,7 +358,9 @@ export const TournamentPage: React.FC = () => {
         <strong>{tournament.betEntry > 0 ? `Paid tournament · ${formatMoney(tournament.betEntry)} entry` : 'Free tournament'}</strong>
         <span>
           {tournament.betEntry > 0
-            ? `Your wallet is charged when you join. Entry fees go into the prize pool, now ${formatMoney(tournament.prizePool)}. Leaving before start refunds the entry fee.`
+            ? `Your wallet is charged when you join. Entry fees go into the prize pool, now ${formatMoney(tournament.prizePool)}. Top score wins the pool; tied top scores split evenly. Leaving before start refunds the entry fee.`
+            : tournament.prizePool > 0
+            ? `No wallet charge is required to join. Top score wins the ${formatMoney(tournament.prizePool)} prize pool; tied top scores split evenly.`
             : `No wallet charge is required to join. Current prize pool: ${formatMoney(tournament.prizePool)}.`}
         </span>
       </div>
