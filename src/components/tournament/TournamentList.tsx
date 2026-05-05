@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useUniverseStore, useUserStore } from '../../stores';
 import { useTournamentStore, Tournament, TournamentStatus } from '../../stores/tournamentStore';
 import { api } from '../../lib/api';
+import { socket } from '../../lib/socket';
 import { useNotificationStore } from '../../stores';
 import '../../styles/tournaments.css';
 
@@ -84,6 +85,11 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
   };
 
   useEffect(() => { fetchTournaments(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const handleUpdate = () => fetchTournaments();
+    socket.on('tournament:global_update', handleUpdate);
+    return () => socket.off('tournament:global_update', handleUpdate);
+  }, [fetchTournaments]);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
