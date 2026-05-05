@@ -10,6 +10,7 @@ import { api, ApiUserProfile, ApiUserStats, ApiMatch, ApiFullStats } from '../..
 import { supabase } from '../../lib/supabase';
 import { useInviteStore } from '../../stores/inviteStore';
 import { useSafetyStore } from '../../stores/safetyStore';
+import { useDirectMessageStore } from '../../stores/directMessageStore';
 import { AvatarUpload } from './AvatarUpload';
 import '../../styles/profile.css';
 
@@ -264,6 +265,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
   const blockedUsers = useSafetyStore(s => s.blockedUsers);
   const blockUser = useSafetyStore(s => s.blockUser);
   const unblockUser = useSafetyStore(s => s.unblockUser);
+  const openConversation = useDirectMessageStore(s => s.openConversation);
   const [profile,   setProfile]   = useState<ApiUserProfile | null>(null);
   const [stats,     setStats]     = useState<ApiUserStats | null>(null);
   const [games,     setGames]     = useState<ApiMatch[]>([]);
@@ -355,6 +357,18 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
     }
   };
 
+  const handleMessage = () => {
+    if (!isLoggedIn) {
+      addNotification('Sign in to message players.', 'warning');
+      return;
+    }
+    if (isBlocked) {
+      addNotification(`Unblock ${profile.username} before messaging them.`, 'warning');
+      return;
+    }
+    openConversation(profile.username);
+  };
+
   const handleReview = async () => {
     if (!isLoggedIn) {
       addNotification('Sign in to request a review.', 'warning');
@@ -439,6 +453,9 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
               <div className="pf-safety-actions">
                 <button className="btn btn-primary btn-sm" onClick={handleChallenge} disabled={!onlineEntry || isBlocked}>
                   ⚔ Challenge
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={handleMessage} disabled={isBlocked}>
+                  💬 Message
                 </button>
                 <button className="btn btn-secondary btn-sm" onClick={handleReport}>
                   🚩 Report

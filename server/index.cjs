@@ -225,6 +225,7 @@ const socketToUserId = new Map(); // socketId -> db user id
 const userIdToSocketId = new Map(); // db user id -> socketId
 let tournamentMatchSchemaReady = false;
 let safetySchemaReady = false;
+let directMessageSchemaReady = false;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function genCode() {
@@ -318,6 +319,24 @@ async function ensureSafetySchema() {
   safetySchemaReady = true;
 }
 
+async function ensureDirectMessageSchema() {
+  if (directMessageSchemaReady) return;
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "DirectMessage" (
+      id TEXT PRIMARY KEY,
+      "senderId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+      "recipientId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      "readAt" TIMESTAMP(3),
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "DirectMessage_senderId_createdAt_idx" ON "DirectMessage"("senderId", "createdAt")');
+  await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "DirectMessage_recipientId_createdAt_idx" ON "DirectMessage"("recipientId", "createdAt")');
+  await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "DirectMessage_recipientId_readAt_idx" ON "DirectMessage"("recipientId", "readAt")');
+  directMessageSchemaReady = true;
+}
+
 async function findUserByUsername(username) {
   const clean = sanitizeText(username, 40);
   if (!clean) return null;
@@ -325,6 +344,23 @@ async function findUserByUsername(username) {
     SELECT id, username
     FROM "User"
     WHERE LOWER(username) = LOWER(${clean})
+    LIMIT 1
+  `;
+  return rows?.[0] || null;
+}
+
+async function findBlockBetween(a, b) {
+  if (!a?.id || !b?.id) return null;
+  const rows = await prisma.$queryRaw`
+    SELECT "blockerId", "targetId", "targetUsername"
+    FROM "UserBlock"
+    WHERE (
+      "blockerId" = ${a.id}
+      AND ("targetId" = ${b.id} OR LOWER("targetUsername") = LOWER(${b.username}))
+    ) OR (
+      "blockerId" = ${b.id}
+      AND ("targetId" = ${a.id} OR LOWER("targetUsername") = LOWER(${a.username}))
+    )
     LIMIT 1
   `;
   return rows?.[0] || null;
@@ -3262,6 +3298,157 @@ app.get('/api/admin/moderation', requireAuth, requireAdmin, async (req, res) => 
   }
 });
 
+// ── REST: Direct messages ───────────────────────────────────────────────────
+app.get('/api/messages/conversations', requireAuth, async (req, res) => {
+  try {
+    await ensureDirectMessageSchema();
+    const me = await getLocalAuthUser(req);
+    if (!me) return res.status(404).json({ error: 'Account profile not synced yet' });
+
+    const rows = await prisma.$queryRaw`
+      SELECT DISTINCT ON (other_user.id)
+        other_user.id AS "otherUserId",
+        other_user.username AS "otherUsername",
+        other_user.country AS "otherCountry",
+        dm.id AS "lastMessageId",
+        dm.body AS "lastBody",
+        dm."createdAt" AS "lastCreatedAt",
+        dm."senderId" AS "lastSenderId",
+        (
+          SELECT COUNT(*)
+          FROM "DirectMessage" unread
+          WHERE unread."recipientId" = ${me.id}
+            AND unread."senderId" = other_user.id
+            AND unread."readAt" IS NULL
+        ) AS "unreadCount"
+      FROM "DirectMessage" dm
+      JOIN "User" other_user
+        ON other_user.id = CASE
+          WHEN dm."senderId" = ${me.id} THEN dm."recipientId"
+          ELSE dm."senderId"
+        END
+      WHERE dm."senderId" = ${me.id} OR dm."recipientId" = ${me.id}
+      ORDER BY other_user.id, dm."createdAt" DESC
+    `;
+
+    const conversations = rows
+      .map(row => ({
+        otherUserId: row.otherUserId,
+        otherUsername: row.otherUsername,
+        otherCountry: row.otherCountry || '',
+        lastMessageId: row.lastMessageId,
+        lastBody: row.lastBody,
+        lastCreatedAt: row.lastCreatedAt,
+        lastSenderId: row.lastSenderId,
+        unreadCount: Number(row.unreadCount || 0),
+      }))
+      .sort((a, b) => new Date(b.lastCreatedAt).getTime() - new Date(a.lastCreatedAt).getTime());
+
+    res.json({ conversations });
+  } catch (err) {
+    console.error('[Messages conversations] Error:', err);
+    res.status(500).json({ error: 'Could not load messages' });
+  }
+});
+
+app.get('/api/messages/thread/:username', requireAuth, async (req, res) => {
+  try {
+    await ensureDirectMessageSchema();
+    const me = await getLocalAuthUser(req);
+    if (!me) return res.status(404).json({ error: 'Account profile not synced yet' });
+    const other = await findUserByUsername(req.params.username);
+    if (!other) return res.status(404).json({ error: 'User not found' });
+
+    await prisma.$executeRaw`
+      UPDATE "DirectMessage"
+      SET "readAt" = CURRENT_TIMESTAMP
+      WHERE "senderId" = ${other.id}
+        AND "recipientId" = ${me.id}
+        AND "readAt" IS NULL
+    `;
+
+    const rows = await prisma.$queryRaw`
+      SELECT
+        dm.id,
+        dm.body,
+        dm."senderId",
+        sender.username AS "senderUsername",
+        dm."recipientId",
+        recipient.username AS "recipientUsername",
+        dm."readAt",
+        dm."createdAt"
+      FROM "DirectMessage" dm
+      JOIN "User" sender ON sender.id = dm."senderId"
+      JOIN "User" recipient ON recipient.id = dm."recipientId"
+      WHERE
+        (dm."senderId" = ${me.id} AND dm."recipientId" = ${other.id})
+        OR
+        (dm."senderId" = ${other.id} AND dm."recipientId" = ${me.id})
+      ORDER BY dm."createdAt" ASC
+      LIMIT 150
+    `;
+
+    res.json({
+      other,
+      messages: rows,
+    });
+  } catch (err) {
+    console.error('[Messages thread] Error:', err);
+    res.status(500).json({ error: 'Could not load conversation' });
+  }
+});
+
+app.post('/api/messages', requireAuth, async (req, res) => {
+  try {
+    await ensureSafetySchema();
+    await ensureDirectMessageSchema();
+    const me = await getLocalAuthUser(req);
+    if (!me) return res.status(404).json({ error: 'Account profile not synced yet' });
+
+    const recipient = await findUserByUsername(req.body?.toUsername);
+    if (!recipient) return res.status(404).json({ error: 'User not found' });
+    if (recipient.id === me.id) return res.status(400).json({ error: 'You cannot message yourself' });
+
+    const body = sanitizeText(req.body?.body, 1000);
+    if (!body) return res.status(400).json({ error: 'Message cannot be empty' });
+
+    const block = await findBlockBetween(me, recipient);
+    if (block?.blockerId === me.id) {
+      return res.status(403).json({ error: 'Unblock this user before messaging them' });
+    }
+    if (block?.blockerId === recipient.id) {
+      return res.status(403).json({ error: 'This user cannot receive your message' });
+    }
+
+    const id = genId();
+    const rows = await prisma.$queryRaw`
+      INSERT INTO "DirectMessage" (id, "senderId", "recipientId", body)
+      VALUES (${id}, ${me.id}, ${recipient.id}, ${body})
+      RETURNING id, body, "senderId", "recipientId", "readAt", "createdAt"
+    `;
+    const message = {
+      ...rows[0],
+      senderUsername: me.username,
+      recipientUsername: recipient.username,
+    };
+
+    const recipientSocket = userIdToSocketId.get(recipient.id);
+    if (recipientSocket) {
+      io.to(recipientSocket).emit('direct-message:new', {
+        id: message.id,
+        fromUsername: me.username,
+        body: message.body,
+        createdAt: message.createdAt,
+      });
+    }
+
+    res.json({ message });
+  } catch (err) {
+    console.error('[Messages send] Error:', err);
+    res.status(500).json({ error: 'Could not send message' });
+  }
+});
+
 app.post('/api/tournaments/:id/pair', requireAuth, async (req, res) => {
   try {
     const tournamentId = req.params.id;
@@ -3836,6 +4023,7 @@ const PORT = process.env.PORT || 3000;
 async function startServer() {
   await ensureTournamentMatchSchema();
   await ensureSafetySchema();
+  await ensureDirectMessageSchema();
   await resetStaleTournamentPairingStatuses();
   httpServer.listen(PORT, '0.0.0.0', () => {
     log.info(`DamCash server → http://0.0.0.0:${PORT}`);

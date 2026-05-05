@@ -232,6 +232,20 @@ export const api = {
       request<{ reports: ApiModerationReport[] }>(`/api/admin/moderation?limit=${encodeURIComponent(String(limit))}`),
   },
 
+  messages: {
+    conversations: () =>
+      request<{ conversations: ApiConversation[] }>('/api/messages/conversations'),
+    thread: (username: string) =>
+      request<{ other: { id: string; username: string }; messages: ApiDirectMessage[] }>(
+        `/api/messages/thread/${encodeURIComponent(username)}`
+      ),
+    send: (body: { toUsername: string; body: string }) =>
+      request<{ message: ApiDirectMessage }>('/api/messages', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+  },
+
   wallet: {
     get: () => request<ApiWallet>('/api/wallet'),
     deposit: (amount: number) =>
@@ -392,6 +406,28 @@ export interface ApiModerationReport {
   reporterUsername: string | null;
   matchId: string | null;
   paymentId: string | null;
+  createdAt: string;
+}
+
+export interface ApiConversation {
+  otherUserId: string;
+  otherUsername: string;
+  otherCountry?: string;
+  lastMessageId: string;
+  lastBody: string;
+  lastCreatedAt: string;
+  lastSenderId: string;
+  unreadCount: number;
+}
+
+export interface ApiDirectMessage {
+  id: string;
+  body: string;
+  senderId: string;
+  senderUsername: string;
+  recipientId: string;
+  recipientUsername: string;
+  readAt: string | null;
   createdAt: string;
 }
 

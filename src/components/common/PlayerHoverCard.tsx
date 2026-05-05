@@ -4,6 +4,7 @@ import { useUserStore, useNotificationStore, useUniverseStore } from '../../stor
 import { useInviteStore } from '../../stores/inviteStore';
 import { useLiveGamesStore } from '../../stores';
 import { useSafetyStore } from '../../stores/safetyStore';
+import { useDirectMessageStore } from '../../stores/directMessageStore';
 import { api } from '../../lib/api';
 
 // Convert ISO 3166-1 alpha-2 code → emoji flag (e.g. "US" → 🇺🇸)
@@ -43,6 +44,7 @@ export const PlayerHoverCard: React.FC<Props> = ({
   const unblockUser = useSafetyStore(s => s.unblockUser);
   const muteUser = useSafetyStore(s => s.muteUser);
   const unmuteUser = useSafetyStore(s => s.unmuteUser);
+  const openConversation = useDirectMessageStore(s => s.openConversation);
 
   const [visible, setVisible] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -102,7 +104,17 @@ export const PlayerHoverCard: React.FC<Props> = ({
   };
   const handleMessage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    addNotification('Direct messages are coming soon.', 'info');
+    if (!me || !isLoggedIn) {
+      addNotification('Sign in to message players.', 'warning');
+      setVisible(false);
+      return;
+    }
+    if (isBlockedUser) {
+      addNotification(`Unblock ${username} before messaging them.`, 'warning');
+      setVisible(false);
+      return;
+    }
+    openConversation(username);
     setVisible(false);
   };
 
@@ -276,9 +288,11 @@ export const PlayerHoverCard: React.FC<Props> = ({
             <button className="phc-btn phc-btn-stats" onClick={handleViewProfile}>
               📊 Stats
             </button>
-            <button className="phc-btn phc-btn-message" onClick={handleMessage}>
-              💬 Message
-            </button>
+            {me && me.name !== username && (
+              <button className="phc-btn phc-btn-message" onClick={handleMessage}>
+                💬 Message
+              </button>
+            )}
             {me && me.name !== username && (
               <button className="phc-btn phc-btn-muted" onClick={handleMute}>
                 {isMutedUser ? '🔊 Unmute' : '🔇 Mute chat'}

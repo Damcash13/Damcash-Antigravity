@@ -6,6 +6,7 @@ import { PlayerSearchBar } from '../invite/PlayerSearchBar';
 import { OnlinePlayer } from '../../stores/inviteStore';
 import { NotificationCenter } from '../common/NotificationCenter';
 import { getSoundEnabled, toggleSoundGlobal } from '../../hooks/useSound';
+import { useDirectMessageStore } from '../../stores/directMessageStore';
 import '../../styles/nav-dropdown.css';
 
 interface Props {
@@ -388,6 +389,8 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
   const { t, i18n } = useTranslation();
   const { universe, toggleUniverse } = useUniverseStore();
   const { user, isLoggedIn, logout, lastRatingChange } = useUserStore();
+  const openMessages = useDirectMessageStore(s => s.openInbox);
+  const messageUnreadCount = useDirectMessageStore(s => s.unreadCount);
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(() => getSoundEnabled());
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -436,6 +439,18 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
           </button>
 
           {/* Notification center */}
+          {isLoggedIn && (
+            <button
+              className="header-message-btn"
+              onClick={openMessages}
+              title="Messages"
+            >
+              💬
+              {messageUnreadCount > 0 && (
+                <span>{messageUnreadCount > 9 ? '9+' : messageUnreadCount}</span>
+              )}
+            </button>
+          )}
           <NotificationCenter />
 
           {/* Wallet / Auth */}

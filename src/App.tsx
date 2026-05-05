@@ -15,6 +15,9 @@ import { useRatingUpdates } from './hooks/useRatingUpdates';
 import { socket } from './lib/socket';
 import { api } from './lib/api';
 import { useSafetyStore } from './stores/safetyStore';
+import { useDirectMessageStore } from './stores/directMessageStore';
+import { useNotifCenterStore } from './stores/notifCenterStore';
+import { DirectMessagesModal } from './components/messages/DirectMessagesModal';
 
 // Lazy load pages
 const HomePage = lazy(() => import('./components/lobby/HomePage').then(m => ({ default: m.HomePage })));
@@ -87,6 +90,9 @@ export default function App() {
   const initFriends        = useFriendsStore(s => s.initialize);
   const syncOnlinePlayers  = useFriendsStore(s => s.syncOnlinePlayers);
   const setBlockedUsers    = useSafetyStore(s => s.setBlockedUsers);
+  const setMessageUnreadCount = useDirectMessageStore(s => s.setUnreadCount);
+  const bumpMessageUnreadCount = useDirectMessageStore(s => s.bumpUnreadCount);
+  const pushCenterNotification = useNotifCenterStore(s => s.push);
 
   const [showAuth, setShowAuth] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
@@ -107,9 +113,12 @@ export default function App() {
         api.safety.blocked()
           .then(({ blockedUsers }) => setBlockedUsers(blockedUsers))
           .catch(() => {});
+        api.messages.conversations()
+          .then(({ conversations }) => setMessageUnreadCount(conversations.reduce((sum, item) => sum + item.unreadCount, 0)))
+          .catch(() => {});
       }
     }
-  }, [user?.id, isLoggedIn, setBlockedUsers]);
+  }, [user?.id, isLoggedIn, setBlockedUsers, setMessageUnreadCount]);
 
   useEffect(() => {
     const parts = location.pathname.split('/');
@@ -153,11 +162,23 @@ export default function App() {
       if (data.message) useNotificationStore.getState().addNotification(data.message, 'info');
     };
 
+    const handleDirectMessage = (data: { fromUsername: string; body: string }) => {
+      bumpMessageUnreadCount();
+      useNotificationStore.getState().addNotification(`New message from ${data.fromUsername}`, 'info');
+      pushCenterNotification({
+        type: 'system',
+        icon: '💬',
+        title: `Message from ${data.fromUsername}`,
+        body: data.body,
+      });
+    };
+
     socket.on('players:online', handlePlayersOnline);
     socket.on('room:created', handleRoomCreated);
     socket.on('game-start', handleGameStart);
     socket.on('room:error', handleRoomError);
     socket.on('wallet:update', handleWalletUpdate);
+    socket.on('direct-message:new', handleDirectMessage);
 
     const handleAuthUnauthorized = () => {
       useUserStore.getState().logout();
@@ -174,8 +195,9 @@ export default function App() {
       socket.off('game-start', handleGameStart);
       socket.off('room:error', handleRoomError);
       socket.off('wallet:update', handleWalletUpdate);
+      socket.off('direct-message:new', handleDirectMessage);
     };
-  }, [navigate, setOnlinePlayers, setWalletBalance, syncOnlinePlayers]);
+  }, [bumpMessageUnreadCount, navigate, pushCenterNotification, setOnlinePlayers, setWalletBalance, syncOnlinePlayers]);
 
   const handleCreateGame = (tc: string, mode: 'online' | 'computer') => {
     if (!user) { setShowAuth(true); return; }
@@ -284,6 +306,7 @@ export default function App() {
         open={configOpen}
         onClose={closeConfig}
       />
+      <DirectMessagesModal />
       <IncomingInviteToast />
       <Notifications />
     </div>
