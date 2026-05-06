@@ -328,16 +328,35 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
   const [universe,  setUniverse]  = useState<'chess' | 'checkers'>('chess');
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    Promise.all([
-      api.users.get(username),
-      api.users.stats(username),
-      api.users.games(username),
-      api.users.fullStats(username),
-    ])
-      .then(([p, s, g, fs]) => { setProfile(p); setStats(s); setGames(g); setFullStats(fs); })
-      .catch(() => setError('Player not found'))
-      .finally(() => setLoading(false));
+    setError('');
+    setProfile(null);
+    setStats(null);
+    setGames([]);
+    setFullStats(null);
+
+    Promise.all([api.users.get(username), api.users.stats(username)])
+      .then(([p, s]) => {
+        if (cancelled) return;
+        setProfile(p);
+        setStats(s);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Player not found');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    api.users.games(username)
+      .then(g => { if (!cancelled) setGames(g); })
+      .catch(() => {});
+    api.users.fullStats(username)
+      .then(fs => { if (!cancelled) setFullStats(fs); })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
   }, [username]);
 
   if (loading) return (
@@ -682,7 +701,6 @@ export const ProfilePage: React.FC = () => {
   const [nameInput,   setNameInput]   = useState(user?.name || '');
   const [apiGames,    setApiGames]    = useState<ApiMatch[]>([]);
   const [fullStats,   setFullStats]   = useState<ApiFullStats | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
   const [settingsMsg, setSettingsMsg] = useState('');
   const [newUsername, setNewUsername] = useState(user?.name || '');
   const [countryCode, setCountryCode] = useState(user?.country || '');
@@ -700,16 +718,21 @@ export const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (!user || (paramUsername && paramUsername !== user.name)) return;
-    setProfileLoading(true);
-    Promise.all([
-      api.users.games(user.name).then(setApiGames).catch(err => {
-        if (err?.status !== 404) addNotification(t('errors.profileLoad', 'Could not load game history'), 'error');
-      }),
-      api.users.fullStats(user.name).then(setFullStats).catch(err => {
-        if (err?.status !== 404) addNotification(t('errors.statsLoad', 'Could not load stats'), 'error');
-      }),
-    ]).finally(() => setProfileLoading(false));
-  }, [user?.name]);  // eslint-disable-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    setApiGames([]);
+    setFullStats(null);
+    api.users.games(user.name)
+      .then(g => { if (!cancelled) setApiGames(g); })
+      .catch(err => {
+        if (!cancelled && err?.status !== 404) addNotification(t('errors.profileLoad', 'Could not load game history'), 'error');
+      });
+    api.users.fullStats(user.name)
+      .then(fs => { if (!cancelled) setFullStats(fs); })
+      .catch(err => {
+        if (!cancelled && err?.status !== 404) addNotification(t('errors.statsLoad', 'Could not load stats'), 'error');
+      });
+    return () => { cancelled = true; };
+  }, [user?.name, paramUsername]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!user) return;
@@ -832,35 +855,6 @@ export const ProfilePage: React.FC = () => {
       setNameInput(user.name);
     }
   };
-
-  if (profileLoading) {
-    return (
-      <div className="pf-page" style={{ padding: 24 }}>
-        {/* Hero skeleton */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 32 }}>
-          <div className="skeleton" style={{ width: 80, height: 80, borderRadius: '50%' }} />
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div className="skeleton skeleton-line-lg" style={{ width: 180 }} />
-            <div className="skeleton skeleton-line" style={{ width: 120 }} />
-          </div>
-        </div>
-        {/* Stats skeleton */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="skeleton" style={{ height: 70, borderRadius: 10 }} />
-          ))}
-        </div>
-        {/* Content skeleton */}
-        {[1, 2, 3, 4, 5].map(i => (
-          <div key={i} className="skeleton-row" style={{ padding: '10px 0' }}>
-            <div className="skeleton skeleton-circle" />
-            <div className="skeleton skeleton-line" style={{ width: `${60 + (i % 3) * 20}%` }} />
-            <div className="skeleton skeleton-line-sm" style={{ width: 50, marginLeft: 'auto' }} />
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div className="pf-page">

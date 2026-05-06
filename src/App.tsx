@@ -65,7 +65,7 @@ const LobbyView: React.FC<{
       onOpenWallet={onOpenWallet}
     />
     <main className="main-content">
-      <HomePage onCreateGame={onCreateGame} />
+      <HomePage onCreateGame={onCreateGame} onOpenWallet={onOpenWallet} />
     </main>
   </>
   );

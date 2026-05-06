@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useUniverseStore, useLiveGamesStore, useNotificationStore, LiveGame } from '../../stores';
+import { useUniverseStore, useLiveGamesStore, useNotificationStore, useUserStore, LiveGame } from '../../stores';
 import { LiveGamesSection } from './LiveGamePreview';
 import { LobbyTab } from './LobbyTab';
 import { CorrespondenceTab } from './CorrespondenceTab';
@@ -86,15 +86,17 @@ const ONBOARDING_ITEMS = [
 
 interface Props {
   onCreateGame: (tc: string, mode: 'online' | 'computer') => void;
+  onOpenWallet: () => void;
 }
 
-export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
+export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const universe = useUniverseStore(s => s.universe);
   const games = useLiveGamesStore(s => s.games);
   const syncServerGames = useLiveGamesStore(s => s.syncServerGames);
   const addNotification = useNotificationStore(s => s.addNotification);
+  const user = useUserStore(s => s.user);
   const [activeTab, setActiveTab] = useState<'quick' | 'lobby' | 'correspondence'>('quick');
   const [showCustom, setShowCustom] = useState(false);
   const [leaderboard, setLeaderboard] = useState<{
@@ -187,6 +189,16 @@ export const HomePage: React.FC<Props> = ({ onCreateGame }) => {
 
   return (
     <div>
+      {user && (
+        <section className="home-mobile-wallet" aria-label="Wallet balance">
+          <div>
+            <span>{t('betting.balance')}</span>
+            <strong>${Number(user.walletBalance).toFixed(2)}</strong>
+          </div>
+          <button type="button" onClick={onOpenWallet}>{t('betting.deposit')}</button>
+        </section>
+      )}
+
       {showOnboarding && (
         <section className="home-onboarding" aria-label="Damcash quick guide">
           <div className="home-onboarding-head">
