@@ -289,7 +289,11 @@ export const useUserStore = create<UserStore>()(
           };
         }),
       restoreSession: async () => {
-        if (!supabase) return;
+        if (!supabase) {
+          reconnectWithToken(null);
+          set({ user: null, isLoggedIn: false });
+          return;
+        }
         try {
           const { data: { session } } = await withTimeout<any>(
             supabase.auth.getSession(),

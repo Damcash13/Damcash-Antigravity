@@ -5,8 +5,18 @@ import { createClient } from '@supabase/supabase-js';
 // Fallback: server injects window.__DC_CFG__ at runtime so auth works even when
 // VITE_ build args weren't available during the Docker build.
 const _runtimeCfg = typeof window !== 'undefined' ? (window as any).__DC_CFG__ : undefined;
-const supabaseUrl = ((import.meta as any).env?.VITE_SUPABASE_URL || _runtimeCfg?.SUPABASE_URL) as string | undefined;
-const supabaseKey = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || _runtimeCfg?.SUPABASE_ANON_KEY) as string | undefined;
+const env = (import.meta as any).env || {};
+const supabaseUrl = (
+  env.VITE_SUPABASE_URL ||
+  env.NEXT_PUBLIC_SUPABASE_URL ||
+  _runtimeCfg?.SUPABASE_URL
+) as string | undefined;
+const supabaseKey = (
+  env.VITE_SUPABASE_ANON_KEY ||
+  env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  _runtimeCfg?.SUPABASE_ANON_KEY
+) as string | undefined;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 if (!supabaseUrl || !supabaseKey) {

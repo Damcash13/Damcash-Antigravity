@@ -7,6 +7,8 @@ const BASE: string = (typeof import.meta !== 'undefined' && (import.meta as any)
 
 const API_TIMEOUT = 15_000; // 15s — enough for cold-start but won't hang forever
 
+type ApiRequestOptions = RequestInit & { requireAuth?: boolean };
+
 export class ApiRequestError extends Error {
   status: number;
   path: string;
@@ -21,7 +23,8 @@ export class ApiRequestError extends Error {
   }
 }
 
-async function request<T>(path: string, opts?: RequestInit): Promise<T> {
+async function request<T>(path: string, opts?: ApiRequestOptions): Promise<T> {
+  const { requireAuth = false, ...fetchOpts } = opts || {};
   let token: string | null = null;
   if (supabase) {
     try {
@@ -34,6 +37,26 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
     } catch {
       // Supabase unreachable — continue without token
     }
+
+    if (!token) {
+      try {
+        const { data: { session } } = await withTimeout<any>(
+          supabase.auth.refreshSession(),
+          8_000,
+          'Auth session refresh',
+        );
+        token = session?.access_token || null;
+      } catch {
+        // No refreshable Supabase session is available.
+      }
+    }
+  }
+
+  if (requireAuth && !token) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth:unauthorized'));
+    }
+    throw new ApiRequestError('Please sign in again to continue.', 401, path, false);
   }
 
   const controller = new AbortController();
@@ -43,11 +66,11 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
     const headersFor = (accessToken: string | null) => ({
         'Content-Type': 'application/json',
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        ...opts?.headers,
+        ...fetchOpts.headers,
     });
 
     let res = await fetch(`${BASE}${path}`, {
-      ...opts,
+      ...fetchOpts,
       signal: controller.signal,
       headers: headersFor(token),
     });
@@ -63,7 +86,7 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
         if (refreshedToken && refreshedToken !== token) {
           token = refreshedToken;
           res = await fetch(`${BASE}${path}`, {
-            ...opts,
+            ...fetchOpts,
             signal: controller.signal,
             headers: headersFor(token),
           });
@@ -77,7 +100,7 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
 
     if (!res.ok) {
       const authAttempted = Boolean(token);
-      if (res.status === 401 && authAttempted) {
+      if (res.status === 401 && (authAttempted || requireAuth) && typeof window !== 'undefined') {
         window.dispatchEvent(new Event('auth:unauthorized'));
       }
       const isJson = res.headers.get('content-type')?.includes('application/json');
@@ -127,6 +150,7 @@ export const api = {
       request<{ avatarUrl: string; storage?: 'supabase' | 'inline'; user: ApiUser }>('/api/auth/avatar', {
         method: 'POST',
         body: JSON.stringify(body),
+        requireAuth: true,
       }),
     changePassword: (body: { currentPassword: string; newPassword: string }) =>
       request<{ ok: boolean }>('/api/auth/change-password', {

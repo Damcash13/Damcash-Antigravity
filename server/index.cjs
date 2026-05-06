@@ -4667,8 +4667,14 @@ app.get('*', (_req, res) => {
   try {
     if (!_indexHtmlCache) _indexHtmlCache = fs.readFileSync(indexPath, 'utf8');
     const cfg = JSON.stringify({
-      SUPABASE_URL: process.env.VITE_SUPABASE_URL || '',
-      SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || '',
+      SUPABASE_URL: process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '',
+      SUPABASE_ANON_KEY:
+        process.env.VITE_SUPABASE_ANON_KEY ||
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+        process.env.SUPABASE_ANON_KEY ||
+        process.env.SUPABASE_PUBLISHABLE_KEY ||
+        '',
       AGORA_APP_ID: process.env.AGORA_APP_ID || process.env.VITE_AGORA_APP_ID || '',
     });
     const html = _indexHtmlCache.replace('</head>', `<script>window.__DC_CFG__=${cfg};</script></head>`);
