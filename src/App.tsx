@@ -14,6 +14,7 @@ import { useFriendsStore } from './stores/friendsStore';
 import { useRatingUpdates } from './hooks/useRatingUpdates';
 import { clientId, socket } from './lib/socket';
 import { api } from './lib/api';
+import { supabase, withTimeout } from './lib/supabase';
 import { useSafetyStore } from './stores/safetyStore';
 import { useDirectMessageStore } from './stores/directMessageStore';
 import { useNotifCenterStore } from './stores/notifCenterStore';
@@ -120,6 +121,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
   const [searching, setSearching] = useState<{ tc: string; mode: string } | null>(null);
+  const authRecoveryRef = useRef(false);
 
   useRatingUpdates();
 
@@ -215,7 +217,43 @@ export default function App() {
     socket.on('wallet:update', handleWalletUpdate);
     socket.on('direct-message:new', handleDirectMessage);
 
-    const handleAuthUnauthorized = () => {
+    const handleAuthUnauthorized = async () => {
+      if (authRecoveryRef.current) return;
+      authRecoveryRef.current = true;
+
+      try {
+        const restoreIfStillSignedIn = async () => {
+          await restoreSession();
+          return Boolean(useUserStore.getState().user);
+        };
+
+        const { data: { session } } = await withTimeout<any>(
+          supabase?.auth.getSession() ?? Promise.resolve({ data: { session: null } }),
+          5_000,
+          'Session check',
+        );
+
+        if (session?.access_token) {
+          if (await restoreIfStillSignedIn()) return;
+        }
+
+        const { data, error } = await withTimeout<any>(
+          supabase?.auth.refreshSession() ?? Promise.resolve({ data: { session: null }, error: null }),
+          8_000,
+          'Session refresh',
+        );
+
+        if (!error && data?.session?.access_token) {
+          if (await restoreIfStillSignedIn()) return;
+        }
+      } catch (err) {
+        console.warn('[auth] Could not verify session after unauthorized response; keeping local session:', err);
+        useNotificationStore.getState().addNotification('Connection interrupted. Keeping you signed in while the session is checked again.', 'warning');
+        return;
+      } finally {
+        authRecoveryRef.current = false;
+      }
+
       useUserStore.getState().logout();
       useNotificationStore.getState().addNotification('Session expired. Please log in again.', 'warning');
       navigate('/');
@@ -232,7 +270,7 @@ export default function App() {
       socket.off('wallet:update', handleWalletUpdate);
       socket.off('direct-message:new', handleDirectMessage);
     };
-  }, [bumpMessageUnreadCount, navigate, pushCenterNotification, setOnlinePlayers, setWalletBalance, syncOnlinePlayers, user?.id, user?.name]);
+  }, [bumpMessageUnreadCount, navigate, pushCenterNotification, restoreSession, setOnlinePlayers, setWalletBalance, syncOnlinePlayers, user?.id, user?.name]);
 
   const handleCreateGame = (tc: string, mode: 'online' | 'computer') => {
     if (!user) { setShowAuth(true); return; }

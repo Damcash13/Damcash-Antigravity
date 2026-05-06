@@ -274,8 +274,36 @@ export const useUserStore = create<UserStore>()(
           // Only clear session if we are certain it's invalid (401/Unauthorized).
           // If it's a timeout or 500, we keep the persisted 'isLoggedIn' state
           // to avoid kicking the user out unnecessarily.
-          if (err.message?.includes('401') || err.message?.includes('Unauthorized') || err.message?.includes('Invalid session')) {
-            set({ user: null, isLoggedIn: false });
+          const authFailure = err?.status === 401
+            || err.message?.includes('401')
+            || err.message?.includes('Unauthorized')
+            || err.message?.includes('Invalid session');
+
+          if (authFailure) {
+            try {
+              const { data, error } = await withTimeout<any>(
+                supabase.auth.refreshSession(),
+                10_000,
+                'Session refresh',
+              );
+              if (error || !data?.session) throw error || new Error('No refreshed session');
+
+              const res = await api.auth.me();
+              const u = apiUserToUser(res.user);
+              reconnectWithToken(data.session.access_token);
+              set({
+                user: u,
+                isLoggedIn: true,
+                gamesPlayed: {
+                  chess:    res.user.chess?.games    ?? 0,
+                  checkers: res.user.checkers?.games ?? 0,
+                },
+              });
+            } catch (refreshErr) {
+              console.warn('[restoreSession] Refresh failed; clearing session:', refreshErr);
+              reconnectWithToken(null);
+              set({ user: null, isLoggedIn: false });
+            }
           }
         }
       },

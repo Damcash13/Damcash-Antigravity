@@ -7,6 +7,20 @@ const BASE: string = (typeof import.meta !== 'undefined' && (import.meta as any)
 
 const API_TIMEOUT = 15_000; // 15s — enough for cold-start but won't hang forever
 
+export class ApiRequestError extends Error {
+  status: number;
+  path: string;
+  authAttempted: boolean;
+
+  constructor(message: string, status: number, path: string, authAttempted: boolean) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.status = status;
+    this.path = path;
+    this.authAttempted = authAttempted;
+  }
+}
+
 async function request<T>(path: string, opts?: RequestInit): Promise<T> {
   let token = null;
   if (supabase) {
@@ -38,12 +52,13 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
     clearTimeout(timer);
 
     if (!res.ok) {
-      if (res.status === 401) {
+      const authAttempted = Boolean(token);
+      if (res.status === 401 && authAttempted) {
         window.dispatchEvent(new Event('auth:unauthorized'));
       }
       const isJson = res.headers.get('content-type')?.includes('application/json');
       const err = isJson ? await res.json().catch(() => ({ error: res.statusText })) : { error: res.statusText };
-      throw new Error(err.error || 'Request failed');
+      throw new ApiRequestError(err.error || 'Request failed', res.status, path, authAttempted);
     }
 
     const isJson = res.headers.get('content-type')?.includes('application/json');
