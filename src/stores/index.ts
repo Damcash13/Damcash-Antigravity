@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Universe, User, Bet, DraughtsBoard as DraughtsBoardType } from '../types';
+import { Universe, User, Bet, DraughtsBoard as DraughtsBoardType, SocialLinks } from '../types';
 import { api } from '../lib/api';
 import { supabase, withTimeout } from '../lib/supabase';
 import { reconnectWithToken } from '../lib/socket';
@@ -96,8 +96,8 @@ function makeGuestUser(): User {
 }
 
 function apiUserToUser(u: {
-  id: string; username: string; email?: string; avatarUrl?: string;
-  country?: string; bio?: string; socialLinks?: Record<string, string>;
+  id: string; username: string; email?: string; avatarUrl?: string | null;
+  country?: string; bio?: string; socialLinks?: Record<string, string> | null;
   walletBalance: number; rating: { chess: number; checkers: number };
   chess?:    { wins: number; losses: number; draws: number; games: number };
   checkers?: { wins: number; losses: number; draws: number; games: number };
@@ -106,7 +106,7 @@ function apiUserToUser(u: {
     id: u.id,
     name: u.username,
     email: u.email,
-    avatarUrl: u.avatarUrl,
+    avatarUrl: u.avatarUrl || undefined,
     country: u.country || '',
     bio: u.bio || '',
     socialLinks: u.socialLinks as any || {},
@@ -137,7 +137,7 @@ interface UserStore {
   updateRating:    (entry: RatingEntry) => void;
   updateBetStats:  (result: 'win' | 'loss') => void;
   saveUsername:    (newName: string, country?: string) => Promise<void>;
-  updateProfile:   (fields: { bio?: string; socialLinks?: import('../types').SocialLinks }) => void;
+  updateProfile:   (fields: { username?: string; country?: string; avatarUrl?: string; bio?: string; socialLinks?: SocialLinks }) => Promise<void>;
   restoreSession:  () => Promise<void>;
   listenToAuthChanges: () => void;
 }
@@ -216,10 +216,23 @@ export const useUserStore = create<UserStore>()(
       guestLogin: () => set({ user: makeGuestUser(), isLoggedIn: false }),
       saveUsername: async (newName, country) => {
         const res = await api.auth.updateProfile({ username: newName, ...(country !== undefined ? { country } : {}) });
-        set((s) => s.user ? { user: { ...s.user, name: res.user.username, country: res.user.country || s.user.country } } : {});
+        set((s) => {
+          const next = apiUserToUser(res.user);
+          return {
+            user: s.user ? { ...next, betsWon: s.user.betsWon, betsLost: s.user.betsLost } : next,
+            isLoggedIn: true,
+          };
+        });
       },
-      updateProfile: (fields) => {
-        set((s) => s.user ? { user: { ...s.user, ...fields } } : {});
+      updateProfile: async (fields) => {
+        const res = await api.auth.updateProfile(fields);
+        set((s) => {
+          const next = apiUserToUser(res.user);
+          return {
+            user: s.user ? { ...next, betsWon: s.user.betsWon, betsLost: s.user.betsLost } : next,
+            isLoggedIn: true,
+          };
+        });
       },
       updateRating: (entry) =>
         set((s) => {

@@ -128,6 +128,48 @@ function sanitizeText(str, maxLen = MAX_CHAT_LEN) {
   return str.replace(/[<>"'`]/g, '').trim().slice(0, maxLen);
 }
 
+function sanitizeUsername(str, maxLen = 24) {
+  if (typeof str !== 'string') return '';
+  let clean = str.trim();
+  if (clean.includes('@')) clean = clean.split('@')[0];
+  return sanitizeText(clean, maxLen)
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_.-]/g, '')
+    .replace(/^[-_.]+|[-_.]+$/g, '')
+    .slice(0, maxLen);
+}
+
+function usernameFromAuthUser(authUser) {
+  const metadata = authUser?.user_metadata || {};
+  return sanitizeUsername(
+    metadata.username
+      || metadata.preferred_username
+      || metadata.name
+      || metadata.full_name
+      || (authUser?.email ? authUser.email.split('@')[0] : '')
+      || `user_${String(authUser?.id || '').slice(0, 8)}`
+  ) || `user_${String(authUser?.id || crypto.randomUUID()).slice(0, 8)}`;
+}
+
+async function uniqueUsername(base, ignoreUserId = null) {
+  const cleanBase = sanitizeUsername(base) || `user_${crypto.randomBytes(4).toString('hex')}`;
+  let candidate = cleanBase;
+  for (let i = 0; i < 8; i++) {
+    const existing = await prisma.user.findUnique({ where: { username: candidate }, select: { id: true } });
+    if (!existing || existing.id === ignoreUserId) return candidate;
+    const suffix = i === 0 ? crypto.randomBytes(2).toString('hex') : `${i}${crypto.randomBytes(1).toString('hex')}`;
+    candidate = `${cleanBase.slice(0, Math.max(1, 24 - suffix.length - 1))}_${suffix}`;
+  }
+  return `${cleanBase.slice(0, 15)}_${crypto.randomBytes(4).toString('hex')}`;
+}
+
+function usernameLooksEmailDerived(username, email) {
+  if (!username || !email) return false;
+  const local = sanitizeUsername(String(email).split('@')[0]).toLowerCase();
+  const current = sanitizeUsername(username).toLowerCase();
+  return current === local || String(username).includes('@');
+}
+
 /** Clamp a numeric value and ensure it is a finite non-negative number */
 function sanitizeMoney(val) {
   const n = parseFloat(val);
@@ -2303,30 +2345,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 
     if (!user) {
       // Create local profile from Supabase user metadata
-      const metadata = req.user.user_metadata || {};
-      let username = metadata.username
-        || metadata.preferred_username
-        || metadata.name
-        || metadata.full_name
-        || (req.user.email ? req.user.email.split('@')[0] : '')
-        || `user_${req.user.id.slice(0, 8)}`;
-
-      // Strip email addresses — some browsers autofill the username field with the email
-      username = String(username || '');
-      if (username.includes('@')) username = username.split('@')[0];
-      username = sanitizeText(username, 30)
-        .replace(/\s+/g, '_')
-        .replace(/[^a-zA-Z0-9_.-]/g, '')
-        .replace(/^[-_.]+|[-_.]+$/g, '')
-        .slice(0, 24);
-      // Ensure username isn't empty after stripping
-      if (!username) username = `user_${req.user.id.slice(0, 8)}`;
-
-      // Ensure username is unique — append random suffix on collision
-      const existing = await prisma.user.findUnique({ where: { username } });
-      if (existing) {
-        username = `${username}_${req.user.id.slice(0, 4)}`;
-      }
+      const username = await uniqueUsername(usernameFromAuthUser(req.user), req.user.id);
 
       try {
         const metaCountry = req.user.user_metadata?.country || '';
@@ -2349,6 +2368,24 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
         });
         if (!user) throw createErr;
       }
+    }
+
+    const metadataUsername = sanitizeUsername(req.user.user_metadata?.username || req.user.user_metadata?.preferred_username || '');
+    if (
+      user &&
+      metadataUsername &&
+      user.username !== metadataUsername &&
+      usernameLooksEmailDerived(user.username, req.user.email)
+    ) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { username: await uniqueUsername(metadataUsername, user.id) },
+        include: {
+          wallet: true,
+          matchesAsWhite: true,
+          matchesAsBlack: true,
+        },
+      });
     }
 
     const metadataCountry = req.user.user_metadata?.country;
@@ -2421,7 +2458,9 @@ app.patch('/api/auth/profile', requireAuth, async (req, res) => {
     
     const updateData = {};
     if (username && typeof username === 'string' && username.trim().length >= 2) {
-      updateData.username = username.trim();
+      const cleanUsername = sanitizeUsername(username);
+      if (cleanUsername.length < 2) return res.status(400).json({ error: 'Username must contain at least 2 letters or numbers' });
+      updateData.username = cleanUsername;
     }
     if (typeof country === 'string') {
       updateData.country = country.toUpperCase().slice(0, 2);
@@ -2457,15 +2496,32 @@ app.patch('/api/auth/profile', requireAuth, async (req, res) => {
       });
     } catch (idErr) {
       if (idErr.code !== 'P2025') throw idErr; // re-throw unexpected errors
-      updated = await prisma.user.update({
-        where: { email: req.user.email },
-        data: { ...updateData, id: req.user.id }, // also fix the ID while we're here
-        include: { wallet: true },
-      });
+      try {
+        updated = await prisma.user.update({
+          where: { email: req.user.email },
+          data: { ...updateData, id: req.user.id }, // also fix the ID while we're here
+          include: { wallet: true },
+        });
+      } catch (emailErr) {
+        if (emailErr.code !== 'P2025') throw emailErr;
+        const fallbackUsername = await uniqueUsername(updateData.username || usernameFromAuthUser(req.user), req.user.id);
+        updated = await prisma.user.create({
+          data: {
+            id: req.user.id,
+            email: req.user.email,
+            passwordHash: 'SUPABASE_AUTH',
+            ...updateData,
+            username: fallbackUsername,
+            country: updateData.country || (typeof req.user.user_metadata?.country === 'string' ? req.user.user_metadata.country.toUpperCase().slice(0, 2) : ''),
+            wallet: { create: { balance: 0 } },
+          },
+          include: { wallet: true },
+        });
+      }
     }
 
     res.json({ user: {
-      id: updated.id, username: updated.username, country: updated.country || '',
+      id: updated.id, username: updated.username, email: updated.email, country: updated.country || '',
       avatarUrl: updated.avatarUrl,
       bio: updated.bio || '',
       socialLinks: updated.socialLinks || {},

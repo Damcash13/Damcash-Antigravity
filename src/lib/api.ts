@@ -88,7 +88,13 @@ export const api = {
     // NOTE: register and login are handled client-side via Supabase Auth.
     // The backend only provides /api/auth/me for profile sync after Supabase login.
     me: () => request<{ user: ApiUser }>('/api/auth/me'),
-    updateProfile: (body: { username?: string; country?: string; avatarUrl?: string }) =>
+    updateProfile: (body: {
+      username?: string;
+      country?: string;
+      avatarUrl?: string;
+      bio?: string;
+      socialLinks?: { twitter?: string; lichess?: string; chessCom?: string };
+    }) =>
       request<{ user: ApiUser }>('/api/auth/profile', {
         method: 'PATCH',
         body: JSON.stringify(body),
@@ -335,7 +341,11 @@ export const api = {
 export interface ApiUser {
   id: string;
   username: string;
+  email?: string;
   country?: string;
+  avatarUrl?: string | null;
+  bio?: string;
+  socialLinks?: { twitter?: string; lichess?: string; chessCom?: string };
   walletBalance: number;
   rating: { chess: number; checkers: number };
   chess?:    { wins: number; losses: number; draws: number; games: number };

@@ -672,7 +672,7 @@ type Tab = typeof TABS[number];
 export const ProfilePage: React.FC = () => {
   const navigate  = useNavigate();
   const { name: paramUsername } = useParams<{ name?: string }>();
-  const { user, ratingHistory, gamesPlayed, saveUsername, updateProfile } = useUserStore();
+  const { user, ratingHistory, gamesPlayed, updateProfile } = useUserStore();
   const { tournaments } = useTournamentStore();
 
   // All hooks must appear before any conditional return
@@ -710,6 +710,17 @@ export const ProfilePage: React.FC = () => {
       }),
     ]).finally(() => setProfileLoading(false));
   }, [user?.name]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!user) return;
+    setNameInput(user.name);
+    setNewUsername(user.name);
+    setCountryCode(user.country || '');
+    setBioInput(user.bio || '');
+    setSocialTwitter(user.socialLinks?.twitter || '');
+    setSocialLichess(user.socialLinks?.lichess || '');
+    setSocialChessCom(user.socialLinks?.chessCom || '');
+  }, [user?.id, user?.name, user?.country, user?.bio, user?.socialLinks?.twitter, user?.socialLinks?.lichess, user?.socialLinks?.chessCom]);
 
   // Viewing another user's profile
   if (paramUsername && paramUsername !== user?.name) {
@@ -768,6 +779,60 @@ export const ProfilePage: React.FC = () => {
 
   const byCategory: Record<string, RatingEntry[]> = { Bullet: [], Blitz: [], Rapid: [], Classical: [] };
 
+  const socialLinksPayload = (): SocialLinks => ({
+    ...(socialTwitter.trim() ? { twitter: socialTwitter.trim() } : {}),
+    ...(socialLichess.trim() ? { lichess: socialLichess.trim() } : {}),
+    ...(socialChessCom.trim() ? { chessCom: socialChessCom.trim() } : {}),
+  });
+
+  const navigateToUpdatedProfile = (previousName: string) => {
+    const updatedName = useUserStore.getState().user?.name;
+    if (updatedName && updatedName !== previousName) {
+      navigate(`/${universe}/profile/${encodeURIComponent(updatedName)}`, { replace: true });
+    }
+  };
+
+  const saveProfileSettings = async () => {
+    const requestedName = newUsername.trim();
+    if (requestedName.length < 2) {
+      setSettingsMsg('Username must contain at least 2 characters.');
+      setTimeout(() => setSettingsMsg(''), 3000);
+      return;
+    }
+
+    const previousName = user.name;
+    try {
+      await updateProfile({
+        username: requestedName,
+        country: countryCode.trim().toUpperCase().slice(0, 2),
+        bio: bioInput.trim(),
+        socialLinks: socialLinksPayload(),
+      });
+      setSettingsMsg(t('profile.profileSaved'));
+      addNotification(t('profile.profileSaved'), 'success');
+      navigateToUpdatedProfile(previousName);
+    } catch (e: any) {
+      setSettingsMsg(e?.message || t('auth.somethingWentWrong'));
+    }
+    setTimeout(() => setSettingsMsg(''), 3000);
+  };
+
+  const saveHeroUsername = async () => {
+    const requestedName = nameInput.trim();
+    setEditName(false);
+    if (!requestedName || requestedName === user.name) return;
+
+    const previousName = user.name;
+    try {
+      await updateProfile({ username: requestedName, country: user.country || '' });
+      addNotification(t('profile.profileSaved'), 'success');
+      navigateToUpdatedProfile(previousName);
+    } catch (e: any) {
+      addNotification(e?.message || t('auth.somethingWentWrong'), 'error');
+      setNameInput(user.name);
+    }
+  };
+
   if (profileLoading) {
     return (
       <div className="pf-page" style={{ padding: 24 }}>
@@ -824,24 +889,14 @@ export const ProfilePage: React.FC = () => {
                     value={nameInput}
                     onChange={e => setNameInput(e.target.value)}
                     onKeyDown={async e => {
-                      if (e.key === 'Enter') {
-                        setEditName(false);
-                        if (nameInput.trim() && nameInput !== user.name) {
-                          try { await saveUsername(nameInput); } catch {}
-                        }
-                      }
+                      if (e.key === 'Enter') await saveHeroUsername();
                       if (e.key === 'Escape') setEditName(false);
                     }}
                     autoFocus
                   />
                   <button
                     className="btn btn-primary btn-sm"
-                    onClick={async () => {
-                      setEditName(false);
-                      if (nameInput.trim() && nameInput !== user.name) {
-                        try { await saveUsername(nameInput); } catch {}
-                      }
-                    }}
+                    onClick={saveHeroUsername}
                   >Save</button>
                 </div>
               ) : (
@@ -1443,23 +1498,7 @@ export const ProfilePage: React.FC = () => {
                   />
                   <button
                     className="btn btn-secondary btn-sm"
-                    onClick={async () => {
-                      try {
-                        await saveUsername(newUsername, countryCode);
-                        updateProfile({
-                          bio: bioInput || undefined,
-                          socialLinks: (socialTwitter || socialLichess || socialChessCom) ? {
-                            twitter: socialTwitter || undefined,
-                            lichess: socialLichess || undefined,
-                            chessCom: socialChessCom || undefined,
-                          } : undefined,
-                        });
-                        setSettingsMsg(t('profile.profileSaved'));
-                      } catch (e: any) {
-                        setSettingsMsg(e?.message || t('auth.somethingWentWrong'));
-                      }
-                      setTimeout(() => setSettingsMsg(''), 3000);
-                    }}
+                    onClick={saveProfileSettings}
                   >{t('profile.saveChanges')}</button>
                 </div>
               </div>

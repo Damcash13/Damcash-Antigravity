@@ -10,9 +10,17 @@ interface Props {
   onClose: () => void;
 }
 
+const cleanUsername = (value: string) =>
+  value
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_.-]/g, '')
+    .replace(/^[-_.]+|[-_.]+$/g, '')
+    .slice(0, 24);
+
 export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
   const { t } = useTranslation();
-  const { login, restoreSession, guestLogin } = useUserStore();
+  const { login, restoreSession, guestLogin, updateProfile } = useUserStore();
   const [tab, setTab] = useState<'login' | 'register' | 'forgot'>('register');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -83,8 +91,10 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
     setLoading(true);
     try {
       if (tab === 'register') {
-        if (!username.trim()) { setError(t('auth.usernameRequired')); setLoading(false); return; }
-        if (!email.trim())    { setError(t('auth.emailRequired'));    setLoading(false); return; }
+        const cleanedUsername = cleanUsername(username);
+        const cleanedEmail = email.trim().toLowerCase();
+        if (!cleanedUsername || cleanedUsername.length < 2) { setError(t('auth.usernameRequired')); setLoading(false); return; }
+        if (!cleanedEmail)    { setError(t('auth.emailRequired'));    setLoading(false); return; }
         if (password.length < 6) { setError(t('auth.passwordTooShort')); setLoading(false); return; }
         if (password !== confirmPassword) { setError(t('auth.passwordMismatch', 'Passwords do not match')); setLoading(false); return; }
         if (!country)         { setError(t('auth.countryRequired'));  setLoading(false); return; }
@@ -93,9 +103,16 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
 
         const { data, error: signUpError } = await withTimeout<any>(
           supabase.auth.signUp({
-            email,
+            email: cleanedEmail,
             password,
-            options: { data: { username, country } },
+            options: {
+              data: {
+                username: cleanedUsername,
+                preferred_username: cleanedUsername,
+                name: cleanedUsername,
+                country,
+              },
+            },
           }),
           15_000,
           'Registration',
@@ -104,8 +121,11 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
         if (signUpError) throw signUpError;
 
         if (data.session) {
-          // Supabase created a session immediately (email confirmation disabled)
+          // Supabase created a session immediately (email confirmation disabled).
+          // Sync explicitly after restore so the Prisma profile cannot fall back
+          // to an email-derived username if auth metadata is delayed.
           await restoreSession();
+          await updateProfile({ username: cleanedUsername, country });
           reset();
           onClose();
         } else {
@@ -242,6 +262,7 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
                     value={username}
                     onChange={e => setUsername(e.target.value)}
                     placeholder={t('auth.usernamePlaceholder')}
+                    autoComplete="username"
                     required
                   />
                 </div>
@@ -263,6 +284,7 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder={t('auth.emailPlaceholder')}
+                autoComplete="email"
                 required
               />
             </div>
@@ -285,6 +307,7 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder={t('auth.passwordPlaceholder')}
+                autoComplete={tab === 'register' ? 'new-password' : 'current-password'}
                 required
               />
             </div>
@@ -299,6 +322,7 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
                   placeholder={t('auth.confirmPasswordPlaceholder', 'Re-enter your password')}
+                  autoComplete="new-password"
                   required
                 />
                 {password && confirmPassword && password !== confirmPassword && (
