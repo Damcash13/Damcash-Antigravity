@@ -3445,8 +3445,12 @@ html, body {
   .header-profile-initial { width: 28px; height: 28px; font-size: 13px; }
   .header-profile-name { display: none; }
   .header-profile-rating { font-size: 10px; line-height: 1; }
-  /* On very narrow phones hide the logo wordmark, keep only the icon */
-  .logo-wordmark { display: none; }
+  .logo { gap: 5px; min-width: 0; }
+  .header .logo-mark { width: 30px; height: 30px; border-radius: 7px; }
+  .logo-wordmark { display: flex; }
+  .logo-wordmark { gap: 0; }
+  .logo-letter { font-size: 16px; }
+  .logo-animated-wordmark::after { bottom: -3px; height: 1px; }
   .player-bar { padding: 6px 8px; gap: 6px; }
   .player-name { font-size: 12px; }
   .player-clock { font-size: 18px; }
@@ -3455,6 +3459,17 @@ html, body {
 
   /* Hamburger panel: prevent overflow on narrow screens */
   .hamburger-panel { width: calc(100vw - 16px); right: -8px !important; max-width: 300px; }
+}
+
+@media (max-width: 360px) {
+  .header-inner { padding: 0 6px; gap: 4px; }
+  .header-right { gap: 3px; }
+  .header .logo-mark { width: 26px; height: 26px; border-radius: 6px; }
+  .logo-letter { font-size: 14px; }
+  .hamburger-btn { min-width: 46px; height: 34px; padding: 0 8px; }
+  .btn-signin,
+  .btn-register { font-size: 10px; padding: 5px 8px; }
+  .header-profile-btn { min-width: 66px; max-width: 72px; padding-right: 6px; }
 }
 
 /* ===== SUPABASE BANNER ===== */
