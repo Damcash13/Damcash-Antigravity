@@ -767,7 +767,7 @@ export const DraughtsGame: React.FC = () => {
         </div>
 
         {/* Head-to-head score strip */}
-        {isOnline && user?.name && opponentInfo.name !== 'Opponent' && (
+        {isOnline && !isVsComputer && user?.name && (
           <HeadToHeadPanel
             playerA={user.name}
             playerB={opponentInfo.name}
