@@ -25,6 +25,9 @@ export const Modal: React.FC<Props> = ({ open, onClose, title, children, maxWidt
         style={{ maxWidth }}
         onClick={(e) => e.stopPropagation()}
       >
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
+          ×
+        </button>
         {title && <div className="modal-title">{title}</div>}
         {children}
       </div>

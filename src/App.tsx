@@ -70,6 +70,25 @@ const LobbyView: React.FC<{
   );
 };
 
+const PageFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
+  const universe = useUniverseStore(s => s.universe);
+
+  const handleBack = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate(`/${universe}`);
+  };
+
+  return (
+    <main className="main-content">
+      <div className="page-back-row">
+        <button className="page-back-btn" onClick={handleBack}>Back</button>
+      </div>
+      {children}
+    </main>
+  );
+};
+
 // ── App component ─────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -302,31 +321,31 @@ export default function App() {
             <Route path="/chess/play/:mode/:tc"    element={<ProtectedRoute><main className="main-content"><ChessGame /></main></ProtectedRoute>} />
             <Route path="/checkers/play/:mode/:tc" element={<ProtectedRoute><main className="main-content"><DraughtsGame /></main></ProtectedRoute>} />
 
-            <Route path="/:universe/tournaments"     element={<ProtectedRoute><main className="main-content"><TournamentPage /></main></ProtectedRoute>} />
-            <Route path="/:universe/tournament/:id" element={<ProtectedRoute><main className="main-content"><TournamentPage /></main></ProtectedRoute>} />
-            <Route path="/:universe/correspondence/:id" element={<ProtectedRoute><main className="main-content"><CorrespondenceGame /></main></ProtectedRoute>} />
+            <Route path="/:universe/tournaments"     element={<ProtectedRoute><PageFrame><TournamentPage /></PageFrame></ProtectedRoute>} />
+            <Route path="/:universe/tournament/:id" element={<ProtectedRoute><PageFrame><TournamentPage /></PageFrame></ProtectedRoute>} />
+            <Route path="/:universe/correspondence/:id" element={<ProtectedRoute><PageFrame><CorrespondenceGame /></PageFrame></ProtectedRoute>} />
 
-            <Route path="/:universe/profile/:name" element={<ProtectedRoute><main className="main-content"><ProfilePage /></main></ProtectedRoute>} />
-            <Route path="/:universe/leaderboard"  element={<main className="main-content"><LeaderboardPage /></main>} />
+            <Route path="/:universe/profile/:name" element={<ProtectedRoute><PageFrame><ProfilePage /></PageFrame></ProtectedRoute>} />
+            <Route path="/:universe/leaderboard"  element={<PageFrame><LeaderboardPage /></PageFrame>} />
 
-            <Route path="/:universe/analysis" element={<main className="main-content"><AnalysisBoard /></main>} />
-            <Route path="/:universe/editor"   element={<main className="main-content"><BoardEditorPage /></main>} />
-            <Route path="/:universe/board-editor" element={<main className="main-content"><BoardEditorPage /></main>} />
-            <Route path="/:universe/opening-explorer" element={<main className="main-content"><OpeningExplorerPage /></main>} />
-            <Route path="/:universe/my-studies" element={<ProtectedRoute><main className="main-content"><MyStudiesPage /></main></ProtectedRoute>} />
-            <Route path="/:universe/endgame-training" element={<main className="main-content"><EndgameTrainingPage /></main>} />
-            <Route path="/:universe/coordinates" element={<main className="main-content"><CoordinatesPage /></main>} />
-            <Route path="/:universe/import" element={<main className="main-content"><GameImporterPage /></main>} />
-            <Route path="/:universe/coming-soon/:feature" element={<main className="main-content"><ComingSoonPage /></main>} />
-            <Route path="/:universe/admin" element={<ProtectedRoute><main className="main-content"><AdminSafetyPage /></main></ProtectedRoute>} />
-            <Route path="/:universe/admin/safety" element={<ProtectedRoute><main className="main-content"><AdminSafetyPage /></main></ProtectedRoute>} />
+            <Route path="/:universe/analysis" element={<PageFrame><AnalysisBoard /></PageFrame>} />
+            <Route path="/:universe/editor"   element={<PageFrame><BoardEditorPage /></PageFrame>} />
+            <Route path="/:universe/board-editor" element={<PageFrame><BoardEditorPage /></PageFrame>} />
+            <Route path="/:universe/opening-explorer" element={<PageFrame><OpeningExplorerPage /></PageFrame>} />
+            <Route path="/:universe/my-studies" element={<ProtectedRoute><PageFrame><MyStudiesPage /></PageFrame></ProtectedRoute>} />
+            <Route path="/:universe/endgame-training" element={<PageFrame><EndgameTrainingPage /></PageFrame>} />
+            <Route path="/:universe/coordinates" element={<PageFrame><CoordinatesPage /></PageFrame>} />
+            <Route path="/:universe/import" element={<PageFrame><GameImporterPage /></PageFrame>} />
+            <Route path="/:universe/coming-soon/:feature" element={<PageFrame><ComingSoonPage /></PageFrame>} />
+            <Route path="/:universe/admin" element={<ProtectedRoute><PageFrame><AdminSafetyPage /></PageFrame></ProtectedRoute>} />
+            <Route path="/:universe/admin/safety" element={<ProtectedRoute><PageFrame><AdminSafetyPage /></PageFrame></ProtectedRoute>} />
 
-            <Route path="/:universe/puzzles"        element={<main className="main-content"><PuzzlesPage /></main>} />
-            <Route path="/:universe/puzzle-streak" element={<main className="main-content"><PuzzleStreakPage /></main>} />
-            <Route path="/:universe/puzzle-storm"  element={<main className="main-content"><PuzzleStormPage /></main>} />
+            <Route path="/:universe/puzzles"        element={<PageFrame><PuzzlesPage /></PageFrame>} />
+            <Route path="/:universe/puzzle-streak" element={<PageFrame><PuzzleStreakPage /></PageFrame>} />
+            <Route path="/:universe/puzzle-storm"  element={<PageFrame><PuzzleStormPage /></PageFrame>} />
 
-            <Route path="/:universe/watch/:id" element={<main className="main-content"><SpectateGame /></main>} />
-            <Route path="/game/:id" element={<main className="main-content"><GameReplayPage /></main>} />
+            <Route path="/:universe/watch/:id" element={<PageFrame><SpectateGame /></PageFrame>} />
+            <Route path="/game/:id" element={<PageFrame><GameReplayPage /></PageFrame>} />
             <Route path="/join/:code" element={<JoinByCodeRedirect />} />
             <Route path="/wallet/success" element={<WalletReturn status="success" />} />
             <Route path="/wallet/cancel" element={<WalletReturn status="cancel" />} />

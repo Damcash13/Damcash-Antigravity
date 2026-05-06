@@ -123,6 +123,31 @@ body {
   gap: 12px;
 }
 
+.page-back-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.page-back-btn {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 7px 12px;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.page-back-btn:hover {
+  background: var(--bg-3);
+  border-color: var(--text-3);
+  color: var(--text-1);
+}
+
 /* ===== HEADER ===== */
 .header {
   position: sticky;
@@ -2332,6 +2357,7 @@ html, body {
 }
 
 .modal {
+  position: relative;
   background: var(--bg-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -2341,10 +2367,36 @@ html, body {
   width: 90%;
 }
 
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.modal-close:hover {
+  background: var(--bg-3);
+  border-color: var(--text-3);
+  color: var(--text-1);
+}
+
 .modal-title {
   font-size: 18px;
   font-weight: 700;
   margin-bottom: 16px;
+  padding: 0 34px;
   text-align: center;
 }
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../../styles/lobby-room.css';
 import { socket } from '../../lib/socket';
-import { useUniverseStore, useUserStore } from '../../stores';
+import { useUniverseStore, useUserStore, useNotificationStore } from '../../stores';
 import { useInviteStore, OnlinePlayer } from '../../stores/inviteStore';
 import { useSafetyStore } from '../../stores/safetyStore';
 import { supabase } from '../../lib/supabase';
@@ -174,7 +174,8 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
   const { t } = useTranslation();
   const { universe } = useUniverseStore();
   const { user } = useUserStore();
-  const { onlinePlayers } = useInviteStore();
+  const { onlinePlayers, openConfig } = useInviteStore();
+  const addNotification = useNotificationStore(s => s.addNotification);
   const blockedUsers = useSafetyStore(s => s.blockedUsers);
   const mutedUsers = useSafetyStore(s => s.mutedUsers);
   const muteUser = useSafetyStore(s => s.muteUser);
@@ -282,6 +283,22 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
 
   const handleAccept = (seek: PublicSeek) => socket.emit('seek:accept', { seekId: seek.seekId });
   const handleCancel = () => { socket.emit('seek:cancel'); };
+  const handleChallengePlayer = (player: OnlinePlayer, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!user) {
+      addNotification('Sign in to challenge players.', 'warning');
+      return;
+    }
+    if (isBlockedName(player.name)) {
+      addNotification(`Unblock ${player.name} before challenging them.`, 'warning');
+      return;
+    }
+    if (player.universe !== universe) {
+      addNotification(`${player.name} is not available in this lobby right now.`, 'warning');
+      return;
+    }
+    openConfig({ socketId: player.socketId, name: player.name, universe: player.universe });
+  };
 
   const visibleSeeks = seeks.filter(s => s.universe === universe && !isBlockedName(s.name));
   const mySeek       = visibleSeeks.find(s => s.socketId === socket.id);
@@ -552,9 +569,13 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <StatusDot status={theirSeek ? 'seeking' : player.status} />
                       {canChallenge && (
-                        <span className="lobby-challenge-btn" aria-label={`Open actions for ${player.name}`}>
-                          Actions
-                        </span>
+                        <button
+                          className="lobby-challenge-btn"
+                          aria-label={`Challenge ${player.name}`}
+                          onClick={(e) => handleChallengePlayer(player, e)}
+                        >
+                          Challenge
+                        </button>
                       )}
                       {theirSeek && (
                         <button className="lobby-join-btn" onClick={(e) => { e.stopPropagation(); handleAccept(theirSeek); }}>
