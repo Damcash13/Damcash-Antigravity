@@ -375,7 +375,6 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
               onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`)}
               title={t('header.profileTitle', { name: user.name })}
             >
-              <span className="header-profile-initial">{user.name[0]?.toUpperCase()}</span>
               <span className="header-profile-meta">
                 <span className="header-profile-name">
                   {user.country && (
@@ -386,7 +385,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
                   <span className="header-profile-name-text">{user.name}</span>
                 </span>
                 <span className="header-profile-rating">
-                  Elo {user.rating[universe]}
+                  {user.rating[universe]}
                   {lastRatingChange && lastRatingChange.universe === universe && Date.now() - lastRatingChange.playedAt < 120_000 && (
                     <span className={lastRatingChange.delta >= 0 ? 'rating-delta-up' : 'rating-delta-down'}>
                       {lastRatingChange.delta >= 0 ? '+' : ''}{lastRatingChange.delta}

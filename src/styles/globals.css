@@ -1375,8 +1375,8 @@ button,
 }
 
 .header-profile-btn {
-  min-width: 116px;
-  max-width: 176px;
+  min-width: 120px;
+  max-width: 220px;
   min-height: 38px;
   border-radius: 999px;
   background: var(--bg-2);
@@ -1385,8 +1385,8 @@ button,
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
-  padding: 4px 10px 4px 5px;
+  gap: 0;
+  padding: 5px 12px;
   transition: border-color 0.15s, background 0.15s, transform 0.15s;
   flex-shrink: 0;
   color: var(--text-1);
@@ -1399,21 +1399,6 @@ button,
   transform: translateY(-1px);
 }
 
-.header-profile-initial {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--accent);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 900;
-  color: #000;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
 .header-profile-meta {
   min-width: 0;
   display: grid;
@@ -1423,7 +1408,7 @@ button,
 }
 
 .header-profile-name {
-  max-width: 112px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3441,10 +3426,9 @@ html, body {
   .dm-bubble { max-width: 92%; }
   .pairing-grid { grid-template-columns: repeat(2, 1fr); }
   .header-right { gap: 4px; }
-  .header-profile-btn { min-width: 72px; max-width: 86px; padding-right: 8px; gap: 6px; }
-  .header-profile-initial { width: 28px; height: 28px; font-size: 13px; }
-  .header-profile-name { display: none; }
-  .header-profile-rating { font-size: 10px; line-height: 1; }
+  .header-profile-btn { min-width: 96px; max-width: 132px; padding: 5px 8px; }
+  .header-profile-name { display: inline-flex; max-width: 112px; font-size: 11px; }
+  .header-profile-rating { font-size: 10px; line-height: 1; color: var(--text-2); }
   .logo { gap: 5px; min-width: 0; }
   .header .logo-mark { width: 30px; height: 30px; border-radius: 7px; }
   .logo-wordmark { display: flex; }
@@ -3469,7 +3453,8 @@ html, body {
   .hamburger-btn { min-width: 46px; height: 34px; padding: 0 8px; }
   .btn-signin,
   .btn-register { font-size: 10px; padding: 5px 8px; }
-  .header-profile-btn { min-width: 66px; max-width: 72px; padding-right: 6px; }
+  .header-profile-btn { min-width: 88px; max-width: 112px; padding: 5px 7px; }
+  .header-profile-name { max-width: 92px; }
 }
 
 /* ===== SUPABASE BANNER ===== */
