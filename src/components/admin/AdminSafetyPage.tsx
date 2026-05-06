@@ -31,6 +31,7 @@ export const AdminSafetyPage: React.FC = () => {
   const [dashboard, setDashboard] = useState<ApiAdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [releasingPayoutId, setReleasingPayoutId] = useState('');
 
   const loadDashboard = async () => {
     setLoading(true);
@@ -54,9 +55,34 @@ export const AdminSafetyPage: React.FC = () => {
     (dashboard?.failedPayments.walletFailures.length || 0)
   ), [dashboard]);
 
+  const payoutHoldCount = dashboard?.payoutHolds.length || 0;
+
   const handleRefresh = async () => {
     await loadDashboard();
     addNotification('Admin dashboard refreshed.', 'info');
+  };
+
+  const handleReleasePayout = async (hold: ApiAdminDashboard['payoutHolds'][number]) => {
+    const confirmed = window.confirm(
+      `Release $${hold.amount.toFixed(2)} to ${hold.username} for ${hold.tournamentName}? This credits the wallet immediately.`
+    );
+    if (!confirmed) return;
+
+    setReleasingPayoutId(hold.id);
+    try {
+      const result = await api.admin.releaseTournamentPayout(hold.id);
+      addNotification(
+        result.alreadyReleased
+          ? 'That tournament payout was already released.'
+          : `Released $${result.amount.toFixed(2)} to ${result.username}.`,
+        'success',
+      );
+      await loadDashboard();
+    } catch (err: any) {
+      addNotification(err?.message || 'Could not release tournament payout.', 'error');
+    } finally {
+      setReleasingPayoutId('');
+    }
   };
 
   if (loading && !dashboard) {
@@ -109,6 +135,7 @@ export const AdminSafetyPage: React.FC = () => {
         <div><strong>{dashboard.health.activeGames}</strong><span>Active games</span></div>
         <div><strong>{dashboard.tournaments.summary.running}</strong><span>Running tournaments</span></div>
         <div><strong>{paymentIssueCount}</strong><span>Payment issues</span></div>
+        <div><strong>{payoutHoldCount}</strong><span>Payout holds</span></div>
         <div><strong>{dashboard.disputedGames.length}</strong><span>Disputed games</span></div>
         <div><strong>{dashboard.flaggedUsers.length}</strong><span>Flagged users</span></div>
         <div><strong>{dashboard.health.recentErrorCount}</strong><span>Recent errors</span></div>
@@ -223,6 +250,39 @@ export const AdminSafetyPage: React.FC = () => {
                 <span>${game.betAmount.toFixed(2)}</span>
                 <span className="admin-pill failed">{game.walletStatus}</span>
                 <span>{formatTime(game.endedAt || game.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="admin-panel">
+        <div className="admin-panel-head">
+          <h2>Tournament Payout Holds</h2>
+          <span>{payoutHoldCount}</span>
+        </div>
+        {payoutHoldCount === 0 ? (
+          <div className="admin-safety-empty">No tournament payouts are waiting for owner review.</div>
+        ) : (
+          <div className="admin-mini-table payouts">
+            <div className="head"><span>Player</span><span>Tournament</span><span>Amount</span><span>Status</span><span>Held</span><span>Action</span></div>
+            {dashboard.payoutHolds.map(hold => (
+              <div key={hold.id}>
+                <span>{hold.username}</span>
+                <span>{hold.tournamentName}</span>
+                <span>${hold.amount.toFixed(2)}</span>
+                <span className="admin-pill pending">{hold.status}</span>
+                <span>{formatTime(hold.createdAt)}</span>
+                <span>
+                  <button
+                    className="admin-mini-action"
+                    type="button"
+                    disabled={releasingPayoutId === hold.id}
+                    onClick={() => handleReleasePayout(hold)}
+                  >
+                    {releasingPayoutId === hold.id ? 'Releasing...' : 'Release payout'}
+                  </button>
+                </span>
               </div>
             ))}
           </div>

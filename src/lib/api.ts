@@ -311,7 +311,21 @@ export const api = {
   },
 
   admin: {
-    dashboard: () => request<ApiAdminDashboard>('/api/admin/dashboard'),
+    dashboard: () => request<ApiAdminDashboard>('/api/admin/dashboard', { requireAuth: true }),
+    releaseTournamentPayout: (transactionId: string) =>
+      request<{
+        ok: boolean;
+        alreadyReleased: boolean;
+        userId: string;
+        username: string;
+        amount: number;
+        balance: number;
+        tournamentId: string | null;
+      }>(`/api/admin/tournament-payouts/${encodeURIComponent(transactionId)}/release`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+        requireAuth: true,
+      }),
   },
 
   messages: {
@@ -615,6 +629,21 @@ export interface ApiAdminDashboard {
       endedAt: string | null;
     }>;
   };
+  payoutHolds: Array<{
+    id: string;
+    userId: string | null;
+    username: string;
+    amount: number;
+    status: string;
+    tournamentId: string | null;
+    tournamentName: string;
+    universe: string | null;
+    prizePool: number;
+    betEntry: number;
+    startsAt: string | null;
+    stripeSessionId: string | null;
+    createdAt: string;
+  }>;
   disputedGames: Array<ApiModerationReport & { reporterUsername: string | null }>;
   flaggedUsers: Array<{
     username: string;

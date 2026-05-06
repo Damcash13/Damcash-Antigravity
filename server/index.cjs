@@ -4089,7 +4089,10 @@ app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (_req, res) => 
     }, { upcoming: 0, running: 0, finished: 0 });
 
     const failedTransactions = await prisma.transaction.findMany({
-      where: { status: { not: 'COMPLETED' } },
+      where: {
+        status: { not: 'COMPLETED' },
+        NOT: { type: TOURNAMENT_PAYOUT_TYPE, status: 'PENDING' },
+      },
       include: {
         wallet: {
           include: {
@@ -4100,6 +4103,27 @@ app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (_req, res) => 
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
+
+    const payoutHolds = await prisma.transaction.findMany({
+      where: { type: TOURNAMENT_PAYOUT_TYPE, status: 'PENDING' },
+      include: {
+        wallet: {
+          include: {
+            user: { select: { id: true, username: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 25,
+    });
+    const payoutHoldTournamentIds = Array.from(new Set(payoutHolds.map(tx => tx.matchId).filter(Boolean)));
+    const payoutHoldTournaments = payoutHoldTournamentIds.length
+      ? await prisma.tournament.findMany({
+          where: { id: { in: payoutHoldTournamentIds } },
+          select: { id: true, name: true, universe: true, startsAt: true, prizePool: true, betEntry: true },
+        })
+      : [];
+    const payoutHoldTournamentById = new Map(payoutHoldTournaments.map(tournament => [tournament.id, tournament]));
 
     const walletFailures = await prisma.match.findMany({
       where: { walletStatus: 'failed' },
@@ -4213,6 +4237,24 @@ app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (_req, res) => 
           endedAt: match.endedAt,
         })),
       },
+      payoutHolds: payoutHolds.map(tx => {
+        const tournament = tx.matchId ? payoutHoldTournamentById.get(tx.matchId) : null;
+        return {
+          id: tx.id,
+          userId: tx.wallet?.user?.id || null,
+          username: tx.wallet?.user?.username || 'Unknown',
+          amount: Number(tx.amount),
+          status: tx.status,
+          tournamentId: tx.matchId,
+          tournamentName: tournament?.name || tx.matchId || 'Tournament',
+          universe: tournament?.universe || null,
+          prizePool: Number(tournament?.prizePool || 0),
+          betEntry: Number(tournament?.betEntry || 0),
+          startsAt: tournament?.startsAt || null,
+          stripeSessionId: tx.stripeSessionId,
+          createdAt: tx.createdAt,
+        };
+      }),
       disputedGames,
       flaggedUsers,
       recentReports,
@@ -4221,6 +4263,89 @@ app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (_req, res) => 
   } catch (err) {
     console.error('[Admin dashboard] Error:', err);
     res.status(500).json({ error: 'Could not load admin dashboard' });
+  }
+});
+
+app.post('/api/admin/tournament-payouts/:transactionId/release', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await ensureSafetySchema();
+    const transactionId = sanitizeText(req.params.transactionId, 80);
+    if (!transactionId) return res.status(400).json({ error: 'Payout transaction is required' });
+
+    const result = await prisma.$transaction(async (tx) => {
+      const payout = await tx.transaction.findUnique({
+        where: { id: transactionId },
+        include: {
+          wallet: {
+            include: { user: { select: { id: true, username: true } } },
+          },
+        },
+      });
+
+      if (!payout || payout.type !== TOURNAMENT_PAYOUT_TYPE) {
+        const err = new Error('Tournament payout hold not found');
+        err.status = 404;
+        throw err;
+      }
+      if (payout.status === 'COMPLETED') {
+        return {
+          alreadyReleased: true,
+          userId: payout.wallet.userId,
+          username: payout.wallet.user?.username || 'Player',
+          amount: Number(payout.amount),
+          balance: Number(payout.wallet.balance),
+          tournamentId: payout.matchId,
+        };
+      }
+      if (payout.status !== 'PENDING') {
+        const err = new Error(`Cannot release a payout with status ${payout.status}`);
+        err.status = 400;
+        throw err;
+      }
+
+      const wallet = await tx.wallet.update({
+        where: { id: payout.walletId },
+        data: { balance: { increment: Number(payout.amount) } },
+      });
+      await tx.transaction.update({
+        where: { id: payout.id },
+        data: { status: 'COMPLETED' },
+      });
+      await tx.$executeRaw`
+        UPDATE "ModerationReport"
+        SET status = 'resolved'
+        WHERE context = ${TOURNAMENT_PAYOUT_HOLD_CONTEXT}
+          AND (
+            "paymentId" = ${payout.stripeSessionId}
+            OR "paymentId" = ${payout.id}
+          )
+      `;
+
+      return {
+        alreadyReleased: false,
+        userId: payout.wallet.userId,
+        username: payout.wallet.user?.username || 'Player',
+        amount: Number(payout.amount),
+        balance: Number(wallet.balance),
+        tournamentId: payout.matchId,
+      };
+    });
+
+    const sock = [...io.sockets.sockets.values()].find(s => s.user?.id === result.userId);
+    sock?.emit('wallet:update', {
+      balance: result.balance,
+      message: `Tournament payout released: $${result.amount.toFixed(2)}`,
+    });
+    if (result.tournamentId) {
+      io.to(`tournament:${result.tournamentId}`).emit('tournament:updated', { id: result.tournamentId });
+      io.emit('tournament:global_update');
+    }
+
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('[Admin payout release] Error:', err);
+    res.status(500).json({ error: 'Could not release tournament payout' });
   }
 });
 
@@ -4982,6 +5107,9 @@ startServer().catch((err) => {
 const SCHEDULE_WINDOW_HOURS = 24;
 const HOURLY_TOURNAMENT_DURATION_MS = 60 * 60 * 1000;
 const TOURNAMENT_PAYOUT_TYPE = 'TOURNAMENT_PAYOUT';
+const TOURNAMENT_PAYOUT_HOLD_CONTEXT = 'tournament_payout_review';
+const TOURNAMENT_PAYOUT_HOLD_MIN_GAMES = 20;
+const TOURNAMENT_PAYOUT_HOLD_MIN_ACCOUNT_DAYS = 3;
 let schedulerTickInFlight = false;
 
 function utcHourStart(date = new Date()) {
@@ -5106,13 +5234,93 @@ async function createScheduledTournament({ name, icon, universe, timeControl, fo
   }
 }
 
+async function countOpenModerationReportsForUser(user) {
+  if (!user?.id && !user?.username) return 0;
+  const rows = await prisma.$queryRaw`
+    SELECT COUNT(*)::int AS count
+    FROM "ModerationReport" r
+    WHERE r.status = 'open'
+      AND (
+        r."targetId" = ${user.id || null}
+        OR LOWER(r."targetUsername") = LOWER(${user.username || ''})
+      )
+  `;
+  return Number(rows?.[0]?.count || 0);
+}
+
+async function buildTournamentPayoutReview(tournament, winner, amountCents) {
+  const reasons = [];
+  if (amountCents <= 0 || !winner?.user) return { hold: false, reasons };
+
+  const uv = tournament.universe === 'checkers' ? 'checkers' : 'chess';
+  const entryFee = Number(tournament.betEntry || 0);
+  const ratingMin = normalizeRatingLimit(tournament.ratingMin);
+  const ratingMax = normalizeRatingLimit(tournament.ratingMax);
+  const minGames = Math.max(
+    normalizeNonNegativeInt(tournament.minGames),
+    entryFee > 0 ? TOURNAMENT_PAYOUT_HOLD_MIN_GAMES : 0,
+  );
+  const minAccountAgeDays = Math.max(
+    normalizeNonNegativeInt(tournament.minAccountAgeDays),
+    entryFee > 0 ? TOURNAMENT_PAYOUT_HOLD_MIN_ACCOUNT_DAYS : 0,
+  );
+
+  const currentRating = uv === 'checkers' ? winner.user.checkersRating : winner.user.chessRating;
+  const peakRating = uv === 'checkers' ? winner.user.peakCheckersRating : winner.user.peakChessRating;
+  const [recentPeak, ratedGames, openReports] = await Promise.all([
+    (ratingMin !== null || ratingMax !== null) ? recentRatedPeak(winner.userId, uv) : Promise.resolve(0),
+    minGames > 0 ? countRatedTournamentEligibleGames(winner.userId, uv) : Promise.resolve(0),
+    countOpenModerationReportsForUser(winner.user),
+  ]);
+  const eligibilityRating = Math.max(currentRating || 0, peakRating || 0, recentPeak || 0);
+  const accountAgeDays = Math.floor((Date.now() - new Date(winner.user.createdAt).getTime()) / 86_400_000);
+
+  if (ratingMin !== null && eligibilityRating < ratingMin) {
+    reasons.push(`eligibility rating ${eligibilityRating} is below the ${ratingMin}+ band`);
+  }
+  if (ratingMax !== null && eligibilityRating > ratingMax) {
+    reasons.push(`eligibility rating ${eligibilityRating} is above the ${tournamentRatingBandLabel(tournament)} band`);
+  }
+  if (minGames > 0 && ratedGames < minGames) {
+    reasons.push(`${ratedGames}/${minGames} completed rated ${uv} games`);
+  }
+  if (minAccountAgeDays > 0 && accountAgeDays < minAccountAgeDays) {
+    reasons.push(`account age ${accountAgeDays}/${minAccountAgeDays} days`);
+  }
+  if (openReports > 0) {
+    reasons.push(`${openReports} open moderation report${openReports === 1 ? '' : 's'}`);
+  }
+
+  return {
+    hold: reasons.length > 0,
+    reasons,
+    eligibilityRating,
+    ratedGames,
+    accountAgeDays,
+    openReports,
+  };
+}
+
 async function settleTournamentPrizePool(tournamentId) {
   try {
+    await ensureSafetySchema();
     const tournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
       include: {
         players: {
-          include: { user: { select: { id: true, username: true } } },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                createdAt: true,
+                chessRating: true,
+                peakChessRating: true,
+                checkersRating: true,
+                peakCheckersRating: true,
+              },
+            },
+          },
           orderBy: [{ score: 'desc' }, { wins: 'desc' }],
         },
       },
@@ -5132,7 +5340,12 @@ async function settleTournamentPrizePool(tournamentId) {
 
     const baseShareCents = Math.floor(poolCents / winners.length);
     const remainderCents = poolCents % winners.length;
+    const payoutReviews = await Promise.all(winners.map((winner, index) => {
+      const amountCents = baseShareCents + (index < remainderCents ? 1 : 0);
+      return buildTournamentPayoutReview(tournament, winner, amountCents);
+    }));
     let paidCount = 0;
+    let heldCount = 0;
 
     await prisma.$transaction(async (tx) => {
       const alreadyPaid = await tx.transaction.findFirst({
@@ -5145,31 +5358,52 @@ async function settleTournamentPrizePool(tournamentId) {
         const amountCents = baseShareCents + (index < remainderCents ? 1 : 0);
         if (amountCents <= 0) continue;
         const amount = amountCents / 100;
-        const wallet = await tx.wallet.upsert({
-          where: { userId: winner.userId },
-          create: { userId: winner.userId, balance: amount },
-          update: { balance: { increment: amount } },
-        });
-        await tx.transaction.create({
+        const review = payoutReviews[index];
+        const wallet = review.hold
+          ? (await tx.wallet.findUnique({ where: { userId: winner.userId } }))
+            || (await tx.wallet.create({ data: { userId: winner.userId, balance: 0 } }))
+          : await tx.wallet.upsert({
+              where: { userId: winner.userId },
+              create: { userId: winner.userId, balance: amount },
+              update: { balance: { increment: amount } },
+            });
+        const payout = await tx.transaction.create({
           data: {
             walletId: wallet.id,
             amount,
             type: TOURNAMENT_PAYOUT_TYPE,
-            status: 'COMPLETED',
+            status: review.hold ? 'PENDING' : 'COMPLETED',
             matchId: tournament.id,
-            stripeSessionId: `tournament-payout:${tournament.id}:${winner.userId}`,
+            stripeSessionId: review.hold
+              ? `tournament-payout-hold:${tournament.id}:${winner.userId}`
+              : `tournament-payout:${tournament.id}:${winner.userId}`,
           },
         });
-        paidCount += 1;
+        if (review.hold) {
+          const notes = [
+            `Prize payout held for owner review: $${amount.toFixed(2)}.`,
+            `Tournament: ${tournament.name}.`,
+            `Reasons: ${review.reasons.join('; ')}.`,
+          ].join(' ');
+          await tx.$executeRaw`
+            INSERT INTO "ModerationReport"
+              (id, "targetId", "targetUsername", reason, context, notes, "matchId", "paymentId")
+            VALUES
+              (${genId()}, ${winner.userId}, ${winner.user.username}, 'tournament_payout_hold', ${TOURNAMENT_PAYOUT_HOLD_CONTEXT}, ${notes}, ${tournament.id}, ${payout.stripeSessionId})
+          `;
+          heldCount += 1;
+        } else {
+          paidCount += 1;
+        }
       }
     });
 
-    if (paidCount > 0) {
-      log.info(`[Tournament] Paid $${(poolCents / 100).toFixed(2)} prize pool for ${tournament.name} to ${paidCount} winner(s)`);
+    if (paidCount > 0 || heldCount > 0) {
+      log.info(`[Tournament] Prize pool for ${tournament.name}: ${paidCount} payout(s) paid, ${heldCount} held for review`);
       io.to(`tournament:${tournament.id}`).emit('tournament:updated', { id: tournament.id });
       io.emit('tournament:global_update');
     }
-    return paidCount;
+    return paidCount + heldCount;
   } catch (e) {
     log.error('[Tournament] Failed to settle tournament prize pool:', e.message);
     return 0;
