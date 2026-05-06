@@ -22,7 +22,7 @@ export class ApiRequestError extends Error {
 }
 
 async function request<T>(path: string, opts?: RequestInit): Promise<T> {
-  let token = null;
+  let token: string | null = null;
   if (supabase) {
     try {
       const { data: { session } } = await withTimeout<any>(
@@ -40,15 +40,39 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
   const timer = setTimeout(() => controller.abort(), API_TIMEOUT);
 
   try {
-    const res = await fetch(`${BASE}${path}`, {
+    const headersFor = (accessToken: string | null) => ({
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...opts?.headers,
+    });
+
+    let res = await fetch(`${BASE}${path}`, {
       ...opts,
       signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...opts?.headers,
-      },
+      headers: headersFor(token),
     });
+
+    if (res.status === 401 && supabase) {
+      try {
+        const { data: { session } } = await withTimeout<any>(
+          supabase.auth.refreshSession(),
+          8_000,
+          'Auth session refresh',
+        );
+        const refreshedToken = session?.access_token || null;
+        if (refreshedToken && refreshedToken !== token) {
+          token = refreshedToken;
+          res = await fetch(`${BASE}${path}`, {
+            ...opts,
+            signal: controller.signal,
+            headers: headersFor(token),
+          });
+        }
+      } catch {
+        // Fall through to the original 401 handling below.
+      }
+    }
+
     clearTimeout(timer);
 
     if (!res.ok) {
