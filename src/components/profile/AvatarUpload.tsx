@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNotificationStore, useUserStore } from '../../stores';
-import { api } from '../../lib/api';
 
 const MAX_AVATAR_BYTES = 3 * 1024 * 1024;
 const AVATAR_OUTPUT_SIZE = 512;
@@ -62,7 +61,7 @@ async function prepareAvatar(file: File) {
 }
 
 export const AvatarUpload: React.FC = () => {
-  const { user, updateProfile } = useUserStore();
+  const { user, uploadAvatar } = useUserStore();
   const addNotification = useNotificationStore(s => s.addNotification);
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -87,9 +86,7 @@ export const AvatarUpload: React.FC = () => {
       }
 
       const avatar = await prepareAvatar(file);
-      const { avatarUrl } = await api.auth.uploadAvatar(avatar);
-
-      await updateProfile({ avatarUrl });
+      await uploadAvatar(avatar);
       setFeedback('Profile photo updated.');
       addNotification('Profile photo updated.', 'success');
     } catch (error: any) {

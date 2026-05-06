@@ -124,7 +124,7 @@ export const api = {
         body: JSON.stringify(body),
       }),
     uploadAvatar: (body: { fileName: string; contentType: string; base64: string }) =>
-      request<{ avatarUrl: string; storage?: 'supabase' | 'inline' }>('/api/auth/avatar', {
+      request<{ avatarUrl: string; storage?: 'supabase' | 'inline'; user: ApiUser }>('/api/auth/avatar', {
         method: 'POST',
         body: JSON.stringify(body),
       }),

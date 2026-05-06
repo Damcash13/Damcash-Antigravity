@@ -138,6 +138,7 @@ interface UserStore {
   updateBetStats:  (result: 'win' | 'loss') => void;
   saveUsername:    (newName: string, country?: string) => Promise<void>;
   updateProfile:   (fields: { username?: string; country?: string; avatarUrl?: string; bio?: string; socialLinks?: SocialLinks }) => Promise<void>;
+  uploadAvatar:    (body: { fileName: string; contentType: string; base64: string }) => Promise<void>;
   restoreSession:  () => Promise<void>;
   listenToAuthChanges: () => void;
 }
@@ -226,6 +227,16 @@ export const useUserStore = create<UserStore>()(
       },
       updateProfile: async (fields) => {
         const res = await api.auth.updateProfile(fields);
+        set((s) => {
+          const next = apiUserToUser(res.user);
+          return {
+            user: s.user ? { ...next, betsWon: s.user.betsWon, betsLost: s.user.betsLost } : next,
+            isLoggedIn: true,
+          };
+        });
+      },
+      uploadAvatar: async (body) => {
+        const res = await api.auth.uploadAvatar(body);
         set((s) => {
           const next = apiUserToUser(res.user);
           return {

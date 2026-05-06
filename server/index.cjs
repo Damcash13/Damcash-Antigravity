@@ -174,6 +174,58 @@ async function ensureAvatarBucket() {
   }
 }
 
+function apiUserPayload(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    country: user.country || '',
+    avatarUrl: user.avatarUrl,
+    bio: user.bio || '',
+    socialLinks: user.socialLinks || {},
+    walletBalance: user.wallet?.balance || 0,
+    rating: { chess: user.chessRating, checkers: user.checkersRating },
+    chess: { wins: user.chessWins, losses: user.chessLosses, draws: user.chessDraws, games: user.chessGames },
+    checkers: { wins: user.checkersWins, losses: user.checkersLosses, draws: user.checkersDraws, games: user.checkersGames },
+  };
+}
+
+async function saveAvatarForAuthUser(authUser, avatarUrl) {
+  try {
+    return await prisma.user.update({
+      where: { id: authUser.id },
+      data: { avatarUrl },
+      include: { wallet: true },
+    });
+  } catch (idErr) {
+    if (idErr.code !== 'P2025') throw idErr;
+    try {
+      return await prisma.user.update({
+        where: { email: authUser.email },
+        data: { id: authUser.id, avatarUrl },
+        include: { wallet: true },
+      });
+    } catch (emailErr) {
+      if (emailErr.code !== 'P2025') throw emailErr;
+      const fallbackUsername = await uniqueUsername(usernameFromAuthUser(authUser), authUser.id);
+      return prisma.user.create({
+        data: {
+          id: authUser.id,
+          email: authUser.email,
+          passwordHash: 'SUPABASE_AUTH',
+          username: fallbackUsername,
+          avatarUrl,
+          country: typeof authUser.user_metadata?.country === 'string'
+            ? authUser.user_metadata.country.toUpperCase().slice(0, 2)
+            : '',
+          wallet: { create: { balance: 0 } },
+        },
+        include: { wallet: true },
+      });
+    }
+  }
+}
+
 function usernameFromAuthUser(authUser) {
   const metadata = authUser?.user_metadata || {};
   return sanitizeUsername(
@@ -2460,7 +2512,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 
 async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  if (!token) return res.status(401).json({ error: 'Your sign-in session is missing. Please refresh and sign in again.' });
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) throw new Error('Invalid session');
@@ -2469,7 +2521,8 @@ async function requireAuth(req, res, next) {
     req.dbUser = await prisma.user.findUnique({ where: { email: user.email }, select: { id: true, username: true } }).catch(() => null);
     next();
   } catch (err) {
-    res.status(401).json({ error: 'Invalid token' });
+    log.warn(`[auth] rejected ${req.method} ${req.path}: ${err?.message || 'invalid token'}`);
+    res.status(401).json({ error: 'Your sign-in session could not be verified. Please refresh and sign in again.' });
   }
 }
 
@@ -2555,16 +2608,7 @@ app.patch('/api/auth/profile', requireAuth, async (req, res) => {
       }
     }
 
-    res.json({ user: {
-      id: updated.id, username: updated.username, email: updated.email, country: updated.country || '',
-      avatarUrl: updated.avatarUrl,
-      bio: updated.bio || '',
-      socialLinks: updated.socialLinks || {},
-      walletBalance: updated.wallet?.balance || 0,
-      rating: { chess: updated.chessRating, checkers: updated.checkersRating },
-      chess:    { wins: updated.chessWins,    losses: updated.chessLosses,    draws: updated.chessDraws,    games: updated.chessGames },
-      checkers: { wins: updated.checkersWins, losses: updated.checkersLosses, draws: updated.checkersDraws, games: updated.checkersGames },
-    }});
+    res.json({ user: apiUserPayload(updated) });
   } catch (err) {
     if (err.code === 'P2002') return res.status(400).json({ error: 'Username already taken' });
     if (err.code === 'P2025') return res.status(404).json({ error: 'Profile not found — please sign out and back in.' });
@@ -2603,6 +2647,8 @@ app.post('/api/auth/avatar', requireAuth, async (req, res) => {
       .replace(/-+/g, '-')
       .replace(/^[-_.]+|[-_.]+$/g, '') || 'avatar';
     const filePath = `${req.user.id}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}-${safeName}.${ext}`;
+    let avatarUrl = null;
+    let storage = 'supabase';
 
     const { error: uploadError } = await supabase.storage
       .from(AVATAR_BUCKET)
@@ -2616,18 +2662,26 @@ app.post('/api/auth/avatar', requireAuth, async (req, res) => {
       const message = uploadError.message || '';
       if (/bucket|not found|row-level security|permission|unauthorized/i.test(message)) {
         const inlineUrl = inlineAvatarUrl(cleanContentType, rawBase64, buffer);
-        if (inlineUrl) return res.json({ avatarUrl: inlineUrl, storage: 'inline' });
-        return res.status(503).json({ error: AVATAR_STORAGE_SETUP_MESSAGE });
+        if (inlineUrl) {
+          avatarUrl = inlineUrl;
+          storage = 'inline';
+        } else {
+          return res.status(503).json({ error: AVATAR_STORAGE_SETUP_MESSAGE });
+        }
       }
-      throw uploadError;
+      if (!avatarUrl) throw uploadError;
     }
 
-    const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath);
-    if (!data?.publicUrl) {
-      return res.status(500).json({ error: 'Avatar uploaded, but the public URL could not be created.' });
+    if (!avatarUrl) {
+      const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath);
+      if (!data?.publicUrl) {
+        return res.status(500).json({ error: 'Avatar uploaded, but the public URL could not be created.' });
+      }
+      avatarUrl = data.publicUrl;
     }
 
-    res.json({ avatarUrl: data.publicUrl });
+    const updated = await saveAvatarForAuthUser(req.user, avatarUrl);
+    res.json({ avatarUrl, storage, user: apiUserPayload(updated) });
   } catch (err) {
     console.error('[POST /api/auth/avatar]', err.message);
     if (/bucket|storage/i.test(err.message || '')) {
@@ -2636,7 +2690,10 @@ app.post('/api/auth/avatar', requireAuth, async (req, res) => {
       const rawBase64 = typeof base64 === 'string' && base64.includes(',') ? base64.slice(base64.indexOf(',') + 1) : base64;
       const buffer = typeof rawBase64 === 'string' ? Buffer.from(rawBase64, 'base64') : Buffer.alloc(0);
       const inlineUrl = inlineAvatarUrl(cleanContentType, rawBase64, buffer);
-      if (inlineUrl) return res.json({ avatarUrl: inlineUrl, storage: 'inline' });
+      if (inlineUrl) {
+        const updated = await saveAvatarForAuthUser(req.user, inlineUrl);
+        return res.json({ avatarUrl: inlineUrl, storage: 'inline', user: apiUserPayload(updated) });
+      }
       return res.status(503).json({ error: AVATAR_STORAGE_SETUP_MESSAGE });
     }
     res.status(500).json({ error: 'Failed to upload avatar' });
