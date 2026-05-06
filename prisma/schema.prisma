@@ -163,6 +163,10 @@ model Tournament {
   rated       Boolean  @default(true)
   betEntry    Float    @default(0)
   prizePool   Float    @default(0)
+  ratingMin   Int?
+  ratingMax   Int?
+  minGames    Int      @default(0)
+  minAccountAgeDays Int @default(0)
   maxPlayers  Int      @default(64)
   durationMs  Int      @default(3600000)
   totalRounds Int      @default(0)

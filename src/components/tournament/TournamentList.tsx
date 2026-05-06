@@ -22,6 +22,14 @@ const JOIN_WINDOW_MS = 3 * 60_000;
 const PAIRING_CUTOFF_MS = 2 * 60_000;
 const FINISHED_VISIBLE_MS = 5 * 60_000;
 const MAX_TOURNAMENT_MONEY = 1000;
+const PROTECTED_CASH_MIN_GAMES = 20;
+const RATING_BANDS = [
+  { id: 'open', label: 'Open', min: null, max: null, help: 'All eligible players can join.' },
+  { id: 'under1200', label: 'Under 1200', min: null, max: 1199, help: 'Protected beginner cash events.' },
+  { id: 'under1500', label: 'Under 1500', min: null, max: 1499, help: 'Protected club-level cash events.' },
+  { id: '1200-1499', label: '1200-1499', min: 1200, max: 1499, help: 'Intermediate-only events.' },
+  { id: '1500plus', label: '1500+', min: 1500, max: null, help: 'Advanced and open cash events.' },
+] as const;
 
 interface CreateForm {
   name: string;
@@ -35,6 +43,7 @@ interface CreateForm {
   rated: boolean;
   betEntry: number;
   prizePool: number;
+  ratingBand: typeof RATING_BANDS[number]['id'];
 }
 
 const DEFAULT_FORM: CreateForm = {
@@ -49,6 +58,7 @@ const DEFAULT_FORM: CreateForm = {
   rated: true,
   betEntry: 0,
   prizePool: 0,
+  ratingBand: 'open',
 };
 
 interface Props {
@@ -69,12 +79,33 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
 
   const formatMoney = (value: number): string => `$${Number(value || 0).toFixed(2)}`;
   const clampMoney = (value: number): number => Math.max(0, Math.min(MAX_TOURNAMENT_MONEY, Number(value) || 0));
+  const selectedBand = RATING_BANDS.find(band => band.id === form.ratingBand) ?? RATING_BANDS[0];
+
+  const ratingBandLabel = (tObj: Pick<Tournament, 'ratingMin' | 'ratingMax'>): string => {
+    if (tObj.ratingMin != null && tObj.ratingMax != null) return `${tObj.ratingMin}-${tObj.ratingMax}`;
+    if (tObj.ratingMin != null) return `${tObj.ratingMin}+`;
+    if (tObj.ratingMax != null) return `Under ${tObj.ratingMax + 1}`;
+    return 'Open';
+  };
+
+  const eligibilityLine = (tObj: Pick<Tournament, 'ratingMin' | 'ratingMax' | 'minGames' | 'minAccountAgeDays'>): string => {
+    const parts = [`Rating band ${ratingBandLabel(tObj)}`];
+    if (tObj.minGames > 0) parts.push(`${tObj.minGames}+ rated games`);
+    if (tObj.minAccountAgeDays > 0) parts.push(`${tObj.minAccountAgeDays}+ day account`);
+    return parts.join(' · ');
+  };
 
   const handleCreate = async () => {
     if (!form.name.trim()) { addNotification('Tournament name is required', 'error'); return; }
     setCreating(true);
     try {
       const startsAt = new Date(Date.now() + form.startsInMinutes * 60 * 1000).toISOString();
+      const entryFee = clampMoney(form.betEntry);
+      const prizePool = clampMoney(form.prizePool);
+      const minGames = entryFee > 0 && form.ratingBand !== 'open' ? PROTECTED_CASH_MIN_GAMES : 0;
+      const eligibilityText = selectedBand.id === 'open'
+        ? 'Open to all eligible ratings.'
+        : `Rating band ${selectedBand.label}; ${minGames}+ completed rated games required for cash protection.`;
       await api.tournaments.create({
         name: form.name.trim(),
         icon: form.icon,
@@ -84,11 +115,15 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
         durationMs: form.durationMs,
         totalRounds: form.format === 'arena' ? 0 : form.totalRounds || 7,
         rated: form.rated,
-        betEntry: clampMoney(form.betEntry),
-        prizePool: clampMoney(form.prizePool),
-        description: form.betEntry > 0
-          ? `Paid tournament. Entry fee is ${formatMoney(form.betEntry)}; entry fees are added to the prize pool and paid to the top score at the end.`
-          : `Free tournament. No wallet charge is required to join.`,
+        betEntry: entryFee,
+        prizePool,
+        ratingMin: selectedBand.min,
+        ratingMax: selectedBand.max,
+        minGames,
+        minAccountAgeDays: 0,
+        description: entryFee > 0
+          ? `Paid tournament. Entry fee is ${formatMoney(entryFee)}; entry fees are added to the prize pool and paid to the top score at the end. ${eligibilityText}`
+          : `Free tournament. No wallet charge is required to join. ${eligibilityText}`,
         startsAt,
       });
       addNotification('Tournament created!', 'success');
@@ -169,7 +204,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
 
   const moneyLine = (tObj: Tournament): string => {
     if (tObj.betEntry > 0) {
-      return `Entry fee ${formatMoney(tObj.betEntry)} · Prize pool ${formatMoney(tObj.prizePool)} · top score wins`;
+      return `Entry fee ${formatMoney(tObj.betEntry)} · Prize pool ${formatMoney(tObj.prizePool)} · ${eligibilityLine(tObj)}`;
     }
     if (tObj.prizePool > 0) return `Free entry · Prize pool ${formatMoney(tObj.prizePool)}`;
     return 'Free entry · No wallet charge';
@@ -433,6 +468,35 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
               <div className="tl-money-panel">
                 <div className="tl-money-head">
                   <div>
+                    <div className="tl-money-title">Eligibility</div>
+                    <div className="tl-money-sub">Use rating bands for cash tournaments so stronger players cannot enter protected lower-rated events.</div>
+                  </div>
+                  <strong>{selectedBand.label}</strong>
+                </div>
+                <label className="tl-money-input-label">
+                  Rating band
+                  <select
+                    value={form.ratingBand}
+                    onChange={e => setForm(f => ({ ...f, ratingBand: e.target.value as CreateForm['ratingBand'] }))}
+                  >
+                    {RATING_BANDS.map(band => (
+                      <option key={band.id} value={band.id}>{band.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="tl-money-sub" style={{ marginTop: 8 }}>
+                  {selectedBand.help}
+                  {form.betEntry > 0 && form.ratingBand !== 'open'
+                    ? ` Protected cash entry also requires ${PROTECTED_CASH_MIN_GAMES} completed rated games.`
+                    : form.betEntry > 0
+                    ? ' Open cash events do not protect lower-rated players from stronger players.'
+                    : ''}
+                </div>
+              </div>
+
+              <div className="tl-money-panel">
+                <div className="tl-money-head">
+                  <div>
                     <div className="tl-money-title">Starting prize pool</div>
                     <div className="tl-money-sub">Optional owner-funded prize before player entry fees are added.</div>
                   </div>
@@ -521,6 +585,8 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
                 {tourn.rated && <span className="tl-tag rated">★ {t('tournament.rated')}</span>}
                 {tourn.betEntry > 0 && <span className="tl-tag bet">{formatMoney(tourn.betEntry)} entry</span>}
                 {tourn.prizePool > 0 && <span className="tl-tag prize">{formatMoney(tourn.prizePool)} pool</span>}
+                {(tourn.ratingMin != null || tourn.ratingMax != null) && <span className="tl-tag">{ratingBandLabel(tourn)}</span>}
+                {tourn.minGames > 0 && <span className="tl-tag">{tourn.minGames}+ rated games</span>}
               </div>
 
               <div className={`tl-money-row ${tourn.betEntry > 0 ? 'paid' : 'free'}`}>

@@ -58,6 +58,20 @@ function formatMoney(value: number): string {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
+function ratingBandLabel(tournament: { ratingMin?: number | null; ratingMax?: number | null }): string {
+  if (tournament.ratingMin != null && tournament.ratingMax != null) return `${tournament.ratingMin}-${tournament.ratingMax}`;
+  if (tournament.ratingMin != null) return `${tournament.ratingMin}+`;
+  if (tournament.ratingMax != null) return `Under ${tournament.ratingMax + 1}`;
+  return 'Open';
+}
+
+function eligibilityText(tournament: { ratingMin?: number | null; ratingMax?: number | null; minGames?: number; minAccountAgeDays?: number }): string {
+  const parts = [`Rating band: ${ratingBandLabel(tournament)}`];
+  if ((tournament.minGames ?? 0) > 0) parts.push(`${tournament.minGames}+ completed rated games`);
+  if ((tournament.minAccountAgeDays ?? 0) > 0) parts.push(`${tournament.minAccountAgeDays}+ day account`);
+  return parts.join(' · ');
+}
+
 function getLiveStatus(startsAt: number, durationMs: number, now: number) {
   const endsAt = startsAt + durationMs;
   if (now >= endsAt) return 'finished';
@@ -260,7 +274,7 @@ export const TournamentPage: React.FC = () => {
       : 'Late joining can still place you in the room, but new pairings are closed for the final 2 minutes.'
     : 'Players can register now, then enter the waiting room during the final 3 minutes before start.';
   const moneyRulesText = tournament.betEntry > 0
-    ? `Entry fee is ${formatMoney(tournament.betEntry)}. It is charged when you join and added to the prize pool. Leaving before the start refunds the entry fee; after the start, entry fees are not automatically refunded. At the end, the top score receives the prize pool; tied top scores split it evenly. Current prize pool: ${formatMoney(tournament.prizePool)}.`
+    ? `Entry fee is ${formatMoney(tournament.betEntry)}. It is charged when you join and added to the prize pool. ${eligibilityText(tournament)}. Leaving before the start refunds the entry fee; after the start, entry fees are not automatically refunded. At the end, the top score receives the prize pool; tied top scores split it evenly. Current prize pool: ${formatMoney(tournament.prizePool)}.`
     : tournament.prizePool > 0
     ? `No entry fee is required. At the end, the top score receives the prize pool; tied top scores split it evenly. Current prize pool: ${formatMoney(tournament.prizePool)}.`
     : `No entry fee is required. Current prize pool: ${formatMoney(tournament.prizePool)}.`;
@@ -292,6 +306,7 @@ export const TournamentPage: React.FC = () => {
               <span>Starts {formatStartTime(tournament.startsAt)}</span>
               {tournament.rated && <><span>·</span><span>★ {t('tournament.rated')}</span></>}
               {tournament.betEntry > 0 && <><span>·</span><span>{formatMoney(tournament.betEntry)} {t('tournament.entry').toLowerCase()}</span></>}
+              {(tournament.ratingMin != null || tournament.ratingMax != null) && <><span>·</span><span>{ratingBandLabel(tournament)}</span></>}
               {tournament.prizePool > 0 && <><span>·</span><span className="tp-prize">{formatMoney(tournament.prizePool)} {t('tournament.prize').toLowerCase()}</span></>}
             </div>
           </div>
@@ -354,7 +369,7 @@ export const TournamentPage: React.FC = () => {
         <strong>{tournament.betEntry > 0 ? `Paid tournament · ${formatMoney(tournament.betEntry)} entry` : 'Free tournament'}</strong>
         <span>
           {tournament.betEntry > 0
-            ? `Your wallet is charged when you join. Entry fees go into the prize pool, now ${formatMoney(tournament.prizePool)}. Top score wins the pool; tied top scores split evenly. Leaving before start refunds the entry fee.`
+            ? `Your wallet is charged when you join. ${eligibilityText(tournament)}. Entry fees go into the prize pool, now ${formatMoney(tournament.prizePool)}. Top score wins the pool; tied top scores split evenly. Leaving before start refunds the entry fee.`
             : tournament.prizePool > 0
             ? `No wallet charge is required to join. Top score wins the ${formatMoney(tournament.prizePool)} prize pool; tied top scores split evenly.`
             : `No wallet charge is required to join. Current prize pool: ${formatMoney(tournament.prizePool)}.`}
@@ -776,6 +791,13 @@ export const TournamentPage: React.FC = () => {
             <div className="tp-info-card">
               <div className="tp-info-label">{t('common.rating')}</div>
               <div className="tp-info-val">{tournament.rated ? `★ ${t('tournament.rated')}` : `☆ ${t('tournament.unrated')}`}</div>
+            </div>
+            <div className="tp-info-card">
+              <div className="tp-info-label">Eligibility</div>
+              <div className="tp-info-val">{ratingBandLabel(tournament)}</div>
+              <div className="tp-info-note">
+                {tournament.minGames > 0 ? `${tournament.minGames}+ completed rated games required` : 'No completed-game requirement'}
+              </div>
             </div>
             {tournament.betEntry > 0 && (
               <div className="tp-info-card">

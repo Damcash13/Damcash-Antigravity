@@ -390,6 +390,7 @@ const reconnectTokens  = new Map(); // roomId   -> { white: {token,socketId}, bl
 const socketToUserId = new Map(); // socketId -> db user id
 const userIdToSocketId = new Map(); // db user id -> socketId
 let tournamentMatchSchemaReady = false;
+let tournamentEligibilitySchemaReady = false;
 let safetySchemaReady = false;
 let directMessageSchemaReady = false;
 
@@ -450,6 +451,22 @@ async function ensureTournamentMatchSchema() {
     END $$;
   `);
   tournamentMatchSchemaReady = true;
+}
+
+async function ensureTournamentEligibilitySchema() {
+  if (tournamentEligibilitySchemaReady) return;
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "Tournament"
+      ADD COLUMN IF NOT EXISTS "ratingMin" INTEGER,
+      ADD COLUMN IF NOT EXISTS "ratingMax" INTEGER,
+      ADD COLUMN IF NOT EXISTS "minGames" INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS "minAccountAgeDays" INTEGER NOT NULL DEFAULT 0
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "Tournament_rating_band_idx"
+      ON "Tournament"("universe", "ratingMin", "ratingMax")
+  `);
+  tournamentEligibilitySchemaReady = true;
 }
 
 async function ensureSafetySchema() {
@@ -2772,6 +2789,171 @@ app.get('/api/leaderboard', async (req, res) => {
 // ── REST: Tournaments ────────────────────────────────────────────────────────
 const TOURNAMENT_PAIRING_CUTOFF_MS = 2 * 60_000;
 const TOURNAMENT_FINISHED_VISIBLE_MS = 5 * 60_000;
+const DEFAULT_PROTECTED_CASH_MIN_GAMES = 20;
+const MAX_TOURNAMENT_RATING_LIMIT = 4000;
+
+function normalizeRatingLimit(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n)) return null;
+  return Math.max(100, Math.min(MAX_TOURNAMENT_RATING_LIMIT, n));
+}
+
+function normalizeNonNegativeInt(value, fallback = 0, max = 10_000) {
+  if (value === null || value === undefined || value === '') return fallback;
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(max, n));
+}
+
+function tournamentRatingBandLabel(tournament) {
+  const min = normalizeRatingLimit(tournament.ratingMin);
+  const max = normalizeRatingLimit(tournament.ratingMax);
+  if (min !== null && max !== null) return `${min}-${max}`;
+  if (min !== null) return `${min}+`;
+  if (max !== null) return `Under ${max + 1}`;
+  return 'Open';
+}
+
+function normalizeTournamentEligibility(input, betEntry) {
+  const ratingMin = normalizeRatingLimit(input?.ratingMin);
+  const ratingMax = normalizeRatingLimit(input?.ratingMax);
+  if (ratingMin !== null && ratingMax !== null && ratingMin > ratingMax) {
+    const err = new Error('Minimum rating cannot be higher than maximum rating');
+    err.status = 400;
+    throw err;
+  }
+
+  const hasBand = ratingMin !== null || ratingMax !== null;
+  const requestedMinGames = normalizeNonNegativeInt(input?.minGames);
+  const minGames = betEntry > 0 && hasBand
+    ? Math.max(requestedMinGames, DEFAULT_PROTECTED_CASH_MIN_GAMES)
+    : requestedMinGames;
+
+  return {
+    ratingMin,
+    ratingMax,
+    minGames,
+    minAccountAgeDays: normalizeNonNegativeInt(input?.minAccountAgeDays, 0, 3650),
+  };
+}
+
+async function countRatedTournamentEligibleGames(userId, universe) {
+  return prisma.match.count({
+    where: {
+      universe,
+      isRated: true,
+      status: 'ended',
+      OR: [{ whiteId: userId }, { blackId: userId }],
+    },
+  });
+}
+
+async function recentRatedPeak(userId, universe) {
+  const matches = await prisma.match.findMany({
+    where: {
+      universe,
+      isRated: true,
+      status: 'ended',
+      OR: [{ whiteId: userId }, { blackId: userId }],
+    },
+    orderBy: [{ endedAt: 'desc' }, { createdAt: 'desc' }],
+    take: 20,
+    select: {
+      whiteId: true,
+      blackId: true,
+      whiteRatingAfter: true,
+      blackRatingAfter: true,
+    },
+  });
+  return matches.reduce((peak, match) => {
+    const rating = match.whiteId === userId ? match.whiteRatingAfter : match.blackRatingAfter;
+    return Number.isFinite(rating) ? Math.max(peak, rating) : peak;
+  }, 0);
+}
+
+async function getTournamentEligibility(tournament, authUser) {
+  const isAdmin = adminEmails().includes(authUser.email?.toLowerCase());
+  const localUser = await prisma.user.findFirst({
+    where: { OR: [{ id: authUser.id }, { email: authUser.email }] },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      createdAt: true,
+      chessRating: true,
+      peakChessRating: true,
+      checkersRating: true,
+      peakCheckersRating: true,
+    },
+  });
+  if (!localUser) {
+    return { ok: false, reason: 'Your player profile is still syncing. Please refresh and try again.' };
+  }
+
+  const uv = tournament.universe === 'checkers' ? 'checkers' : 'chess';
+  const currentRating = uv === 'checkers' ? localUser.checkersRating : localUser.chessRating;
+  const peakRating = uv === 'checkers' ? localUser.peakCheckersRating : localUser.peakChessRating;
+  const ratingMin = normalizeRatingLimit(tournament.ratingMin);
+  const ratingMax = normalizeRatingLimit(tournament.ratingMax);
+  const minGames = normalizeNonNegativeInt(tournament.minGames);
+  const minAccountAgeDays = normalizeNonNegativeInt(tournament.minAccountAgeDays);
+  const hasRatingProtection = ratingMin !== null || ratingMax !== null;
+  const [recentPeak, ratedGames] = await Promise.all([
+    hasRatingProtection ? recentRatedPeak(localUser.id, uv) : Promise.resolve(0),
+    minGames > 0 ? countRatedTournamentEligibleGames(localUser.id, uv) : Promise.resolve(0),
+  ]);
+  const eligibilityRating = Math.max(currentRating || 0, peakRating || 0, recentPeak || 0);
+  const accountAgeDays = minAccountAgeDays > 0
+    ? Math.floor((Date.now() - new Date(localUser.createdAt).getTime()) / 86_400_000)
+    : 0;
+  const base = {
+    ok: true,
+    userId: localUser.id,
+    adminBypass: false,
+    ratingBand: tournamentRatingBandLabel(tournament),
+    eligibilityRating,
+    currentRating,
+    peakRating,
+    recentPeak,
+    ratedGames,
+    accountAgeDays,
+    minGames,
+    minAccountAgeDays,
+  };
+
+  if (isAdmin) return { ...base, adminBypass: true };
+  if (ratingMin !== null && eligibilityRating < ratingMin) {
+    return {
+      ...base,
+      ok: false,
+      reason: `This tournament is for ${tournamentRatingBandLabel(tournament)} players. Your protected eligibility rating is ${eligibilityRating}.`,
+    };
+  }
+  if (ratingMax !== null && eligibilityRating > ratingMax) {
+    return {
+      ...base,
+      ok: false,
+      reason: `This protected tournament is for ${tournamentRatingBandLabel(tournament)} players. Your protected eligibility rating is ${eligibilityRating}, based on current, peak, and recent rated performance.`,
+    };
+  }
+  if (minGames > 0 && ratedGames < minGames) {
+    return {
+      ...base,
+      ok: false,
+      reason: `Protected cash tournaments require ${minGames} completed rated ${uv} games. You currently have ${ratedGames}.`,
+    };
+  }
+  if (minAccountAgeDays > 0 && accountAgeDays < minAccountAgeDays) {
+    return {
+      ...base,
+      ok: false,
+      reason: `Protected cash tournaments require an account at least ${minAccountAgeDays} days old.`,
+    };
+  }
+
+  return base;
+}
 
 function getTournamentLifecycle(tournament, nowMs = Date.now()) {
   const startsAt = new Date(tournament.startsAt).getTime();
@@ -2822,6 +3004,7 @@ app.get('/api/tournaments', async (req, res) => {
 
 app.post('/api/tournaments', requireAuth, async (req, res) => {
   try {
+    await ensureTournamentEligibilitySchema();
     const { name, icon, universe, format, timeControl, startsAt, maxPlayers, betEntry, prizePool, durationMs, description, rated, totalRounds } = req.body;
 
     // Schema validation
@@ -2852,6 +3035,10 @@ app.post('/api/tournaments', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Tournament must start within 30 days' });
     }
 
+    const safeBetEntry = Math.max(Number(betEntry) || 0, 0);
+    const safePrizePool = Math.max(Number(prizePool) || 0, 0);
+    const eligibility = normalizeTournamentEligibility(req.body, safeBetEntry);
+
     const t = await prisma.tournament.create({
       data: {
         name: name.trim().slice(0, 100),
@@ -2861,8 +3048,12 @@ app.post('/api/tournaments', requireAuth, async (req, res) => {
         timeControl,
         startsAt: startDate,
         maxPlayers: Math.min(Math.max(Number(maxPlayers) || 64, 2), 512),
-        betEntry:   Math.max(Number(betEntry)   || 0, 0),
-        prizePool:  Math.max(Number(prizePool)  || 0, 0),
+        betEntry: safeBetEntry,
+        prizePool: safePrizePool,
+        ratingMin: eligibility.ratingMin,
+        ratingMax: eligibility.ratingMax,
+        minGames: eligibility.minGames,
+        minAccountAgeDays: eligibility.minAccountAgeDays,
         durationMs: Math.max(Math.min(Number(durationMs) || 3600000, 4 * 3600000), 600000),
         description: typeof description === 'string' ? description.slice(0, 500) : '',
         rated: rated !== false,
@@ -2872,6 +3063,7 @@ app.post('/api/tournaments', requireAuth, async (req, res) => {
     io.emit('tournament:global_update');
     res.json(t);
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     console.error('[Tournament] Create failed:', err);
     res.status(500).json({ error: 'Failed to create tournament' });
   }
@@ -2879,8 +3071,9 @@ app.post('/api/tournaments', requireAuth, async (req, res) => {
 
 app.post('/api/tournaments/:id/join', requireAuth, async (req, res) => {
   const tournamentId = req.params.id;
-  const userId = req.user.id;
+  let userId = req.user.id;
   try {
+    await ensureTournamentEligibilitySchema();
     const tournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
       include: { _count: { select: { players: true } } },
@@ -2890,6 +3083,15 @@ app.post('/api/tournaments/:id/join', requireAuth, async (req, res) => {
     if (lifecycle === 'finished') return res.status(400).json({ error: 'Tournament has finished' });
     if (tournament._count.players >= tournament.maxPlayers) return res.status(400).json({ error: 'Tournament is full' });
 
+    const eligibility = await getTournamentEligibility(tournament, req.user);
+    userId = eligibility.userId || userId;
+    if (!eligibility.ok) {
+      return res.status(403).json({
+        error: eligibility.reason || 'You are not eligible for this tournament',
+        code: 'TOURNAMENT_ELIGIBILITY',
+        eligibility,
+      });
+    }
     const alreadyJoined = await prisma.tournamentPlayer.findFirst({ where: { tournamentId, userId } });
     if (alreadyJoined) return res.status(400).json({ error: 'Already registered' });
 
@@ -4760,6 +4962,7 @@ process.on('uncaughtException', (err) => {
 const PORT = process.env.PORT || 3000;
 async function startServer() {
   await ensureTournamentMatchSchema();
+  await ensureTournamentEligibilitySchema();
   await ensureSafetySchema();
   await ensureDirectMessageSchema();
   await resetStaleTournamentPairingStatuses();
@@ -4793,19 +4996,31 @@ function hourlyTournamentPricing(startAt) {
     return {
       betEntry: 10,
       prizePool: 0,
-      description: 'Automated hourly blitz arena. $10 entry; entry fees build the prize pool. Registration opens 3 minutes before the hour, late joining stays open while pairings are available, and pairing closes for the final 2 minutes.',
+      ratingMin: 1500,
+      ratingMax: null,
+      minGames: DEFAULT_PROTECTED_CASH_MIN_GAMES,
+      minAccountAgeDays: 0,
+      description: 'Automated hourly blitz arena. $10 entry for 1500+ players; entry fees build the prize pool. Registration opens 3 minutes before the hour, late joining stays open while pairings are available, and pairing closes for the final 2 minutes.',
     };
   }
   if (hour % 3 === 0) {
     return {
       betEntry: 5,
       prizePool: 0,
-      description: 'Automated hourly blitz arena. $5 entry; entry fees build the prize pool. Registration opens 3 minutes before the hour, late joining stays open while pairings are available, and pairing closes for the final 2 minutes.',
+      ratingMin: null,
+      ratingMax: 1499,
+      minGames: DEFAULT_PROTECTED_CASH_MIN_GAMES,
+      minAccountAgeDays: 0,
+      description: 'Automated hourly blitz arena. $5 protected entry for players under 1500; entry fees build the prize pool. Registration opens 3 minutes before the hour, late joining stays open while pairings are available, and pairing closes for the final 2 minutes.',
     };
   }
   return {
     betEntry: 0,
     prizePool: 0,
+    ratingMin: null,
+    ratingMax: null,
+    minGames: 0,
+    minAccountAgeDays: 0,
     description: 'Automated hourly blitz arena. Free entry. Registration opens 3 minutes before the hour, late joining stays open while pairings are available, and pairing closes for the final 2 minutes.',
   };
 }
@@ -4814,23 +5029,29 @@ function tournamentNameForHourlySlot(startAt) {
   return `⚡ Hourly Blitz ${String(startAt.getUTCHours()).padStart(2, '0')}:00 UTC`;
 }
 
-async function createScheduledTournament({ name, icon, universe, timeControl, format, startsAt, durationMs, description, totalRounds, betEntry = 0, prizePool = 0 }) {
+async function createScheduledTournament({ name, icon, universe, timeControl, format, startsAt, durationMs, description, totalRounds, betEntry = 0, prizePool = 0, ratingMin = null, ratingMax = null, minGames = 0, minAccountAgeDays = 0 }) {
   try {
+    await ensureTournamentEligibilitySchema();
     const startDate = startsAt ? new Date(startsAt) : new Date(Date.now() + 5 * 60 * 1000);
     const desiredBetEntry = Math.max(Number(betEntry) || 0, 0);
     const desiredPrizePool = Math.max(Number(prizePool) || 0, 0);
+    const desiredEligibility = normalizeTournamentEligibility({ ratingMin, ratingMax, minGames, minAccountAgeDays }, desiredBetEntry);
     const existing = await prisma.tournament.findFirst({
       where: {
         name,
         universe: universe || 'chess',
         startsAt: startDate,
       },
-      select: { id: true, betEntry: true, prizePool: true, description: true },
+      select: { id: true, betEntry: true, prizePool: true, description: true, ratingMin: true, ratingMax: true, minGames: true, minAccountAgeDays: true },
     });
     if (existing) {
       const needsPricingUpdate =
         Number(existing.betEntry || 0) !== desiredBetEntry ||
         Number(existing.prizePool || 0) !== desiredPrizePool ||
+        normalizeRatingLimit(existing.ratingMin) !== desiredEligibility.ratingMin ||
+        normalizeRatingLimit(existing.ratingMax) !== desiredEligibility.ratingMax ||
+        normalizeNonNegativeInt(existing.minGames) !== desiredEligibility.minGames ||
+        normalizeNonNegativeInt(existing.minAccountAgeDays) !== desiredEligibility.minAccountAgeDays ||
         (description && existing.description !== description);
 
       if (needsPricingUpdate && startDate.getTime() > Date.now()) {
@@ -4843,6 +5064,10 @@ async function createScheduledTournament({ name, icon, universe, timeControl, fo
           data: {
             betEntry: desiredBetEntry,
             prizePool: desiredPrizePool,
+            ratingMin: desiredEligibility.ratingMin,
+            ratingMax: desiredEligibility.ratingMax,
+            minGames: desiredEligibility.minGames,
+            minAccountAgeDays: desiredEligibility.minAccountAgeDays,
             ...(description ? { description } : {}),
           },
         });
@@ -4863,6 +5088,10 @@ async function createScheduledTournament({ name, icon, universe, timeControl, fo
         maxPlayers: 50,
         betEntry: desiredBetEntry,
         prizePool: desiredPrizePool,
+        ratingMin: desiredEligibility.ratingMin,
+        ratingMax: desiredEligibility.ratingMax,
+        minGames: desiredEligibility.minGames,
+        minAccountAgeDays: desiredEligibility.minAccountAgeDays,
         status: getTournamentLifecycle({ startsAt: startDate, durationMs: Number(durationMs) || 3_600_000 }),
         description: description || '',
         rated: true,
@@ -5009,6 +5238,10 @@ async function ensureHourlyTournamentWindow(now = new Date()) {
         description: pricing.description,
         betEntry: pricing.betEntry,
         prizePool: pricing.prizePool,
+        ratingMin: pricing.ratingMin,
+        ratingMax: pricing.ratingMax,
+        minGames: pricing.minGames,
+        minAccountAgeDays: pricing.minAccountAgeDays,
         totalRounds: 0,
       });
       if (wasCreated) created += 1;
@@ -5036,9 +5269,11 @@ async function ensureSpecialTournamentSchedule(now = new Date()) {
         format: 'arena',
         startsAt,
         durationMs: 2 * 60 * 60 * 1000,
-        description: 'The weekly Sunday Special. $5 entry; entry fees build the prize pool. 2 hours of blitz action.',
+        description: 'The weekly Sunday Special. $5 protected entry for players under 1500; entry fees build the prize pool. 2 hours of blitz action.',
         betEntry: 5,
         prizePool: 0,
+        ratingMax: 1499,
+        minGames: DEFAULT_PROTECTED_CASH_MIN_GAMES,
         totalRounds: 0,
       });
       if (wasCreated) created += 1;
@@ -5057,9 +5292,11 @@ async function ensureSpecialTournamentSchedule(now = new Date()) {
         format: 'swiss',
         startsAt,
         durationMs: 4 * 60 * 60 * 1000,
-        description: `The monthly Grand Slam championship. $10 entry with a $50 starting prize pool for ${monthNames[mo]}.`,
+        description: `The monthly Grand Slam championship. $10 entry for 1500+ players with a $50 starting prize pool for ${monthNames[mo]}.`,
         betEntry: 10,
         prizePool: 50,
+        ratingMin: 1500,
+        minGames: DEFAULT_PROTECTED_CASH_MIN_GAMES,
         totalRounds: 7,
       });
       if (wasCreated) created += 1;

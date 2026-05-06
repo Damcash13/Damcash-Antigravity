@@ -217,6 +217,10 @@ export const api = {
       rated?: boolean;
       betEntry?: number;
       prizePool?: number;
+      ratingMin?: number | null;
+      ratingMax?: number | null;
+      minGames?: number;
+      minAccountAgeDays?: number;
       maxPlayers?: number;
       durationMs?: number;
       totalRounds?: number;
@@ -452,6 +456,10 @@ export interface ApiTournament {
   rated: boolean;
   betEntry: number;
   prizePool: number;
+  ratingMin?: number | null;
+  ratingMax?: number | null;
+  minGames?: number;
+  minAccountAgeDays?: number;
   maxPlayers: number;
   durationMs: number;
   totalRounds: number;

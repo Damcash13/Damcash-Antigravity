@@ -41,6 +41,10 @@ export interface Tournament {
   rated: boolean;
   betEntry: number;
   prizePool: number;
+  ratingMin: number | null;
+  ratingMax: number | null;
+  minGames: number;
+  minAccountAgeDays: number;
   startsAt: number;
   durationMs: number;
   maxPlayers: number;
@@ -88,6 +92,10 @@ function mapApiTournament(t: ApiTournament): Tournament {
     rated:        t.rated,
     betEntry:     t.betEntry,
     prizePool:    t.prizePool,
+    ratingMin:    t.ratingMin ?? null,
+    ratingMax:    t.ratingMax ?? null,
+    minGames:     t.minGames ?? 0,
+    minAccountAgeDays: t.minAccountAgeDays ?? 0,
     startsAt:     new Date(t.startsAt).getTime(),
     durationMs:   t.durationMs,
     maxPlayers:   t.maxPlayers,

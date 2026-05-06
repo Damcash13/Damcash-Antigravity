@@ -294,7 +294,8 @@
   gap: 4px;
 }
 
-.tl-money-input-label input {
+.tl-money-input-label input,
+.tl-money-input-label select {
   background: var(--bg-1);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -304,7 +305,8 @@
   padding: 8px 10px;
 }
 
-.tl-money-input-label input:focus {
+.tl-money-input-label input:focus,
+.tl-money-input-label select:focus {
   border-color: var(--accent);
   outline: none;
 }
