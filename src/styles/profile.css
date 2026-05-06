@@ -540,10 +540,19 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  border: 0;
   padding: 7px 0;
+  background: transparent;
   border-bottom: 1px solid var(--border);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
 }
 .pf-recent-row:last-child { border-bottom: none; }
+.pf-recent-row:disabled { cursor: default; }
+.pf-recent-reviewable { cursor: pointer; }
+.pf-recent-reviewable:hover { background: var(--bg-2); border-radius: 6px; padding-left: 6px; padding-right: 6px; }
 
 .pf-result-dot {
   width: 10px;
@@ -566,6 +575,14 @@
 }
 .pf-recent-delta.pos { color: #22c55e; }
 .pf-recent-delta.neg { color: #ef4444; }
+
+.pf-recent-review {
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
 
 /* ═══════════════════════════════════════════════════
    RATING TAB

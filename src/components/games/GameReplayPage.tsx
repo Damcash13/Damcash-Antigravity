@@ -2,14 +2,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Chess, Square } from 'chess.js';
 import { ChessBoard } from '../chess/ChessBoard';
+import { DraughtsBoard } from '../draughts/DraughtsBoard';
 import { api, ApiMatch } from '../../lib/api';
+import { createInitialBoard } from '../../engines/draughts.engine';
+import { DraughtsBoard as DraughtsBoardType, DraughtsMove } from '../../types';
 
 // ── Move list entry ───────────────────────────────────────────────────────────
 interface ReplayMove {
   san: string;
-  fen: string;
-  from: Square;
-  to: Square;
+  fen?: string;
+  from?: Square;
+  to?: Square;
+  board?: DraughtsBoardType;
+  draughtsMove?: DraughtsMove | null;
 }
 
 // ── Build move list from PGN ──────────────────────────────────────────────────
@@ -22,11 +27,82 @@ function parsePgn(pgn: string): ReplayMove[] {
     // Rebuild from start, step by step
     const rebuilder = new Chess();
     for (const h of history) {
-      const fenBefore = rebuilder.fen();
       rebuilder.move({ from: h.from, to: h.to, promotion: h.promotion });
       moves.push({ san: h.san, fen: rebuilder.fen(), from: h.from as Square, to: h.to as Square });
     }
+  } catch {
+    try {
+      const clean = pgn
+        .replace(/\{[^}]*\}/g, ' ')
+        .replace(/\d+\.(\.\.)?/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const rebuilder = new Chess();
+      for (const token of clean.split(' ').filter(Boolean)) {
+        if (['1-0', '0-1', '1/2-1/2', '*'].includes(token)) continue;
+        const h = rebuilder.move(token);
+        if (h) moves.push({ san: h.san, fen: rebuilder.fen(), from: h.from as Square, to: h.to as Square });
+      }
+    } catch {}
+  }
+  return moves;
+}
+
+function parseBoard(value: unknown): DraughtsBoardType | undefined {
+  if (!value) return undefined;
+  try {
+    const board = typeof value === 'string' ? JSON.parse(value) : value;
+    if (Array.isArray(board)) return board as DraughtsBoardType;
   } catch {}
+  return undefined;
+}
+
+function parseDraughtsMove(value: unknown): DraughtsMove | null {
+  if (!value || typeof value !== 'object') return null;
+  const item = value as any;
+  if (item.from && item.to) return item as DraughtsMove;
+  return null;
+}
+
+function parseMoveList(match: ApiMatch): ReplayMove[] {
+  const raw = Array.isArray(match.moveList) ? match.moveList : [];
+
+  if (match.universe === 'checkers') {
+    return raw.map((item: any, index) => ({
+      san: item?.san || item?.move || `${index + 1}`,
+      board: parseBoard(item?.board),
+      draughtsMove: parseDraughtsMove(item),
+    })).filter(move => move.board || move.draughtsMove);
+  }
+
+  const moves: ReplayMove[] = [];
+  const rebuilder = new Chess();
+  for (const item of raw as any[]) {
+    try {
+      let played: any = null;
+      if (item?.from && item?.to) {
+        played = rebuilder.move({ from: item.from, to: item.to, promotion: item.promotion || 'q' });
+      } else if (item?.san || item?.move) {
+        played = rebuilder.move(item.san || item.move);
+      }
+      if (!played) continue;
+      moves.push({
+        san: item?.san || played.san,
+        fen: item?.fen || rebuilder.fen(),
+        from: played.from as Square,
+        to: played.to as Square,
+      });
+    } catch {
+      if (item?.fen && item?.from && item?.to) {
+        moves.push({
+          san: item?.san || item?.move || `${moves.length + 1}`,
+          fen: item.fen,
+          from: item.from as Square,
+          to: item.to as Square,
+        });
+      }
+    }
+  }
   return moves;
 }
 
@@ -83,13 +159,11 @@ export const GameReplayPage: React.FC = () => {
     api.games.get(id)
       .then(g => {
         setGame(g);
-        if (g.pgn) {
-          const parsed = parsePgn(g.pgn);
-          setMoves(parsed);
-          setCursor(parsed.length - 1);
-        }
+        const parsed = g.moveList?.length ? parseMoveList(g) : (g.pgn ? parsePgn(g.pgn) : []);
+        setMoves(parsed);
+        setCursor(parsed.length - 1);
       })
-      .catch(() => setError('Game not found or not available yet. The game may still be running, may not have PGN saved, or the link may be outdated.'))
+      .catch(() => setError('Game not found or not available yet. The game may still be running, may not have saved moves, or the link may be outdated.'))
       .finally(() => setLoading(false));
   }, [id, pgnParam]);
 
@@ -109,19 +183,25 @@ export const GameReplayPage: React.FC = () => {
 
   if (error) return (
     <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-3)' }}>
-      <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
-      <h2 style={{ color: 'var(--text-1)', marginBottom: 8 }}>Replay unavailable</h2>
+      <h2 style={{ color: 'var(--text-1)', marginBottom: 8 }}>Review unavailable</h2>
       <p style={{ maxWidth: 460, margin: '0 auto 16px', lineHeight: 1.5 }}>{error}</p>
-      <button className="btn btn-secondary" onClick={() => navigate(-1)}>← Go back</button>
+      <button className="btn btn-secondary" onClick={() => navigate(-1)}>Go back</button>
     </div>
   );
 
-  const currentFen = cursor < 0
+  const isCheckers = game?.universe === 'checkers';
+  const currentFen = !isCheckers && cursor < 0
     ? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-    : moves[cursor].fen;
+    : moves[cursor]?.fen;
 
   const chess = (() => { try { return new Chess(currentFen); } catch { return new Chess(); } })();
-  const lastMove = cursor >= 0 ? { from: moves[cursor].from, to: moves[cursor].to } : null;
+  const draughtsBoard = isCheckers
+    ? (cursor < 0 ? createInitialBoard() : (moves[cursor]?.board || parseBoard(game?.finalPosition) || createInitialBoard()))
+    : createInitialBoard();
+  const chessLastMove = !isCheckers && cursor >= 0 && moves[cursor]?.from && moves[cursor]?.to
+    ? { from: moves[cursor].from, to: moves[cursor].to }
+    : null;
+  const draughtsLastMove = isCheckers && cursor >= 0 ? moves[cursor]?.draughtsMove || null : null;
 
   const whiteName = game?.white.username ?? 'White';
   const blackName = game?.black.username ?? 'Black';
@@ -138,9 +218,9 @@ export const GameReplayPage: React.FC = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
         {/* Back + header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, alignSelf: 'stretch' }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>← Back</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>Back</button>
           {game && <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 600 }}>
-            {whiteName} vs {blackName} · {game.timeControl}
+            {whiteName} vs {blackName} · {game.universe === 'checkers' ? 'Checkers' : 'Chess'} · {game.timeControl}
           </span>}
         </div>
 
@@ -153,14 +233,25 @@ export const GameReplayPage: React.FC = () => {
         </div>
 
         {/* Board */}
-        <ChessBoard
-          game={chess}
-          flipped={flipped}
-          playerColor="w"
-          onMove={() => {}}
-          lastMove={lastMove}
-          inCheck={chess.isCheck()}
-        />
+        {isCheckers ? (
+          <DraughtsBoard
+            board={draughtsBoard}
+            selectedSquare={null}
+            legalMoves={[]}
+            lastMove={draughtsLastMove}
+            flipped={flipped}
+            onSquareClick={() => {}}
+          />
+        ) : (
+          <ChessBoard
+            game={chess}
+            flipped={flipped}
+            playerColor="w"
+            onMove={() => {}}
+            lastMove={chessLastMove}
+            inCheck={chess.isCheck()}
+          />
+        )}
 
         {/* White player bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'stretch', background: 'var(--bg-2)', padding: '8px 12px', borderRadius: 8 }}>

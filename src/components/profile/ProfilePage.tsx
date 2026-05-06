@@ -284,6 +284,9 @@ const matchRatingDeltaForUser = (match: ApiMatch, username: string) => {
 
 const matchPlayedAt = (match: ApiMatch) => new Date(match.endedAt ?? match.createdAt).getTime();
 
+const canReviewMatch = (match: ApiMatch) =>
+  Boolean(match.pgn?.trim()) || (Array.isArray(match.moveList) && match.moveList.length > 0);
+
 const profileUniverseLabel = (universe: string, t: any) =>
   universe === 'chess' ? t('profile.chess') : t('profile.checkers');
 
@@ -627,7 +630,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
                   <span className="c">{t('game.drawResult')}</span>
                   <span className="c">TC</span>
                   <span className="c">{t('common.today')}</span>
-                  <span className="c">Replay</span>
+                  <span className="c">Review</span>
                 </div>
                 {publicRecentGames.map(g => {
                   const isWhite = g.white.username === profile.username;
@@ -645,8 +648,8 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
                         {formatLocalDate(g.endedAt ?? g.createdAt)}
                       </span>
                       <span className="c">
-                        {g.pgn
-                          ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>Replay</button>
+                        {canReviewMatch(g)
+                          ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>Review</button>
                           : <span style={{ color: 'var(--text-3)', fontSize: 11 }}>—</span>
                         }
                       </span>
@@ -1068,8 +1071,15 @@ export const ProfilePage: React.FC = () => {
                 ) : recentMatches.length > 0 ? recentMatches.map(g => {
                   const result = matchResultForUser(g, user.name);
                   const delta = matchRatingDeltaForUser(g, user.name);
+                  const reviewable = canReviewMatch(g);
                   return (
-                    <div key={g.id} className="pf-recent-row">
+                    <button
+                      key={g.id}
+                      className={`pf-recent-row ${reviewable ? 'pf-recent-reviewable' : ''}`}
+                      disabled={!reviewable}
+                      onClick={() => reviewable && navigate(`/game/${g.id}`)}
+                      title={reviewable ? 'Review game' : 'No saved move record for this game'}
+                    >
                       <span className={`pf-result-dot ${result ?? ''}`} />
                       <div className="pf-recent-info">
                         <div className="pf-recent-opp"><MatchOpponentIdentity match={g} username={user.name} showPrefix /></div>
@@ -1078,7 +1088,8 @@ export const ProfilePage: React.FC = () => {
                       <div className={`pf-recent-delta ${delta == null || delta >= 0 ? 'pos' : 'neg'}`}>
                         {delta == null ? '—' : `${delta >= 0 ? '+' : ''}${delta}`}
                       </div>
-                    </div>
+                      {reviewable && <span className="pf-recent-review">Review</span>}
+                    </button>
                   );
                 }) : last10.slice(0, 5).map((e, i) => (
                   <div key={i} className="pf-recent-row">
@@ -1201,7 +1212,7 @@ export const ProfilePage: React.FC = () => {
                           <span className="c">TC</span>
                           <span className="c">Δ</span>
                           <span className="c">Date</span>
-                          <span className="c">Replay</span>
+                          <span className="c">Review</span>
                         </div>
                         {paged.map((g, idx) => {
                           const isWhite  = g.white.username === user.name;
@@ -1222,8 +1233,8 @@ export const ProfilePage: React.FC = () => {
                               </span>
                               <span className="c pf-dim" style={{ fontSize: 11 }}>{formatLocalDate(g.endedAt ?? g.createdAt)}</span>
                               <span className="c">
-                                {g.pgn
-                                  ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>Replay</button>
+                                {canReviewMatch(g)
+                                  ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => navigate(`/game/${g.id}`)}>Review</button>
                                   : <span style={{ color: 'var(--text-3)', fontSize: 11 }}>—</span>
                                 }
                               </span>
