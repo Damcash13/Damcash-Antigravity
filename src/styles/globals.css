@@ -205,34 +205,51 @@ body {
 .logo-wordmark {
   display: flex;
   align-items: baseline;
-  gap: 0;
+  gap: 1px;
   line-height: 1;
   filter: drop-shadow(0 1px 0 rgba(0,0,0,0.26));
 }
 
-.logo-dam {
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: 0;
-  background: linear-gradient(110deg, #fff0ad 0%, #f59e0b 35%, #fff7d6 50%, #d97706 68%, #fbbf24 100%);
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: logoTextShine 7s ease-in-out infinite;
+.logo-animated-wordmark {
+  position: relative;
+  isolation: isolate;
 }
 
-.logo-cash {
+.logo-animated-wordmark::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(124, 211, 153, 0.62), transparent);
+  opacity: 0.55;
+  transform: scaleX(0.32);
+  transform-origin: center;
+  animation: logoUnderlineTrace 6.8s ease-in-out infinite;
+}
+
+.logo-letter {
   font-size: 26px;
   font-weight: 900;
   letter-spacing: 0;
-  background: linear-gradient(110deg, #bbf7d0 0%, #22c55e 35%, #ecfdf5 50%, #16a34a 68%, #6ee7b7 100%);
-  background-size: 220% 100%;
+  display: inline-block;
+  color: #e9edf7;
+  background: linear-gradient(110deg, #d9dfec 0%, #ffffff 30%, #78d99c 48%, #ffffff 62%, #aeb7c9 100%);
+  background-size: 260% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: logoTextShine 7s ease-in-out infinite;
-  animation-delay: 0.25s;
+  animation:
+    logoLetterTrace 6.8s ease-in-out infinite,
+    logoTextShine 6.8s ease-in-out infinite;
+  animation-delay: calc(var(--letter-index) * 70ms);
+}
+
+.logo-dollar {
+  background-image: linear-gradient(110deg, #8fdcac 0%, #f3f7fb 36%, #7bd99a 54%, #f3f7fb 72%, #6bbf8b 100%);
+  text-shadow: 0 0 12px rgba(124, 211, 153, 0.08);
 }
 
 .logo-icon {
@@ -255,10 +272,32 @@ body {
   58% { background-position: 100% 50%; }
 }
 
+@keyframes logoLetterTrace {
+  0%, 52%, 100% {
+    transform: translateY(0);
+    opacity: 0.92;
+  }
+  58% {
+    transform: translateY(-1px);
+    opacity: 1;
+  }
+}
+
+@keyframes logoUnderlineTrace {
+  0%, 45%, 100% {
+    opacity: 0.26;
+    transform: translateX(-14%) scaleX(0.22);
+  }
+  60% {
+    opacity: 0.7;
+    transform: translateX(14%) scaleX(0.54);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .logo-mark,
-  .logo-dam,
-  .logo-cash {
+  .logo-letter,
+  .logo-animated-wordmark::after {
     animation: none;
   }
 }
@@ -3373,8 +3412,7 @@ html, body {
   .header-inner { padding: 0 8px; gap: 6px; height: 48px; }
   .logo { font-size: 16px; }
   .header .logo-mark { width: 34px; height: 34px; border-radius: 8px; }
-  .logo-dam,
-  .logo-cash { font-size: 21px; }
+  .logo-letter { font-size: 21px; }
   .logo-icon { font-size: 18px; }
   .btn-signin, .btn-register { font-size: 11px; padding: 5px 10px; }
 

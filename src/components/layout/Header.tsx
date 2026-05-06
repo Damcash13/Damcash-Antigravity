@@ -25,6 +25,7 @@ const LANGUAGES = [
 ];
 
 const OWNER_ADMIN_EMAIL = 'yves.ahipo@gmail.com';
+const BRAND_WORD = 'DAMCA$H';
 
 // ── Nav menu definitions ───────────────────────────────────────────────────────
 
@@ -347,8 +348,17 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
         {/* Logo */}
         <a className="logo" onClick={() => navigate(`/${universe}`)} style={{ cursor: 'pointer' }}>
           <img src="/logo.svg" alt="DamCash" className="logo-mark" />
-          <span className="logo-wordmark">
-            <span className="logo-dam">DAM</span><span className="logo-cash">CASH</span>
+          <span className="logo-wordmark logo-animated-wordmark" aria-label="DAMCA$H">
+            {BRAND_WORD.split('').map((letter, index) => (
+              <span
+                key={`${letter}-${index}`}
+                className={`logo-letter${letter === '$' ? ' logo-dollar' : ''}`}
+                style={{ '--letter-index': index } as React.CSSProperties}
+                aria-hidden="true"
+              >
+                {letter}
+              </span>
+            ))}
           </span>
         </a>
 
