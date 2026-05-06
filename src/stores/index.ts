@@ -199,10 +199,31 @@ export const useUserStore = create<UserStore>()(
         const token = data?.session?.access_token || null;
         reconnectWithToken(token);
       },
-      logout: async () => {
-        if (supabase) await supabase.auth.signOut();
+      logout: () => {
         reconnectWithToken(null);
-        set({ user: null, isLoggedIn: false, ratingHistory: [], gamesPlayed: { chess: 0, checkers: 0 } });
+        set({
+          user: null,
+          isLoggedIn: false,
+          ratingHistory: [],
+          gamesPlayed: { chess: 0, checkers: 0 },
+          lastRatingChange: null,
+        });
+
+        try {
+          localStorage.removeItem('damcash_age_verified');
+          sessionStorage.removeItem('damcash_rejoin_chess');
+          sessionStorage.removeItem('damcash_rejoin_draughts');
+        } catch {}
+
+        if (supabase) {
+          withTimeout<any>(
+            supabase.auth.signOut({ scope: 'local' }),
+            5_000,
+            'Sign out',
+          ).catch((err) => {
+            console.warn('[logout] Supabase local sign-out failed; local DamCash session was cleared:', err);
+          });
+        }
       },
       updateBalance: (amount) => {
         set((s) => {
