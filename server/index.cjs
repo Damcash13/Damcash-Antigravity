@@ -44,7 +44,7 @@ if (JWT_SECRET === 'super_secret_dev_key_change_in_production') {
 const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'production' ? ['error'] : ['warn', 'error'],
 });
-const { supabase } = require('./supabase.cjs');
+const { supabase, supabaseUsesServiceRole } = require('./supabase.cjs');
 
 // ── Structured logger ─────────────────────────────────────────────────────────
 const recentErrors = [];
@@ -83,9 +83,9 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// ── Body parsing (cap at 100kb to prevent payload attacks) ───────────────────
+// ── Body parsing (cap high enough for small avatar uploads) ──────────────────
 app.use(express.json({
-  limit: '100kb',
+  limit: '6mb',
   verify: (req, _res, buf) => {
     if (req.originalUrl?.startsWith('/api/wallet/stripe/webhook')) {
       req.rawBody = Buffer.from(buf);
@@ -121,6 +121,16 @@ app.use('/api',        apiLimiter);
 // ── Input validation helpers ──────────────────────────────────────────────────
 const MAX_BET     = 500;      // $500 max wager
 const MAX_CHAT_LEN = 300;
+const AVATAR_BUCKET = process.env.SUPABASE_AVATAR_BUCKET || 'avatars';
+const MAX_AVATAR_BYTES = 3 * 1024 * 1024;
+const MAX_INLINE_AVATAR_BYTES = 350 * 1024;
+const AVATAR_MIME_EXT = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+const AVATAR_STORAGE_SETUP_MESSAGE = `Avatar storage is not configured yet. Add SUPABASE_SERVICE_ROLE_KEY in Railway/local env, or create a public "${AVATAR_BUCKET}" bucket in Supabase Storage.`;
 
 /** Strip characters that could cause issues in broadcast or DB */
 function sanitizeText(str, maxLen = MAX_CHAT_LEN) {
@@ -137,6 +147,31 @@ function sanitizeUsername(str, maxLen = 24) {
     .replace(/[^a-zA-Z0-9_.-]/g, '')
     .replace(/^[-_.]+|[-_.]+$/g, '')
     .slice(0, maxLen);
+}
+
+function inlineAvatarUrl(contentType, rawBase64, buffer) {
+  if (!AVATAR_MIME_EXT[contentType] || typeof rawBase64 !== 'string') return null;
+  if (buffer.length > MAX_INLINE_AVATAR_BYTES) return null;
+  return `data:${contentType};base64,${rawBase64}`;
+}
+
+async function ensureAvatarBucket() {
+  if (!supabaseUsesServiceRole) return;
+
+  const bucketOptions = {
+    public: true,
+    allowedMimeTypes: Object.keys(AVATAR_MIME_EXT),
+    fileSizeLimit: MAX_AVATAR_BYTES,
+  };
+  const { error: createError } = await supabase.storage.createBucket(AVATAR_BUCKET, bucketOptions);
+  if (createError && !/(already|exists|duplicate)/i.test(createError.message || '')) {
+    throw createError;
+  }
+
+  const { error: updateError } = await supabase.storage.updateBucket(AVATAR_BUCKET, bucketOptions);
+  if (updateError && !/(not found|does not exist)/i.test(updateError.message || '')) {
+    log.warn('[avatar] Could not update bucket settings:', updateError.message);
+  }
 }
 
 function usernameFromAuthUser(authUser) {
@@ -2535,6 +2570,76 @@ app.patch('/api/auth/profile', requireAuth, async (req, res) => {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Profile not found — please sign out and back in.' });
     console.error('[PATCH /api/auth/profile]', err.message);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+app.post('/api/auth/avatar', requireAuth, async (req, res) => {
+  try {
+    const { fileName = '', contentType = '', base64 = '' } = req.body || {};
+    const cleanContentType = String(contentType).toLowerCase().split(';')[0].trim();
+    const ext = AVATAR_MIME_EXT[cleanContentType];
+
+    if (!ext) {
+      return res.status(400).json({ error: 'Please upload a JPG, PNG, WebP, or GIF image.' });
+    }
+    if (typeof base64 !== 'string' || !base64.trim()) {
+      return res.status(400).json({ error: 'No avatar image was received.' });
+    }
+
+    const rawBase64 = base64.includes(',') ? base64.slice(base64.indexOf(',') + 1) : base64;
+    const buffer = Buffer.from(rawBase64, 'base64');
+    if (!buffer.length) {
+      return res.status(400).json({ error: 'The avatar image could not be read.' });
+    }
+    if (buffer.length > MAX_AVATAR_BYTES) {
+      return res.status(400).json({ error: 'Avatar images must be 3 MB or smaller.' });
+    }
+
+    await ensureAvatarBucket();
+
+    const safeName = sanitizeText(String(fileName), 80)
+      .replace(/\.[^.]+$/, '')
+      .replace(/[^a-zA-Z0-9_.-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^[-_.]+|[-_.]+$/g, '') || 'avatar';
+    const filePath = `${req.user.id}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}-${safeName}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(filePath, buffer, {
+        cacheControl: '3600',
+        contentType: cleanContentType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      const message = uploadError.message || '';
+      if (/bucket|not found|row-level security|permission|unauthorized/i.test(message)) {
+        const inlineUrl = inlineAvatarUrl(cleanContentType, rawBase64, buffer);
+        if (inlineUrl) return res.json({ avatarUrl: inlineUrl, storage: 'inline' });
+        return res.status(503).json({ error: AVATAR_STORAGE_SETUP_MESSAGE });
+      }
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath);
+    if (!data?.publicUrl) {
+      return res.status(500).json({ error: 'Avatar uploaded, but the public URL could not be created.' });
+    }
+
+    res.json({ avatarUrl: data.publicUrl });
+  } catch (err) {
+    console.error('[POST /api/auth/avatar]', err.message);
+    if (/bucket|storage/i.test(err.message || '')) {
+      const { contentType = '', base64 = '' } = req.body || {};
+      const cleanContentType = String(contentType).toLowerCase().split(';')[0].trim();
+      const rawBase64 = typeof base64 === 'string' && base64.includes(',') ? base64.slice(base64.indexOf(',') + 1) : base64;
+      const buffer = typeof rawBase64 === 'string' ? Buffer.from(rawBase64, 'base64') : Buffer.alloc(0);
+      const inlineUrl = inlineAvatarUrl(cleanContentType, rawBase64, buffer);
+      if (inlineUrl) return res.json({ avatarUrl: inlineUrl, storage: 'inline' });
+      return res.status(503).json({ error: AVATAR_STORAGE_SETUP_MESSAGE });
+    }
+    res.status(500).json({ error: 'Failed to upload avatar' });
   }
 });
 

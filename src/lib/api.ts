@@ -99,6 +99,11 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(body),
       }),
+    uploadAvatar: (body: { fileName: string; contentType: string; base64: string }) =>
+      request<{ avatarUrl: string; storage?: 'supabase' | 'inline' }>('/api/auth/avatar', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     changePassword: (body: { currentPassword: string; newPassword: string }) =>
       request<{ ok: boolean }>('/api/auth/change-password', {
         method: 'POST',
