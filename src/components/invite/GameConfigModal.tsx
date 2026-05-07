@@ -66,7 +66,13 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
   useEffect(() => {
     const handleRoomCreated = (data: { code: string }) => {
       setRoomCode(data.code);
-      setMyRoom(data.code, config);
+      setMyRoom(data.code, {
+        universe: config.universe,
+        timeControl: config.timeControl,
+        rated: config.rated,
+        betAmount: config.betAmount,
+        colorPref: config.colorPref,
+      });
       setStep('code');
     };
     const handleInviteAccepted = () => {
@@ -83,7 +89,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
       socket.off('invite:accepted', handleInviteAccepted);
       socket.off('room:error', handleRoomError);
     };
-  }, [config, setMyRoom, onClose]);
+  }, [config.universe, config.timeControl, config.rated, config.betAmount, config.colorPref, setMyRoom, onClose]);
 
 
 

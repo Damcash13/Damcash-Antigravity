@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 // ── Module-level shared state ─────────────────────────────────────────────────
 // All hook instances share the same enabled flag so toggling from Header
@@ -55,6 +55,16 @@ type SoundType = 'move' | 'capture' | 'check' | 'gameEnd' | 'promote' | 'clock' 
 
 export function useSound() {
   const ctxRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    return () => {
+      const ctx = ctxRef.current;
+      if (ctx && ctx.state !== 'closed') {
+        ctx.close().catch(() => {});
+      }
+      ctxRef.current = null;
+    };
+  }, []);
 
   const getCtx = useCallback(() => {
     if (!ctxRef.current) ctxRef.current = createAudioContext();
