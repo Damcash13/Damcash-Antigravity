@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { socket } from '../../lib/socket';
@@ -36,6 +36,17 @@ function parseTimeControl(tc: string): { initial: number; increment: number } {
 
 const COMPUTER_OPPONENT = { id: 'computer', name: 'Computer', rating: 1500 };
 
+function isSameMove(a: DraughtsMove, b: DraughtsMove): boolean {
+  return a.from.row === b.from.row &&
+    a.from.col === b.from.col &&
+    a.to.row === b.to.row &&
+    a.to.col === b.to.col;
+}
+
+function formatPosition(pos: Position): string {
+  return `${pos.row + 1},${pos.col + 1}`;
+}
+
 export const DraughtsGame: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -65,9 +76,11 @@ export const DraughtsGame: React.FC = () => {
   const [selected, setSelected] = useState<Position | null>(null);
   const [legalMovesForSelected, setLegalMovesForSelected] = useState<DraughtsMove[]>([]);
   const [lastMove, setLastMove] = useState<DraughtsMove | null>(null);
+  const [premove, setPremove] = useState<DraughtsMove | null>(null);
   const [flipped, setFlipped] = useState(false);
   const [gameStatus, setGameStatus] = useState<'playing' | 'ended'>('playing');
   const [result, setResult] = useState<string | null>(null);
+  const [gameOutcome, setGameOutcome] = useState<Color | 'draw' | null>(null);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [whiteTime, setWhiteTime] = useState(timeControl.initial);
   const [blackTime, setBlackTime] = useState(timeControl.initial);
@@ -149,6 +162,8 @@ export const DraughtsGame: React.FC = () => {
 
   const handleGameEnd = useCallback((winner: Color | 'draw', _boardState: DraughtsBoardType) => {
     setGameStatus('ended');
+    setGameOutcome(winner);
+    setPremove(null);
     if (winner === 'draw') play('gameEnd');
     else if (winner === playerColor) play('victory');
     else play('defeat');
@@ -220,6 +235,20 @@ export const DraughtsGame: React.FC = () => {
     return { newBoard, nextTurn };
   }, [play, addNotification, t, timeControl.increment, handleGameEnd]);
 
+  useEffect(() => {
+    if (gameStatus !== 'playing' || turn !== playerColor || !premove) return;
+
+    const legalPremove = getLegalMoves(board, playerColor).find(move => isSameMove(move, premove));
+    setPremove(null);
+
+    if (!legalPremove) {
+      addNotification('Queued premove cancelled. The position changed.', 'info');
+      return;
+    }
+
+    makeMove(legalPremove, board, playerColor);
+  }, [gameStatus, turn, playerColor, premove, board, makeMove, addNotification]);
+
   // Computer move
   const makeComputerMove = useCallback(() => {
     if (computerMovePending.current) return;
@@ -263,17 +292,16 @@ export const DraughtsGame: React.FC = () => {
 
   const handleSquareClick = useCallback((row: number, col: number) => {
     if (gameStatus !== 'playing') return;
-    if (turn !== playerColor) return;
 
     const piece = board[row][col];
+    const allLegalForPlayer = getLegalMoves(board, playerColor);
 
     // Click on own piece: select it
     if (piece && piece.color === playerColor) {
       const moves = getMovesFromSquare(board, row, col, playerColor);
-      const allLegal = getLegalMoves(board, playerColor);
       // Filter: only show if these are legal (mandatory capture applies)
       const validMoves = moves.filter(m =>
-        allLegal.some(al => al.from.row === m.from.row && al.from.col === m.from.col && al.to.row === m.to.row && al.to.col === m.to.col)
+        allLegalForPlayer.some(al => isSameMove(al, m))
       );
       setSelected({ row, col });
       setLegalMovesForSelected(validMoves);
@@ -284,6 +312,14 @@ export const DraughtsGame: React.FC = () => {
     if (selected) {
       const targetMove = legalMovesForSelected.find(m => m.to.row === row && m.to.col === col);
       if (targetMove) {
+        if (turn !== playerColor) {
+          setPremove(targetMove);
+          setSelected(null);
+          setLegalMovesForSelected([]);
+          play('premove');
+          addNotification('Premove queued.', 'info');
+          return;
+        }
         makeMove(targetMove, board, playerColor);
         return;
       }
@@ -292,7 +328,7 @@ export const DraughtsGame: React.FC = () => {
     // Deselect
     setSelected(null);
     setLegalMovesForSelected([]);
-  }, [gameStatus, turn, playerColor, board, selected, legalMovesForSelected, makeMove]);
+  }, [gameStatus, turn, playerColor, board, selected, legalMovesForSelected, makeMove, play, addNotification]);
 
   const handleOfferDraw = () => {
     if (isVsComputer) {
@@ -338,7 +374,10 @@ export const DraughtsGame: React.FC = () => {
   };
 
   const handleResign = () => {
+    if (gameStatus === 'ended') return;
     setGameStatus('ended');
+    setGameOutcome(playerColor === 'white' ? 'black' : 'white');
+    setPremove(null);
     setResult(t('game.youLost'));
     play('defeat');
     if (isOnline) {
@@ -360,8 +399,10 @@ export const DraughtsGame: React.FC = () => {
     setSelected(null);
     setLegalMovesForSelected([]);
     setLastMove(null);
+    setPremove(null);
     setGameStatus('playing');
     setResult(null);
+    setGameOutcome(null);
     setMoveHistory([]);
     setWhiteTime(timeControl.initial);
     setBlackTime(timeControl.initial);
@@ -384,6 +425,43 @@ export const DraughtsGame: React.FC = () => {
     setSpectators([]);
     setBerserkWindowKey(k => k + 1);
   };
+
+  const handleExportPDN = useCallback(async () => {
+    const pdnResult = gameOutcome === 'draw'
+      ? '1/2-1/2'
+      : gameOutcome === 'white'
+        ? '1-0'
+        : gameOutcome === 'black'
+          ? '0-1'
+          : '*';
+    const moves = moveHistory
+      .map((move, index) => `${Math.floor(index / 2) + 1}.${index % 2 === 0 ? '' : '..'} ${move}`)
+      .join(' ');
+    const pdn = [
+      '[Event "DamCash Checkers"]',
+      `[White "${playerColor === 'white' ? user?.name || 'You' : opponent.name}"]`,
+      `[Black "${playerColor === 'black' ? user?.name || 'You' : opponent.name}"]`,
+      `[Result "${pdnResult}"]`,
+      '',
+      `${moves} ${pdnResult}`.trim(),
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(pdn);
+      addNotification('PDN copied to clipboard.', 'success');
+    } catch {
+      const blob = new Blob([pdn], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `damcash-checkers-${Date.now()}.pdn`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      addNotification('PDN exported.', 'success');
+    }
+  }, [gameOutcome, moveHistory, playerColor, user, opponent, addNotification]);
 
   const sendChat = () => {
     if (!chatInput.trim()) return;
@@ -459,19 +537,34 @@ export const DraughtsGame: React.FC = () => {
       if (data.whiteTime !== undefined) setWhiteTime(data.whiteTime);
       if (data.blackTime !== undefined) setBlackTime(data.blackTime);
       setGameStatus('ended');
-      if (data.result === 'resign') { setResult(t('game.opponentResigned')); play('victory'); }
-      else if (data.result === 'draw') { setResult(t('game.drawAgreement')); play('gameEnd'); }
+      setPremove(null);
+      if (data.result === 'resign') {
+        setGameOutcome(playerColor);
+        setResult(t('game.opponentResigned'));
+        play('victory');
+      }
+      else if (data.result === 'draw') {
+        setGameOutcome('draw');
+        setResult(t('game.drawAgreement'));
+        play('gameEnd');
+      }
       else if (data.result === 'timeout') {
         const didWin = data.winner === playerColor;
+        setGameOutcome(data.winner === 'white' || data.winner === 'black' ? data.winner : didWin ? playerColor : playerColor === 'white' ? 'black' : 'white');
         setResult(didWin ? t('game.youWon') : t('game.youLost'));
         play(didWin ? 'victory' : 'defeat');
       }
       else if (data.by === 'server' && typeof data.reason === 'string') {
         setResult(data.reason);
         const didWin = (data.result === 'win' && playerColor === 'white') || (data.result === 'loss' && playerColor === 'black');
+        setGameOutcome(data.result === 'draw' ? 'draw' : didWin ? playerColor : playerColor === 'white' ? 'black' : 'white');
         play(data.result === 'draw' ? 'gameEnd' : didWin ? 'victory' : 'defeat');
       }
-      else { setResult(t('game.gameOver')); play('gameEnd'); }
+      else {
+        setGameOutcome(null);
+        setResult(t('game.gameOver'));
+        play('gameEnd');
+      }
     };
 
     const handleDrawOfferEvent = () => { setIncomingDraw(true); addNotification(t('game.opponentOfferedDraw', 'Your opponent offered a draw'), 'info'); };
@@ -698,12 +791,21 @@ export const DraughtsGame: React.FC = () => {
   }, [playerColor]);
 
   // Count pieces
-  const whitePieces = board.flat().filter(p => p?.color === 'white').length;
-  const blackPieces = board.flat().filter(p => p?.color === 'black').length;
+  const { whitePieces, blackPieces } = useMemo(() => {
+    let white = 0;
+    let black = 0;
+    for (const row of board) {
+      for (const piece of row) {
+        if (piece?.color === 'white') white += 1;
+        else if (piece?.color === 'black') black += 1;
+      }
+    }
+    return { whitePieces: white, blackPieces: black };
+  }, [board]);
 
   // Check if must capture
-  const allLegal = getLegalMoves(board, turn);
-  const mustCapture = allLegal.some(m => m.captured && m.captured.length > 0);
+  const allLegal = useMemo(() => getLegalMoves(board, turn), [board, turn]);
+  const mustCapture = useMemo(() => allLegal.some(m => m.captured && m.captured.length > 0), [allLegal]);
 
   return (
     <div className="game-room">
@@ -758,6 +860,18 @@ export const DraughtsGame: React.FC = () => {
           <div className="draw-declined-msg">❌ {t('game.drawDeclined')}</div>
         )}
 
+        {/* Must capture notice */}
+        {mustCapture && turn === playerColor && gameStatus === 'playing' && (
+          <div className="draw-offer-banner" style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            borderColor: 'rgba(239, 68, 68, 0.35)',
+            color: 'var(--text-1)',
+            justifyContent: 'center',
+          }}>
+            <span>⚠ Must capture</span>
+          </div>
+        )}
+
         {/* Board */}
         <div style={{ position: 'relative' }}>
           <Board
@@ -765,14 +879,28 @@ export const DraughtsGame: React.FC = () => {
             selectedSquare={selected}
             legalMoves={legalMovesForSelected}
             lastMove={lastMove}
+            premove={premove}
             flipped={flipped}
             onSquareClick={handleSquareClick}
           />
+          {premove && gameStatus === 'playing' && (
+            <div className="premove-status" role="status">
+              <div className="premove-status-copy">
+                <strong>Premove queued</strong>
+                <span>
+                  {formatPosition(premove.from)} -&gt; {formatPosition(premove.to)} will play after your opponent moves if it is still legal.
+                </span>
+              </div>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPremove(null)}>
+                Cancel
+              </button>
+            </div>
+          )}
           {gameStatus === 'ended' && (
             <div className="game-over-overlay">
               <div className="game-over-box">
                 <div className="game-over-title">
-                  {result === t('game.youWon') ? '🏆' : result === t('game.draw') ? '🤝' : '💔'}
+                  {gameOutcome === 'draw' ? '🤝' : gameOutcome === playerColor ? '🏆' : '💔'}
                 </div>
                 <div className="game-over-title">{t('game.gameOver')}</div>
                 <div className="game-over-subtitle">{result}</div>
@@ -803,31 +931,18 @@ export const DraughtsGame: React.FC = () => {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                   <button className="btn btn-primary" onClick={handleNewGame}>{t('game.rematch')}</button>
                   <button className="btn btn-secondary" onClick={() => navigate('/')}>
                     {t('game.quit')}
                   </button>
+                  {moveHistory.length > 0 && (
+                    <button className="btn btn-secondary" onClick={handleExportPDN}>
+                      Export PDN
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
-          {/* Must capture notice */}
-          {mustCapture && turn === playerColor && gameStatus === 'playing' && (
-            <div style={{
-              position: 'absolute',
-              top: -36,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: 'var(--danger)',
-              color: '#fff',
-              padding: '4px 12px',
-              borderRadius: 20,
-              fontSize: 12,
-              fontWeight: 700,
-              whiteSpace: 'nowrap',
-            }}>
-              ⚠ Must capture
             </div>
           )}
         </div>
@@ -912,7 +1027,7 @@ export const DraughtsGame: React.FC = () => {
                   🚪 {t('game.quitRoom')}
                 </button>
               )}
-              {gameStatus === 'playing' && moveHistory.length > 0 && (
+              {gameStatus === 'playing' && (
                 <button
                   className="btn btn-secondary btn-sm"
                   onClick={handleOfferDraw}

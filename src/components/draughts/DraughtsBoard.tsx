@@ -6,6 +6,7 @@ interface Props {
   selectedSquare: Position | null;
   legalMoves: DraughtsMove[];
   lastMove: DraughtsMove | null;
+  premove?: DraughtsMove | null;
   flipped: boolean;
   onSquareClick: (row: number, col: number) => void;
 }
@@ -26,17 +27,19 @@ interface CellProps {
   legalTarget: boolean;
   lastFrom: boolean;
   lastTo: boolean;
+  isPremove: boolean;
   isDragging: boolean;
   onSquareClick: (row: number, col: number) => void;
 }
 
 const DraughtsCell: React.FC<CellProps> = React.memo(({
-  row, col, isLight, piece, selected, legalTarget, lastFrom, lastTo, isDragging, onSquareClick,
+  row, col, isLight, piece, selected, legalTarget, lastFrom, lastTo, isPremove, isDragging, onSquareClick,
 }) => {
   let cellClass = `draughts-cell ${isLight ? 'light' : 'dark'}`;
   if (!isLight) {
     if (selected) cellClass += ' selected';
     else if (legalTarget) cellClass += ' legal-target';
+    else if (isPremove) cellClass += ' premove';
     else if (lastFrom) cellClass += ' last-from';
     else if (lastTo) cellClass += ' last-to';
   }
@@ -92,7 +95,7 @@ interface DragStateType {
 }
 
 export const DraughtsBoard: React.FC<Props> = ({
-  board, selectedSquare, legalMoves, lastMove, flipped, onSquareClick,
+  board, selectedSquare, legalMoves, lastMove, premove, flipped, onSquareClick,
 }) => {
   const rows = flipped
     ? Array.from({ length: 10 }, (_, i) => 9 - i)
@@ -120,6 +123,9 @@ export const DraughtsBoard: React.FC<Props> = ({
     lastMove?.from.row === row && lastMove?.from.col === col;
   const isLastTo = (row: number, col: number) =>
     lastMove?.to.row === row && lastMove?.to.col === col;
+  const isPremove = (row: number, col: number) =>
+    premove?.from.row === row && premove?.from.col === col ||
+    premove?.to.row === row && premove?.to.col === col;
 
   // ── Pointer-based drag & drop (mouse + touch) ─────────────────────────────
   const handleBoardPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -184,6 +190,7 @@ export const DraughtsBoard: React.FC<Props> = ({
               legalTarget={isLegalTarget(row, col)}
               lastFrom={isLastFrom(row, col)}
               lastTo={isLastTo(row, col)}
+              isPremove={isPremove(row, col)}
               isDragging={dragState?.row === row && dragState?.col === col}
               onSquareClick={stableClick}
             />

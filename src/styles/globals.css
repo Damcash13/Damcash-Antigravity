@@ -1783,6 +1783,10 @@ button,
 
 .draughts-cell.selected { background: rgba(20, 85, 30, 0.7) !important; }
 .draughts-cell.legal-target { background: rgba(20, 85, 30, 0.5) !important; }
+.draughts-cell.premove {
+  background: rgba(59, 130, 246, 0.34) !important;
+  box-shadow: inset 0 0 0 3px rgba(147, 197, 253, 0.76);
+}
 .draughts-cell.last-from,
 .draughts-cell.last-to { background: rgba(155, 199, 0, 0.41) !important; }
 
