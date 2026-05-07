@@ -753,6 +753,34 @@ function publicSeekList() {
     .map(([seekId, s]) => ({ seekId, ...s }));
 }
 
+function createInitialDraughtsBoard() {
+  const board = Array.from({ length: 10 }, () => Array(10).fill(null));
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 10; col++) {
+      if ((row + col) % 2 === 1) board[row][col] = { color: 'black', type: 'man' };
+    }
+  }
+  for (let row = 6; row < 10; row++) {
+    for (let col = 0; col < 10; col++) {
+      if ((row + col) % 2 === 1) board[row][col] = { color: 'white', type: 'man' };
+    }
+  }
+  return board;
+}
+
+function parseDraughtsBoardSnapshot(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function broadcastSeeks() {
   const list = publicSeekList();
   io.emit('seeks:list', list);
@@ -2553,14 +2581,17 @@ app.get('/api/rooms/live', (req, res) => {
       const uv = room.config?.universe || 'chess';
       if (universeFilter && uv !== universeFilter) return null;
 
-      const wp = players.get(room.players.white);
-      const bp = players.get(room.players.black);
+      const wp = players.get(room.players.white) || room.playerInfo?.white;
+      const bp = players.get(room.players.black) || room.playerInfo?.black;
       if (!wp || !bp) return null;
 
       const whiteRating = Number(wp.rating?.[uv]) || 1500;
       const blackRating = Number(bp.rating?.[uv]) || 1500;
       const lastMove = room.moves[room.moves.length - 1];
       const spectators = room.spectators?.size || 0;
+      const draughtsBoard = uv === 'checkers'
+        ? (parseDraughtsBoardSnapshot(lastMove?.board) || createInitialDraughtsBoard())
+        : undefined;
 
       return {
         id: roomId,
@@ -2576,7 +2607,7 @@ app.get('/api/rooms/live', (req, res) => {
         fen: uv !== 'checkers'
           ? (lastMove?.fen || room.chessEngine?.fen?.() || new Chess().fen())
           : undefined,
-        draughtsBoard: uv === 'checkers' ? lastMove?.board : undefined,
+        draughtsBoard,
       };
     })
     .filter(Boolean)
