@@ -110,6 +110,7 @@ export default function App() {
   const closeConfig     = useInviteStore(s => s.closeConfig);
   const configOpen      = useInviteStore(s => s.configOpen);
   const updatePresenceUniverse = useInviteStore(s => s.updatePresenceUniverse);
+  const cleanupPresence = useInviteStore(s => s.cleanupPresence);
 
   const initFriends        = useFriendsStore(s => s.initialize);
   const syncOnlinePlayers  = useFriendsStore(s => s.syncOnlinePlayers);
@@ -128,7 +129,12 @@ export default function App() {
   useEffect(() => {
     restoreSession();
     listenToAuthChanges();
-  }, []);
+    window.addEventListener('beforeunload', cleanupPresence);
+    return () => {
+      window.removeEventListener('beforeunload', cleanupPresence);
+      cleanupPresence();
+    };
+  }, [cleanupPresence, listenToAuthChanges, restoreSession]);
 
   useEffect(() => {
     if (user?.id) {

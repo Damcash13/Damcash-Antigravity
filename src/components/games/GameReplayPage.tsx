@@ -212,6 +212,23 @@ export const GameReplayPage: React.FC = () => {
     movePairs.push({ num: Math.floor(i / 2) + 1, white: moves[i].san, black: moves[i + 1]?.san ?? '', wi: i, bi: i + 1 });
   }
 
+  const jumpToChessMove = (from: Square, to: Square) => {
+    const idx = moves.findIndex(move => move.from === from && move.to === to);
+    if (idx >= 0) goTo(idx);
+  };
+
+  const jumpToDraughtsMove = (row: number, col: number) => {
+    const idx = moves.findIndex(move => {
+      const played = move.draughtsMove;
+      return Boolean(
+        played &&
+        ((played.from.row === row && played.from.col === col) ||
+          (played.to.row === row && played.to.col === col))
+      );
+    });
+    if (idx >= 0) goTo(idx);
+  };
+
   return (
     <div style={{ display: 'flex', gap: 24, padding: '16px 0', maxWidth: 1100, margin: '0 auto', flexWrap: 'wrap', alignItems: 'flex-start' }}>
       {/* ── Board column ── */}
@@ -240,14 +257,14 @@ export const GameReplayPage: React.FC = () => {
             legalMoves={[]}
             lastMove={draughtsLastMove}
             flipped={flipped}
-            onSquareClick={() => {}}
+            onSquareClick={jumpToDraughtsMove}
           />
         ) : (
           <ChessBoard
             game={chess}
             flipped={flipped}
             playerColor="w"
-            onMove={() => {}}
+            onMove={jumpToChessMove}
             lastMove={chessLastMove}
             inCheck={chess.isCheck()}
           />

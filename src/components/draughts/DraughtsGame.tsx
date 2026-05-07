@@ -352,8 +352,22 @@ export const DraughtsGame: React.FC = () => {
     setWhiteTime(timeControl.initial);
     setBlackTime(timeControl.initial);
     setChatMessages([{ id: '1', userId: 'system', username: 'System', text: t('game.gameStarted') }]);
+    setChatInput('');
+    setDrawOffered(false);
+    setIncomingDraw(false);
+    setDrawDeclinedMsg(false);
+    setTakebackSent(false);
+    setIncomingTakeback(false);
+    setIsOpponentDisconnected(false);
+    setSavingResult(false);
+    setRatingChange(null);
     setIsBerserk(false);
     setOpponentBerserk(false);
+    setShowBerserkBtn(false);
+    setShowBetting(false);
+    setShowVideo(true);
+    setActiveTab('moves');
+    setSpectators([]);
     setBerserkWindowKey(k => k + 1);
   };
 

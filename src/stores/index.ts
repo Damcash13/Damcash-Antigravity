@@ -201,6 +201,9 @@ export const useUserStore = create<UserStore>()(
         reconnectWithToken(token);
       },
       logout: () => {
+        try {
+          (window as any).__cleanupDamcashPresence?.();
+        } catch {}
         reconnectWithToken(null);
         set({
           user: null,
@@ -365,6 +368,9 @@ export const useUserStore = create<UserStore>()(
 
         supabase.auth.onAuthStateChange(async (event: string, session: any) => {
           if (event === 'SIGNED_OUT') {
+            try {
+              (window as any).__cleanupDamcashPresence?.();
+            } catch {}
             set({ user: null, isLoggedIn: false });
             reconnectWithToken(null);
           } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {

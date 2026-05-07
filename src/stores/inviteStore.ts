@@ -69,8 +69,11 @@ interface InviteStore {
   openConfig: (target?: { socketId: string; name: string; universe?: Universe }) => void;
   closeConfig: () => void;
   initPresence: (username: string, rating: { chess: number; checkers: number }) => void;
+  cleanupPresence: () => void;
   updatePresenceUniverse: (universe: Universe) => void;
 }
+
+let presenceBeforeUnload: (() => void) | null = null;
 
 const statusRank: Record<OnlinePlayer['status'], number> = {
   playing: 3,
@@ -134,6 +137,21 @@ export const useInviteStore = create<InviteStore>((set) => ({
   openConfig: (target) => set({ configOpen: true, configTarget: target ?? null }),
   closeConfig: () => set({ configOpen: false, configTarget: null }),
 
+  cleanupPresence: () => {
+    const channel = (window as any).__presenceChannel;
+    if (presenceBeforeUnload) {
+      window.removeEventListener('beforeunload', presenceBeforeUnload);
+      presenceBeforeUnload = null;
+    }
+    if (!channel) return;
+    (window as any).__presenceChannel = null;
+    (window as any).__cleanupDamcashPresence = null;
+    try {
+      channel.unsubscribe()?.catch?.(() => {});
+    } catch {}
+    set({ onlinePlayers: [] });
+  },
+
   initPresence: (username, rating) => {
     if (!supabase || !socket) return;
 
@@ -155,6 +173,11 @@ export const useInviteStore = create<InviteStore>((set) => ({
     });
 
     (window as any).__presenceChannel = channel;
+    (window as any).__cleanupDamcashPresence = useInviteStore.getState().cleanupPresence;
+    if (!presenceBeforeUnload) {
+      presenceBeforeUnload = () => useInviteStore.getState().cleanupPresence();
+      window.addEventListener('beforeunload', presenceBeforeUnload);
+    }
 
     channel
       .on('presence', { event: 'sync' }, () => {

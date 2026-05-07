@@ -384,8 +384,23 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     setLastMove(null);
     setMoveHistory([]);
     setChatMessages(chatInit);
+    setChatInput('');
+    setDrawOffered(false);
+    setIncomingDraw(false);
+    setDrawDeclinedMsg(false);
+    setTakebackSent(false);
+    setIncomingTakeback(false);
+    setIsOpponentDisconnected(false);
+    setSavingResult(false);
+    setRatingChange(null);
+    setPremove(null);
     setIsBerserk(false);
     setOpponentBerserk(false);
+    setShowBerserkBtn(false);
+    setShowBetting(false);
+    setShowVideo(true);
+    setActiveTab('moves');
+    setSpectators([]);
     setBerserkWindowKey(k => k + 1);
   };
 
