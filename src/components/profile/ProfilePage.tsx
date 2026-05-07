@@ -96,7 +96,7 @@ const ActivityHeatmap: React.FC<{ history: ActivityEntry[] }> = ({ history }) =>
                 key={`${wi}-${di}`}
                 className="heatmap-cell"
                 title={count > 0 ? `${count} game${count > 1 ? 's' : ''}` : 'No games'}
-                style={{ background: count === 0 ? 'var(--bg-3)' : `rgba(56,189,248,${alpha})` }}
+                style={{ background: count === 0 ? 'var(--bg-3)' : `rgba(var(--accent-rgb),${alpha})` }}
               />
             );
           })
@@ -1109,7 +1109,7 @@ export const ProfilePage: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 11, color: 'var(--text-3)' }}>
                   <span>Less</span>
                   {[0.1, 0.3, 0.5, 0.75, 1].map(a => (
-                    <div key={a} style={{ width: 12, height: 12, borderRadius: 3, background: `rgba(56,189,248,${a})` }} />
+                    <div key={a} style={{ width: 12, height: 12, borderRadius: 3, background: `rgba(var(--accent-rgb),${a})` }} />
                   ))}
                   <span>More</span>
                 </div>

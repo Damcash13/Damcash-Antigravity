@@ -6,6 +6,7 @@ import { AppErrorBoundary } from './components/common/AppErrorBoundary';
 import { AgeGate } from './components/common/AgeGate';
 import './i18n/config';
 import './styles/globals.css';
+import './styles/enhancements.css';
 
 // Set initial universe class
 document.body.className = 'chess-universe';

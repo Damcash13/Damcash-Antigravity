@@ -262,7 +262,7 @@ export const LiveGamesSection: React.FC<Props> = ({ games, universe, onClickGame
   );
 
   return (
-    <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
+    <div className="pf-live-games-scroll" style={{ overflowX: 'auto', paddingBottom: 8 }}>
       <div style={{ display: 'flex', gap: 16, width: 'max-content' }}>
         {visible.map((game) => (
           <LiveGameCard

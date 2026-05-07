@@ -529,13 +529,6 @@
 .pf-wallet-stat strong { font-size: 15px; font-weight: 800; color: var(--text-1); }
 
 /* ── Recent games ── */
-.pf-empty-small {
-  font-size: 12px;
-  color: var(--text-3);
-  text-align: center;
-  padding: 10px 0;
-}
-
 .pf-recent-row {
   display: flex;
   align-items: center;
@@ -624,12 +617,6 @@
 /* ═══════════════════════════════════════════════════
    HISTORY TAB
    ══════════════════════════════════════════════════════ */
-.pf-empty {
-  text-align: center;
-  padding: 48px 20px;
-  color: var(--text-3);
-}
-
 .pf-hist-head {
   display: grid;
   grid-template-columns: 40px 1fr 90px 90px 80px 60px 80px;
@@ -774,7 +761,14 @@
   flex: 1;
   min-width: 0;
 }
-.pf-setting-input:focus { outline: none; border-color: var(--accent); }
+.pf-setting-input {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pf-setting-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
 
 .pf-setting-select {
   background: var(--bg-2);
@@ -964,4 +958,121 @@
   font-size: 12px;
   color: var(--text-3);
   font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════
+   ENHANCED VISUALS — section titles, empty states,
+   hover effects, row styling, scrollbar polish
+   ══════════════════════════════════════════════════════ */
+
+/* Section titles: accent underline decoration */
+.pf-section-title {
+  position: relative;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.pf-section-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+/* Empty states */
+.pf-empty {
+  padding: 32px 16px;
+  text-align: center;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  animation: fadeSlideUp 0.4s ease both;
+}
+.pf-empty-small {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-3);
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  animation: fadeSlideUp 0.3s ease both;
+}
+
+/* History rows: subtle hover + transition */
+.pf-hist-row {
+  transition: background 0.15s ease, border-color 0.15s ease;
+  border-left: 2px solid transparent;
+}
+.pf-hist-row:hover {
+  background: rgba(56,189,248,0.04);
+  border-left-color: var(--accent);
+}
+
+/* Tournament rows */
+.pf-tourn-row {
+  transition: all 0.15s ease;
+  border-left: 2px solid transparent;
+}
+.pf-tourn-row:hover {
+  background: rgba(56,189,248,0.04);
+  border-left-color: var(--accent);
+  border-radius: 8px;
+}
+
+/* Band rows: active glow */
+.pf-band-row.active {
+  background: rgba(56,189,248,0.06);
+  border-color: rgba(56,189,248,0.3);
+  box-shadow: 0 0 12px rgba(56,189,248,0.08);
+}
+
+/* Achievement cards: hover lift */
+.pf-achievement {
+  position: relative;
+  overflow: hidden;
+}
+.pf-achievement::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.04) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+.pf-achievement:hover::before {
+  transform: translateX(100%);
+}
+.pf-achievement.unlocked:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-dim);
+}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE ADJUSTMENTS
+   ══════════════════════════════════════════════════════ */
+
+@media (max-width: 600px) {
+  .pf-section-title::after {
+    width: 24px;
+  }
+  .pf-empty {
+    padding: 24px 12px;
+  }
+  .pf-setting-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .pf-setting-label {
+    min-width: auto;
+  }
+  .pf-setting-val {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
