@@ -301,6 +301,25 @@ const HamburgerMenu: React.FC<{
         </div>
       </div>
 
+      {!user && (
+        <div className="hamburger-section">
+          <button
+            className="hamburger-nav-item"
+            onClick={() => { onOpenAuth(); onClose(); }}
+            style={{ fontWeight: 800 }}
+          >
+            <span>{t('nav.signIn')}</span>
+          </button>
+          <button
+            className="hamburger-nav-item"
+            onClick={() => { onOpenAuth(); onClose(); }}
+            style={{ fontWeight: 800 }}
+          >
+            <span>{t('nav.register')}</span>
+          </button>
+        </div>
+      )}
+
       {/* Logout */}
       {onLogout && (
         <div className="hamburger-section">
@@ -322,7 +341,7 @@ const HamburgerMenu: React.FC<{
 export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlayer, onOpenCreateGame }) => {
   const { t, i18n } = useTranslation();
   const { universe, toggleUniverse } = useUniverseStore();
-  const { user, logout, lastRatingChange } = useUserStore();
+  const { user, isLoggedIn, logout, lastRatingChange } = useUserStore();
   const openMessages = useDirectMessageStore(s => s.openInbox);
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(() => getSoundEnabled());
@@ -330,7 +349,8 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   const menus = buildMenus(universe);
-  const showAdminTools = Boolean(user?.isAdmin);
+  const isAuthenticated = Boolean(user && isLoggedIn);
+  const showAdminTools = Boolean(isAuthenticated && user?.isAdmin);
 
   const handleUniverseSwitch = useCallback((target: 'chess' | 'checkers') => {
     if (universe === target) return;
@@ -352,14 +372,14 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
     if (action === 'quickGame' || action === 'challengeFriend') {
       onOpenCreateGame();
     } else if (action === 'wallet') {
-      user ? onOpenWallet() : onOpenAuth();
+      isAuthenticated ? onOpenWallet() : onOpenAuth();
     } else if (action === 'messages') {
-      user ? openMessages() : onOpenAuth();
+      isAuthenticated ? openMessages() : onOpenAuth();
     } else if (action === 'profile') {
-      user ? navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`) : onOpenAuth();
+      isAuthenticated && user ? navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`) : onOpenAuth();
     }
     setActiveMenu(null);
-  }, [navigate, onOpenAuth, onOpenCreateGame, onOpenWallet, openMessages, universe, user]);
+  }, [isAuthenticated, navigate, onOpenAuth, onOpenCreateGame, onOpenWallet, openMessages, universe, user]);
 
   return (
     <header className="header">
@@ -402,7 +422,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
           </div>
 
           {/* Wallet / Auth */}
-          {user ? (
+          {isAuthenticated && user ? (
             <button
               className="header-profile-btn"
               onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`)}
@@ -455,9 +475,9 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
                 t={t}
                 navigate={navigate}
                 onClose={() => setHamburgerOpen(false)}
-                onLogout={user ? () => { logout(); navigate('/'); } : undefined}
+                onLogout={isAuthenticated ? () => { logout(); navigate('/'); } : undefined}
                 showAdminTools={showAdminTools}
-                user={user}
+                user={isAuthenticated ? user : null}
                 onOpenAuth={onOpenAuth}
                 onOpenWallet={onOpenWallet}
                 onOpenMessages={openMessages}
