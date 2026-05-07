@@ -96,7 +96,7 @@ function makeGuestUser(): User {
 }
 
 function apiUserToUser(u: {
-  id: string; username: string; email?: string; avatarUrl?: string | null;
+  id: string; username: string; email?: string; isAdmin?: boolean; avatarUrl?: string | null;
   country?: string; bio?: string; socialLinks?: Record<string, string> | null;
   walletBalance: number; rating: { chess: number; checkers: number };
   chess?:    { wins: number; losses: number; draws: number; games: number };
@@ -106,6 +106,7 @@ function apiUserToUser(u: {
     id: u.id,
     name: u.username,
     email: u.email,
+    isAdmin: Boolean(u.isAdmin),
     avatarUrl: u.avatarUrl || undefined,
     country: u.country || '',
     bio: u.bio || '',

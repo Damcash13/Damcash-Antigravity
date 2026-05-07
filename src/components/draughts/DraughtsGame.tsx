@@ -11,6 +11,7 @@ import { useSound } from '../../hooks/useSound';
 import { useUserStore, useNotificationStore, useBettingStore, useLiveGamesStore } from '../../stores';
 import { HeadToHeadPanel } from '../common/HeadToHeadPanel';
 import { countryFlag } from '../../lib/countries';
+import { calculateBetPayout } from '../../lib/betting';
 import {
   createInitialBoard,
   getLegalMoves,
@@ -86,6 +87,7 @@ export const DraughtsGame: React.FC = () => {
   const [isBerserk, setIsBerserk] = useState(false);
   const [opponentBerserk, setOpponentBerserk] = useState(false);
   const [showBerserkBtn, setShowBerserkBtn] = useState(false);
+  const [berserkWindowKey, setBerserkWindowKey] = useState(0);
   const chatRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef(board);
   const turnRef = useRef(turn);
@@ -159,9 +161,9 @@ export const DraughtsGame: React.FC = () => {
         useUserStore.getState().updateBetStats(isMe ? 'win' : 'loss');
 
         if (isMe) {
-          const payout = activeBet.amount * 2 * 0.95;
+          const { potentialWin } = calculateBetPayout(activeBet.amount);
           play('betWon');
-          addNotification(`${t('game.youWonAmount', { amount: payout.toFixed(2) })} Wallet will update from the server ledger.`, 'success');
+          addNotification(`${t('game.youWonAmount', { amount: potentialWin.toFixed(2) })} Wallet will update from the server ledger.`, 'success');
         }
         settleBet(winnerId);
       } else if (winner === 'draw') {
@@ -331,6 +333,9 @@ export const DraughtsGame: React.FC = () => {
     play('defeat');
     if (isOnline) {
       socket.emit('resign', { roomId });
+    } else if (activeBet && activeBet.amount > 0) {
+      useUserStore.getState().updateBetStats('loss');
+      settleBet(opponent.id);
     }
   };
 
@@ -347,6 +352,9 @@ export const DraughtsGame: React.FC = () => {
     setWhiteTime(timeControl.initial);
     setBlackTime(timeControl.initial);
     setChatMessages([{ id: '1', userId: 'system', username: 'System', text: t('game.gameStarted') }]);
+    setIsBerserk(false);
+    setOpponentBerserk(false);
+    setBerserkWindowKey(k => k + 1);
   };
 
   const sendChat = () => {
@@ -424,6 +432,11 @@ export const DraughtsGame: React.FC = () => {
         const didWin = data.winner === playerColor;
         setResult(didWin ? t('game.youWon') : t('game.youLost'));
         play(didWin ? 'victory' : 'defeat');
+      }
+      else if (data.by === 'server' && typeof data.reason === 'string') {
+        setResult(data.reason);
+        const didWin = (data.result === 'win' && playerColor === 'white') || (data.result === 'loss' && playerColor === 'black');
+        play(data.result === 'draw' ? 'gameEnd' : didWin ? 'victory' : 'defeat');
       }
       else { setResult(t('game.gameOver')); play('gameEnd'); }
     };
@@ -604,7 +617,7 @@ export const DraughtsGame: React.FC = () => {
     setShowBerserkBtn(true);
     const timer = setTimeout(() => setShowBerserkBtn(false), 30000);
     return () => clearTimeout(timer);
-  }, [isOnline]);
+  }, [isOnline, berserkWindowKey]);
 
   useEffect(() => {
     if (moveHistory.length > 0) setShowBerserkBtn(false);
@@ -630,6 +643,16 @@ export const DraughtsGame: React.FC = () => {
       handleGameEnd(turnRef.current === 'white' ? 'black' : 'white', boardRef.current);
     }
   }, [gameStatus, isOnline, roomId, handleGameEnd]);
+
+  const handleOpponentClockTick = useCallback((ms: number) => {
+    if (playerColor === 'white') setBlackTime(ms);
+    else setWhiteTime(ms);
+  }, [playerColor]);
+
+  const handlePlayerClockTick = useCallback((ms: number) => {
+    if (playerColor === 'white') setWhiteTime(ms);
+    else setBlackTime(ms);
+  }, [playerColor]);
 
   // Count pieces
   const whitePieces = board.flat().filter(p => p?.color === 'white').length;
@@ -663,8 +686,8 @@ export const DraughtsGame: React.FC = () => {
           </div>
           <Clock
             timeMs={playerColor === 'white' ? blackTime : whiteTime}
-            active={gameStatus === 'playing' && turn !== playerColor && moveHistory.length > 0}
-            onTick={(ms) => playerColor === 'white' ? setBlackTime(ms) : setWhiteTime(ms)}
+            active={gameStatus === 'playing' && turn !== playerColor}
+            onTick={handleOpponentClockTick}
             onExpire={handleClockExpire}
           />
         </div>
@@ -799,8 +822,8 @@ export const DraughtsGame: React.FC = () => {
           </div>
           <Clock
             timeMs={playerColor === 'white' ? whiteTime : blackTime}
-            active={gameStatus === 'playing' && turn === playerColor && moveHistory.length > 0}
-            onTick={(ms) => playerColor === 'white' ? setWhiteTime(ms) : setBlackTime(ms)}
+            active={gameStatus === 'playing' && turn === playerColor}
+            onTick={handlePlayerClockTick}
             onExpire={handleClockExpire}
           />
         </div>

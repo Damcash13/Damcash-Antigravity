@@ -20,10 +20,8 @@ const { Chess }  = require('chess.js');  // server-side move validation
 
 // ── Startup safety checks ────────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET;
-const OWNER_ADMIN_EMAIL = 'yves.ahipo@gmail.com';
 function adminEmails() {
   return Array.from(new Set([
-    OWNER_ADMIN_EMAIL,
     ...(process.env.ADMIN_EMAILS || '').split(','),
   ].map(e => e.trim().toLowerCase()).filter(Boolean)));
 }
@@ -189,6 +187,28 @@ function apiUserPayload(user) {
     checkers: { wins: user.checkersWins, losses: user.checkersLosses, draws: user.checkersDraws, games: user.checkersGames },
   };
 }
+
+const publicUserSelect = {
+  id: true,
+  username: true,
+  country: true,
+  avatarUrl: true,
+  bio: true,
+  socialLinks: true,
+  chessRating: true,
+  checkersRating: true,
+  peakChessRating: true,
+  peakCheckersRating: true,
+  chessGames: true,
+  checkersGames: true,
+  chessWins: true,
+  chessLosses: true,
+  chessDraws: true,
+  checkersWins: true,
+  checkersLosses: true,
+  checkersDraws: true,
+  createdAt: true,
+};
 
 async function saveAvatarForAuthUser(authUser, avatarUrl) {
   try {
@@ -401,13 +421,6 @@ function genCode() {
 
 function genId() {
   return crypto.randomBytes(16).toString('hex'); // 32 hex chars
-}
-
-function parseTimeControl(tc) {
-  const parts = String(tc || '5+0').split('+').map(Number);
-  const base = isNaN(parts[0]) ? 5 : parts[0];
-  const inc  = isNaN(parts[1]) ? 0 : parts[1];
-  return { initial: base * 60 * 1000, increment: inc * 1000 };
 }
 
 function resolveColor(colorPref, whiteId, blackId) {
@@ -721,7 +734,7 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     chessEngine: config?.universe === 'chess' ? new Chess() : null,
     whiteTime: tc.initial,
     blackTime: tc.initial,
-    lastMoveTime: Date.now(),
+    lastMoveTime: null,
   });
 
   // Create DB Match records for every signed-in game, rated or casual.
@@ -776,6 +789,12 @@ async function startRoom(roomId, creatorId, joinerId, config) {
 
   const wp = players.get(white);
   const bp = players.get(black);
+  const startedAt = Date.now();
+  const startedRoom = rooms.get(roomId);
+  if (startedRoom) {
+    startedRoom.startedAt = startedAt;
+    startedRoom.lastMoveTime = startedAt;
+  }
   const gameData = {
     roomId, white, black, config,
     timeControl: config.timeControl,
@@ -860,6 +879,7 @@ async function settleTournamentRoom(roomId, result) {
     io.emit('tournament:global_update');
   } catch (err) {
     log.error('[Tournament] Failed to settle tournament standings:', err.message);
+    throw err;
   }
 }
 
@@ -1500,30 +1520,58 @@ io.on('connection', (socket) => {
     io.to(fromSocketId).emit('friend:declined', { bySocketId: socket.id });
   });
 
-  // ── Server-detected game over (authoritative) ─────────────────────────────
-  function serverGameOver(roomId, result, reason) {
-    // result: 'win' | 'loss' | 'draw' (from white's perspective)
+  async function persistRoomSettlement(roomId, result, universe, reason) {
     const room = rooms.get(roomId);
     if (!room) return;
+
+    const failures = [];
+    const runSettlement = async (label, fn) => {
+      try {
+        await fn();
+      } catch (err) {
+        failures.push({ label, err });
+        log.error(`[Settlement] ${label} failed for room ${roomId}:`, err);
+      }
+    };
+
+    try {
+      if (room.config?.rated !== false) {
+        await runSettlement('rating', () => settleElo(roomId, result, universe, reason));
+      } else {
+        await runSettlement('unrated stats', () => settleUnratedGameStats(roomId, result, reason));
+      }
+      await runSettlement('bets', () => settleBets(roomId, result));
+      await runSettlement('tournament', () => settleTournamentRoom(roomId, result));
+
+      if (failures.length > 0) {
+        log.error(`[Settlement] Room ${roomId} completed cleanup with ${failures.length} persistence failure(s).`);
+      }
+    } finally {
+      [room.players.white, room.players.black].forEach(id => {
+        const p = players.get(id);
+        if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
+      });
+      rooms.delete(roomId);
+      reconnectTokens.delete(roomId);
+      broadcastPlayerList();
+      io.emit('tournament:global_update');
+    }
+  }
+
+  // ── Server-detected game over (authoritative) ─────────────────────────────
+  async function serverGameOver(roomId, result, reason) {
+    // result: 'win' | 'loss' | 'draw' (from white's perspective)
+    const room = rooms.get(roomId);
+    if (!room || room.settling) return;
+    room.settling = true;
     const universe = room.config?.universe;
-    io.to(roomId).emit('game-over', { result: reason, by: 'server' });
-    if (room.config?.rated !== false) settleElo(roomId, result, universe, reason);
-    else settleUnratedGameStats(roomId, result, reason);
-    settleBets(roomId, result);
-    settleTournamentRoom(roomId, result);
-    [room.players.white, room.players.black].forEach(id => {
-      const p = players.get(id);
-      if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
-    });
-    rooms.delete(roomId);
-    reconnectTokens.delete(roomId);
-    broadcastPlayerList();
-    io.emit('tournament:global_update'); // notify any active tournament pages that a game ended
+    io.to(roomId).emit('game-over', { result, reason, by: 'server' });
+    await persistRoomSettlement(roomId, result, universe, reason);
     log.info(`[GAME] Server-detected game over: ${reason} in room ${roomId}`);
   }
 
   // ── In-game events ───────────────────────────────────────────────────────
-  socket.on('move', (payload) => {
+  socket.on('move', async (payload) => {
     if (socketRateLimit(socket.id, 200)) return; // 200 moves/min cap
     if (!payload || typeof payload.roomId !== 'string') return;
     const room = rooms.get(payload.roomId);
@@ -1587,7 +1635,7 @@ io.on('connection', (socket) => {
 
     // ── Update authoritative clocks after the move is accepted ───────────
     const now = Date.now();
-    const elapsed = now - room.lastMoveTime;
+    const elapsed = room.lastMoveTime ? now - room.lastMoveTime : 0;
     const tc = parseTimeControl(room.config?.timeControl || '5+0');
 
     if (senderIsWhite) {
@@ -1633,7 +1681,7 @@ io.on('connection', (socket) => {
       } else {
         result = 'draw'; reason = 'Draw';
       }
-      serverGameOver(payload.roomId, result, reason);
+      await serverGameOver(payload.roomId, result, reason);
     }
   });
 
@@ -1702,7 +1750,7 @@ io.on('connection', (socket) => {
       ]);
     } catch (e) {
       console.error('[ELO] DB fetch failed before ELO computation:', e);
-      return;
+      throw e;
     }
     if (!whiteDb || !blackDb) return;
 
@@ -1712,18 +1760,6 @@ io.on('connection', (socket) => {
     const bG = uv === 'chess' ? blackDb.chessGames     : blackDb.checkersGames;
 
     const elo = computeElo(wR, bR, result, wG, bG);
-
-    // Update in-memory Map so broadcastPlayerList() shows fresh ratings
-    if (!wp.rating) wp.rating = {};
-    if (!bp.rating) bp.rating = {};
-    wp.rating[uv] = elo.white.after;
-    bp.rating[uv] = elo.black.after;
-    if (!wp.gamesPlayed) wp.gamesPlayed = {};
-    if (!bp.gamesPlayed) bp.gamesPlayed = {};
-    wp.gamesPlayed[uv] = wG + 1;
-    bp.gamesPlayed[uv] = bG + 1;
-    players.set(whiteId, wp);
-    players.set(blackId, bp);
 
     const wWinsInc   = result === 'win'  ? 1 : 0;
     const wLossesInc = result === 'loss' ? 1 : 0;
@@ -1783,6 +1819,18 @@ io.on('connection', (socket) => {
       }
       await prisma.$transaction(ops);
 
+      // Update in-memory Map only after DB confirms the write.
+      if (!wp.rating) wp.rating = {};
+      if (!bp.rating) bp.rating = {};
+      wp.rating[uv] = elo.white.after;
+      bp.rating[uv] = elo.black.after;
+      if (!wp.gamesPlayed) wp.gamesPlayed = {};
+      if (!bp.gamesPlayed) bp.gamesPlayed = {};
+      wp.gamesPlayed[uv] = wG + 1;
+      bp.gamesPlayed[uv] = bG + 1;
+      players.set(whiteId, wp);
+      players.set(blackId, bp);
+
       // Only emit rating changes after DB confirms the write
       const whiteSocket = io.sockets.sockets.get(whiteId);
       const blackSocket = io.sockets.sockets.get(blackId);
@@ -1813,6 +1861,7 @@ io.on('connection', (socket) => {
       console.log(`[ELO] ${uv} | ${wp.name} ${wR}→${elo.white.after} (${elo.white.delta > 0 ? '+' : ''}${elo.white.delta}) vs ${bp.name} ${bR}→${elo.black.after}`);
     } catch (e) {
       console.error('[DB] ELO transaction failed — ratings not saved, not emitted:', e);
+      throw e;
     }
   }
 
@@ -1884,6 +1933,7 @@ io.on('connection', (socket) => {
       broadcastPlayerList();
     } catch (e) {
       console.error('[DB] Unrated game stats transaction failed:', e);
+      throw e;
     }
   }
 
@@ -2078,6 +2128,7 @@ io.on('connection', (socket) => {
               data: { walletStatus: 'failed' },
             }).catch(err => console.error('[BET] Failed to mark wallet settlement failure:', err.message));
           }
+          throw e;
         } else {
           await new Promise(resolve => setTimeout(resolve, 1000)); // wait before retry
         }
@@ -2099,7 +2150,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('resign', ({ roomId }) => {
+  socket.on('resign', async ({ roomId }) => {
     const room = rooms.get(roomId);
     if (!room) return;
     if (room.settling) return;
@@ -2110,17 +2161,10 @@ io.on('connection', (socket) => {
     const universe = room.config?.universe;
     const reason = isWhite ? 'White resigned' : 'Black resigned';
     io.to(roomId).emit('game-over', { result: 'resign', by: socket.id });
-    if (room.config?.rated !== false) settleElo(roomId, result, universe, reason);
-    else settleUnratedGameStats(roomId, result, reason);
-    settleBets(roomId, result);
-    settleTournamentRoom(roomId, result);
-    rooms.delete(roomId);
-    reconnectTokens.delete(roomId);
-    const p = players.get(socket.id);
-    if (p) { p.status = 'idle'; p.currentTC = null; players.set(socket.id, p); broadcastPlayerList(); }
+    await persistRoomSettlement(roomId, result, universe, reason);
   });
 
-  socket.on('flag:claim', ({ roomId }) => {
+  socket.on('flag:claim', async ({ roomId }) => {
     const room = rooms.get(roomId);
     if (!room || room.settling) return;
 
@@ -2154,25 +2198,14 @@ io.on('connection', (socket) => {
       blackTime: room.blackTime,
       by: 'server',
     });
-    if (room.config?.rated !== false) settleElo(roomId, result, universe, reason);
-    else settleUnratedGameStats(roomId, result, reason);
-    settleBets(roomId, result);
-    settleTournamentRoom(roomId, result);
-    [room.players.white, room.players.black].forEach(id => {
-      const p = players.get(id);
-      if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
-    });
-    rooms.delete(roomId);
-    reconnectTokens.delete(roomId);
-    broadcastPlayerList();
-    io.emit('tournament:global_update');
+    await persistRoomSettlement(roomId, result, universe, reason);
     log.info(`[GAME] Timeout claimed in room ${roomId}: ${winner} wins`);
   });
 
   // ── game:over — SECURED: only accepted for draughts (no server-side engine),
   // and only from actual participants. Chess game-over is detected server-side
   // after each validated move (see move handler above).
-  socket.on('game:over', ({ roomId, result, universe }) => {
+  socket.on('game:over', async ({ roomId, result, universe }) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
@@ -2207,17 +2240,7 @@ io.on('connection', (socket) => {
       result: reasonText,
       by: 'server',
     });
-    if (room.config?.rated !== false) settleElo(roomId, eloResult, universe, reasonText);
-    else settleUnratedGameStats(roomId, eloResult, reasonText);
-    settleBets(roomId, eloResult);
-    settleTournamentRoom(roomId, eloResult);
-    [room.players.white, room.players.black].forEach(id => {
-      const p = players.get(id);
-      if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
-    });
-    rooms.delete(roomId);
-    reconnectTokens.delete(roomId);
-    broadcastPlayerList();
+    await persistRoomSettlement(roomId, eloResult, universe, reasonText);
   });
 
   // ── Draw offer / accept / decline ───────────────────────────────────────────
@@ -2225,22 +2248,16 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('draw:offer', { from: socket.id });
   });
 
-  socket.on('draw:accept', ({ roomId }) => {
+  socket.on('draw:accept', async ({ roomId }) => {
     const room = rooms.get(roomId);
+    if (!room || room.settling) return;
+
+    const isParticipant = room.players.white === socket.id || room.players.black === socket.id;
+    if (!isParticipant) return;
+
+    room.settling = true;
     io.to(roomId).emit('game-over', { result: 'draw', reason: 'agreement' });
-    if (room) {
-      if (room.config?.rated !== false) settleElo(roomId, 'draw', room.config?.universe, 'Draw by agreement');
-      else settleUnratedGameStats(roomId, 'draw', 'Draw by agreement');
-      settleBets(roomId, 'draw');
-      settleTournamentRoom(roomId, 'draw');
-      [room.players.white, room.players.black].forEach(id => {
-        const p = players.get(id);
-        if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
-      });
-      rooms.delete(roomId);
-      reconnectTokens.delete(roomId);
-      broadcastPlayerList();
-    }
+    await persistRoomSettlement(roomId, 'draw', room.config?.universe, 'Draw by agreement');
   });
 
   socket.on('draw:decline', ({ roomId }) => {
@@ -2510,6 +2527,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
         id: user.id,
         username: user.username,
         email: user.email,
+        isAdmin: adminEmails().includes(user.email?.toLowerCase()),
         country: user.country,
         avatarUrl: user.avatarUrl || null,
         bio: user.bio || '',
@@ -2535,7 +2553,10 @@ async function requireAuth(req, res, next) {
     if (error || !user) throw new Error('Invalid session');
     req.user = user;
     // Attach Prisma profile for admin checks
-    req.dbUser = await prisma.user.findUnique({ where: { email: user.email }, select: { id: true, username: true } }).catch(() => null);
+    req.dbUser = await prisma.user.findFirst({
+      where: { OR: [{ id: user.id }, { email: user.email }] },
+      select: { id: true, username: true },
+    }).catch(() => null);
     next();
   } catch (err) {
     log.warn(`[auth] rejected ${req.method} ${req.path}: ${err?.message || 'invalid token'}`);
@@ -3332,10 +3353,12 @@ app.get('/api/users/search', async (req, res) => {
 
 app.get('/api/users/:username', async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({ where: { username: req.params.username } });
+    const user = await prisma.user.findUnique({
+      where: { username: req.params.username },
+      select: publicUserSelect,
+    });
     if (!user) return res.status(404).json({ error: 'Not found' });
-    const { passwordHash, ...safe } = user;
-    res.json(safe);
+    res.json(user);
   } catch { res.status(500).json({ error: 'Failed' }); }
 });
 
@@ -3386,9 +3409,14 @@ app.get('/api/users/:username/games', async (req, res) => {
   } catch { res.status(500).json({ error: 'Failed' }); }
 });
 
-// ── Full stats: everything needed for the profile deep-dive ──────────────────
-app.get('/api/users/:username/full-stats', async (req, res) => {
+// ── Full stats: everything needed for the signed-in user's private profile deep-dive ─
+app.get('/api/users/:username/full-stats', requireAuth, async (req, res) => {
   try {
+    const isAdmin = adminEmails().includes(req.user.email?.toLowerCase());
+    if (!isAdmin && req.dbUser?.username !== req.params.username) {
+      return res.status(403).json({ error: 'Private stats are only available for your own account' });
+    }
+
     const u = await prisma.user.findUnique({
       where: { username: req.params.username },
       include: {
@@ -3740,8 +3768,8 @@ app.post('/api/correspondence/:id/move', requireAuth, async (req, res) => {
         ...(gameStatus === 'ended' ? { status: 'ended', result: gameResult, resultReason } : {}),
       },
       include: {
-        white: { select: { id: true, username: true, email: true } },
-        black: { select: { id: true, username: true, email: true } },
+        white: { select: { id: true, username: true } },
+        black: { select: { id: true, username: true } },
       },
     });
 
@@ -3749,8 +3777,12 @@ app.post('/api/correspondence/:id/move', requireAuth, async (req, res) => {
     if (gameStatus !== 'ended') {
       const opponent = moverColor === 'white' ? updated.black : updated.white;
       const mover    = moverColor === 'white' ? updated.white : updated.black;
-      if (opponent?.email) {
-        sendTurnEmail(opponent.email, opponent.username, mover.username, updated.id, san || `${from}${to}`, updated.universe);
+      const opponentId = moverColor === 'white' ? game.blackId : game.whiteId;
+      const opponentWithEmail = opponentId
+        ? await prisma.user.findUnique({ where: { id: opponentId }, select: { email: true } })
+        : null;
+      if (opponentWithEmail?.email) {
+        sendTurnEmail(opponentWithEmail.email, opponent.username, mover.username, updated.id, san || `${from}${to}`, updated.universe);
       }
     }
 

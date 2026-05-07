@@ -13,6 +13,7 @@ import { useUserStore, useNotificationStore, useBettingStore, useLiveGamesStore 
 import { useAnalysisStore, analyseGame } from '../../stores/analysisStore';
 import { HeadToHeadPanel } from '../common/HeadToHeadPanel';
 import { countryFlag } from '../../lib/countries';
+import { calculateBetPayout } from '../../lib/betting';
 
 interface TimeControl {
   initial: number; // minutes
@@ -91,6 +92,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const [isBerserk, setIsBerserk] = useState(false);
   const [opponentBerserk, setOpponentBerserk] = useState(false);
   const [showBerserkBtn, setShowBerserkBtn] = useState(false);
+  const [berserkWindowKey, setBerserkWindowKey] = useState(0);
   const chatRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef(game);
   gameRef.current = game;
@@ -238,6 +240,20 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     }
   }, [game, gameStatus, playerColor, play, timeControl.increment]);
 
+  const settleActiveBetForWinner = useCallback((winnerId: string) => {
+    if (!activeBet || activeBet.amount <= 0) return;
+
+    const isMe = winnerId === user?.id;
+    useUserStore.getState().updateBetStats(isMe ? 'win' : 'loss');
+
+    if (isMe) {
+      const { potentialWin } = calculateBetPayout(activeBet.amount);
+      play('betWon');
+      addNotification(`${t('game.youWonAmount', { amount: potentialWin.toFixed(2) })} Wallet will update from the server ledger.`, 'success');
+    }
+    settleBet(winnerId);
+  }, [activeBet, user?.id, play, addNotification, t, settleBet]);
+
   const handleGameOver = (g: Chess) => {
     setGameStatus('ended');
     if (g.isCheckmate()) {
@@ -258,20 +274,13 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
 
     // Settle bets if any
     if (activeBet && activeBet.amount > 0) {
-      const winner = g.isCheckmate()
-        ? (g.turn() === 'b' ? user?.id : opponent.id)
+      const winningColor = g.isCheckmate() ? (g.turn() === 'w' ? 'b' : 'w') : null;
+      const winner = winningColor
+        ? (winningColor === playerColor ? user?.id : opponent.id)
         : null;
       
       if (winner) {
-        const isMe = winner === user?.id;
-        useUserStore.getState().updateBetStats(isMe ? 'win' : 'loss');
-        
-        if (isMe) {
-          const payout = activeBet.amount * 2 * 0.95; // 5% rake
-          play('betWon');
-          addNotification(`${t('game.youWonAmount', { amount: payout.toFixed(2) })} Wallet will update from the server ledger.`, 'success');
-        }
-        settleBet(winner);
+        settleActiveBetForWinner(winner);
       } else if (!g.isCheckmate()) {
         addNotification(`${t('game.drawBetRefunded')} Refund is recorded by the server ledger.`, 'info');
         useBettingStore.getState().cancelBet();
@@ -295,9 +304,12 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
         setGameStatus('ended');
         setResult(t('game.youResigned'));
         play('defeat');
+        if (activeBet && activeBet.amount > 0) {
+          settleActiveBetForWinner(opponent.id);
+        }
       }
     }
-  }, [gameStatus, moveHistory.length, roomId, navigate, t, isOnline, play, game]);
+  }, [gameStatus, moveHistory.length, roomId, navigate, t, isOnline, play, activeBet, opponent.id, settleActiveBetForWinner]);
 
   const handleQuitRoom = useCallback(() => {
     socket.emit('room:cancel', { roomId });
@@ -372,6 +384,9 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     setLastMove(null);
     setMoveHistory([]);
     setChatMessages(chatInit);
+    setIsBerserk(false);
+    setOpponentBerserk(false);
+    setBerserkWindowKey(k => k + 1);
   };
 
   const sendChat = () => {
@@ -529,6 +544,10 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
         const didWin = data.winner === (playerColor === 'w' ? 'white' : 'black');
         setResult(didWin ? t('game.youWon') : t('game.youLost'));
         play(didWin ? 'victory' : 'defeat');
+      } else if (data.by === 'server' && typeof data.reason === 'string') {
+        setResult(data.reason);
+        const didWin = (data.result === 'win' && playerColor === 'w') || (data.result === 'loss' && playerColor === 'b');
+        play(data.result === 'draw' ? 'gameEnd' : didWin ? 'victory' : 'defeat');
       } else {
         setResult(t('game.gameOver'));
         play('gameEnd');
@@ -719,7 +738,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     setShowBerserkBtn(true);
     const timer = setTimeout(() => setShowBerserkBtn(false), 30000);
     return () => clearTimeout(timer);
-  }, [isOnline]);
+  }, [isOnline, berserkWindowKey]);
 
   useEffect(() => {
     if (moveHistory.length > 0) setShowBerserkBtn(false);
@@ -738,6 +757,20 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
   const isPlayerTurn = currentTurn === playerColor;
   const inCheck = game.isCheck();
 
+  const handleLocalTimeout = useCallback(() => {
+    const flaggedColor = gameRef.current.turn();
+    const winningColor = flaggedColor === 'w' ? 'b' : 'w';
+    const winner = winningColor === playerColor ? user?.id : opponent.id;
+
+    setGameStatus('ended');
+    play(winningColor === playerColor ? 'victory' : 'defeat');
+    setResult(winningColor === 'w' ? 'White wins on time' : 'Black wins on time');
+
+    if (winner) {
+      settleActiveBetForWinner(winner);
+    }
+  }, [playerColor, user?.id, opponent.id, play, settleActiveBetForWinner]);
+
   const handleClockExpire = useCallback(() => {
     if (timeoutClaimedRef.current || gameStatus !== 'playing') return;
     timeoutClaimedRef.current = true;
@@ -745,9 +778,19 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       setSavingResult(true);
       socket.emit('flag:claim', { roomId });
     } else {
-      handleGameOver(gameRef.current);
+      handleLocalTimeout();
     }
-  }, [gameStatus, isOnline, roomId]);
+  }, [gameStatus, isOnline, roomId, handleLocalTimeout]);
+
+  const handleOpponentClockTick = useCallback((ms: number) => {
+    if (playerColor === 'w') setBlackTime(ms);
+    else setWhiteTime(ms);
+  }, [playerColor]);
+
+  const handlePlayerClockTick = useCallback((ms: number) => {
+    if (playerColor === 'w') setWhiteTime(ms);
+    else setBlackTime(ms);
+  }, [playerColor]);
 
   // Format moves for display
   const movePairs: { num: number; white: string; black: string }[] = [];
@@ -789,8 +832,8 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
           </div>
           <Clock
             timeMs={playerColor === 'w' ? blackTime : whiteTime}
-            active={gameStatus === 'playing' && currentTurn !== playerColor && moveHistory.length > 0}
-            onTick={(ms) => playerColor === 'w' ? setBlackTime(ms) : setWhiteTime(ms)}
+            active={gameStatus === 'playing' && currentTurn !== playerColor}
+            onTick={handleOpponentClockTick}
             onExpire={handleClockExpire}
           />
         </div>
@@ -928,8 +971,8 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
           </div>
           <Clock
             timeMs={playerColor === 'w' ? whiteTime : blackTime}
-            active={gameStatus === 'playing' && currentTurn === playerColor && moveHistory.length > 0}
-            onTick={(ms) => playerColor === 'w' ? setWhiteTime(ms) : setBlackTime(ms)}
+            active={gameStatus === 'playing' && currentTurn === playerColor}
+            onTick={handlePlayerClockTick}
             onExpire={handleClockExpire}
           />
         </div>

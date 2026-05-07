@@ -100,7 +100,7 @@ export const AdminSafetyPage: React.FC = () => {
           <div>
             <div className="admin-safety-kicker">Owner Tools</div>
             <h1>Admin Dashboard</h1>
-            <p>This private page is reserved for the owner account yves.ahipo@gmail.com.</p>
+            <p>This private page is reserved for configured administrator accounts.</p>
           </div>
           <button className="btn btn-secondary" onClick={() => navigate(`/${universe}`)}>Back to lobby</button>
         </div>

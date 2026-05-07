@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeElo, kFactor, expectedScore } from '../lib/elo';
+import { computeElo, kFactor, expectedScore, performanceRating } from '../lib/elo';
 
 describe('computeElo — regression tests', () => {
   describe('basic correctness', () => {
@@ -83,6 +83,12 @@ describe('computeElo — regression tests', () => {
 
     it('lower-rated player has expected score < 0.5', () => {
       expect(expectedScore(1400, 1600)).toBeLessThan(0.5);
+    });
+  });
+
+  describe('performanceRating', () => {
+    it('returns the default rating when results are empty', () => {
+      expect(performanceRating([1500, 1600], [])).toBe(1500);
     });
   });
 });

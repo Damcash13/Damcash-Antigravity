@@ -43,6 +43,7 @@ export const BettingPanel: React.FC = () => {
   };
 
   const { platformFee, potentialWin } = calculateBetPayout(amount);
+  const activePotentialWin = activeBet ? calculateBetPayout(activeBet.amount).potentialWin : 0;
 
   return (
     <div className="betting-panel">
@@ -60,7 +61,7 @@ export const BettingPanel: React.FC = () => {
           <div className="bet-info-row">
             <span>{t('betting.potentialWin')}</span>
             <span className="value positive">
-              ${((activeBet.amount * 2) * 0.95).toFixed(2)}
+              ${activePotentialWin.toFixed(2)}
             </span>
           </div>
           {activeBet.status === 'pending' && (

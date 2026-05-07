@@ -24,7 +24,6 @@ const LANGUAGES = [
   { code: 'zh' },
 ];
 
-const OWNER_ADMIN_EMAIL = 'yves.ahipo@gmail.com';
 const BRAND_WORD = 'DAMCA$H';
 
 // ── Nav menu definitions ───────────────────────────────────────────────────────
@@ -325,7 +324,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
   const menus = buildMenus(universe);
-  const showAdminTools = user?.email?.toLowerCase() === OWNER_ADMIN_EMAIL;
+  const showAdminTools = Boolean(user?.isAdmin);
 
   const handleUniverseSwitch = useCallback((target: 'chess' | 'checkers') => {
     if (universe === target) return;

@@ -8,9 +8,14 @@ async function check() {
     await prisma.$connect();
     console.log('Connected!');
     
-    console.log('Searching for user...');
+    console.log('Searching for configured admin user...');
+    const adminEmail = (process.env.ADMIN_EMAILS || '').split(',')[0]?.trim().toLowerCase();
+    if (!adminEmail) {
+      console.log('No ADMIN_EMAILS value configured.');
+      return;
+    }
     const user = await prisma.user.findFirst({
-      where: { OR: [{ email: 'yves.ahipo@gmail.com' }, { username: 'Evy13' }] }
+      where: { email: adminEmail }
     });
     
     if (user) {

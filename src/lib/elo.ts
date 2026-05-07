@@ -89,7 +89,7 @@ export function performanceRating(
   opponentRatings: number[],
   results: GameResult[],
 ): number {
-  if (opponentRatings.length === 0) return 1500;
+  if (opponentRatings.length === 0 || results.length === 0) return 1500;
   const avgOpp = opponentRatings.reduce((a, b) => a + b, 0) / opponentRatings.length;
   const score  = results.reduce((a, r) => a + SCORE_VALUE[r], 0);
   const pct    = score / results.length;

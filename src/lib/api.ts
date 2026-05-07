@@ -413,6 +413,7 @@ export interface ApiUser {
   id: string;
   username: string;
   email?: string;
+  isAdmin?: boolean;
   country?: string;
   avatarUrl?: string | null;
   bio?: string;
@@ -685,6 +686,8 @@ export interface ApiUserProfile {
   username: string;
   country?: string;
   avatarUrl?: string;
+  bio?: string;
+  socialLinks?: { twitter?: string; lichess?: string; chessCom?: string };
   chessRating: number;
   checkersRating: number;
   peakChessRating: number;

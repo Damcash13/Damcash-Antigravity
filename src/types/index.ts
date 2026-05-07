@@ -76,6 +76,7 @@ export interface User {
   id: string;
   name: string;
   email?: string;
+  isAdmin?: boolean;
   rating: { chess: number; checkers: number };
   walletBalance: number;
   currency: string;

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { socket } from '../../lib/socket';
 import { useUserStore, useUniverseStore } from '../../stores';
 import { useInviteStore, GameConfig, DEFAULT_CONFIG } from '../../stores/inviteStore';
+import { calculateBetPayout } from '../../lib/betting';
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
   if (!open) return null;
 
   const effectiveBet = customBet ? parseInt(customBet) || 0 : config.betAmount;
+  const effectivePotentialWin = effectiveBet > 0 ? calculateBetPayout(effectiveBet).potentialWin : 0;
 
   const handleSendInvite = () => {
     if (!configTarget) return;
@@ -346,7 +348,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
                   />
                   {effectiveBet > 0 && (
                     <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-                      → win ${(effectiveBet * 2 * 0.95).toFixed(2)}
+                      → win ${effectivePotentialWin.toFixed(2)}
                     </span>
                   )}
                 </div>

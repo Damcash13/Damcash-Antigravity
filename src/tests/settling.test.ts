@@ -12,6 +12,12 @@ function handleSettle(room: ReturnType<typeof makeRoom>, settleFn: () => void) {
   settleFn();
 }
 
+function handleDrawAccept(room: ReturnType<typeof makeRoom> | undefined, settleFn: () => void) {
+  if (!room || room.settling) return;
+  room.settling = true;
+  settleFn();
+}
+
 describe('double-settlement guard — regression tests', () => {
   it('settleFn is called exactly once on a single resign', () => {
     const room = makeRoom();
@@ -35,6 +41,14 @@ describe('double-settlement guard — regression tests', () => {
     const settleFn = vi.fn();
     handleSettle(room, settleFn);
     expect(settleFn).not.toHaveBeenCalled();
+  });
+
+  it('draw:accept settlement is idempotent when both players accept at once', () => {
+    const room = makeRoom();
+    const settleFn = vi.fn();
+    handleDrawAccept(room, settleFn);
+    handleDrawAccept(room, settleFn);
+    expect(settleFn).toHaveBeenCalledTimes(1);
   });
 
   it('without the guard, concurrent resigns would call settleFn twice', () => {

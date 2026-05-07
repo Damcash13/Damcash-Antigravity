@@ -23,18 +23,23 @@ export const Clock: React.FC<Props> = ({ timeMs, active, onExpire, onTick }) => 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeRef = useRef(timeMs);
   const lastTickRef = useRef<number>(0);
+  const onTickRef = useRef(onTick);
+  const onExpireRef = useRef(onExpire);
+
+  onTickRef.current = onTick;
+  onExpireRef.current = onExpire;
 
   const tick = useCallback(() => {
     const now = Date.now();
     const elapsed = lastTickRef.current ? now - lastTickRef.current : 100;
     lastTickRef.current = now;
     timeRef.current = Math.max(0, timeRef.current - elapsed);
-    onTick?.(timeRef.current);
+    onTickRef.current?.(timeRef.current);
     if (timeRef.current <= 0) {
-      onExpire?.();
+      onExpireRef.current?.();
       if (intervalRef.current) clearInterval(intervalRef.current);
     }
-  }, [onExpire, onTick]);
+  }, []);
 
   useEffect(() => {
     timeRef.current = timeMs;
