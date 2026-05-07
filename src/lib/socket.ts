@@ -24,24 +24,13 @@ export const clientId = getClientId();
 // @ts-ignore
 const _io = (typeof window !== 'undefined' && (window as any).io) ? (window as any).io : null;
 
-// Attempt to grab an existing Supabase session token synchronously from localStorage
-// so the socket handshake carries auth even on page reload.
-function getStoredToken(): string | null {
-  try {
-    const raw = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-    if (!raw) return null;
-    const parsed = JSON.parse(localStorage.getItem(raw) || '{}');
-    return parsed?.access_token || null;
-  } catch { return null; }
-}
-
 const win = typeof window !== 'undefined' ? (window as any) : {};
 
 export const socket: any = _io
   ? (win.__damcashSocket || (win.__damcashSocket = _io(SOCKET_URL, {
       autoConnect: true,
       transports: ['websocket', 'polling'],
-      auth: { token: getStoredToken(), clientId },
+      auth: { token: null, clientId },
     })))
   : {
       id: `local-${Math.random().toString(36).slice(2, 8)}`,

@@ -116,8 +116,6 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
     if (!joinCode.trim()) return;
     socket.emit('room:join', {
       code: joinCode.trim().toUpperCase(),
-      joinerName: user?.name || 'Guest',
-      joinerRating: user?.rating[config.universe] || 1500,
     });
   };
 

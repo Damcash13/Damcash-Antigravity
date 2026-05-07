@@ -409,7 +409,6 @@ export default function App() {
 function JoinByCodeRedirect() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const user = useUserStore(s => s.user);
   useEffect(() => {
     if (!code) return;
     const handleGameStart = (data: any) => {
@@ -421,8 +420,6 @@ function JoinByCodeRedirect() {
     socket.on('room:error', handleError);
     socket.emit('room:join', {
       code: code.toUpperCase(),
-      joinerName: useUserStore.getState().user?.name || 'Guest',
-      joinerRating: useUserStore.getState().user?.rating?.chess || 1500,
     });
     return () => {
       socket.off('game-start', handleGameStart);

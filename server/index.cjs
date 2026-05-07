@@ -77,7 +77,21 @@ const httpServer = createServer(app);
 
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet({
-  contentSecurityPolicy: false, // managed by Vite in dev; set in prod CDN
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdn.socket.io", "https://js.stripe.com"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https:", "wss:"],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 
@@ -413,6 +427,29 @@ let tournamentMatchSchemaReady = false;
 let tournamentEligibilitySchemaReady = false;
 let safetySchemaReady = false;
 let directMessageSchemaReady = false;
+
+async function loadSocketPublicProfile(socket) {
+  const userId = socketToUserId.get(socket.id) || socket.user?.id || null;
+  if (!userId) return null;
+  socketToUserId.set(socket.id, userId);
+  userIdToSocketId.set(userId, socket.id);
+  try {
+    return await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        username: true,
+        country: true,
+        chessRating: true,
+        checkersRating: true,
+        chessGames: true,
+        checkersGames: true,
+      },
+    });
+  } catch (err) {
+    log.warn('[Socket] Failed to load authenticated profile:', err.message);
+    return null;
+  }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function genCode() {
@@ -1399,7 +1436,7 @@ io.on('connection', (socket) => {
     setTimeout(() => codes.delete(code), 10 * 60_000);
   });
 
-  socket.on('room:join', ({ code, joinerName, joinerRating }) => {
+  socket.on('room:join', async ({ code }) => {
     const upper = (code || '').toUpperCase();
     const room = codes.get(upper);
 
@@ -1407,9 +1444,25 @@ io.on('connection', (socket) => {
     if (room.creatorId === socket.id) { socket.emit('room:error', { message: 'Cannot join your own room' }); return; }
     if (room.expiresAt < Date.now()) { codes.delete(upper); socket.emit('room:error', { message: 'Room code expired' }); return; }
 
-    // Update joiner info
-    const p = players.get(socket.id) || { name: joinerName || 'Guest', rating: { chess: joinerRating || 1500, checkers: 1450 }, status: 'idle', universe: 'chess' };
-    if (joinerName) p.name = joinerName;
+    const roomUniverse = normalizeUniverse(room.config?.universe);
+    const profile = await loadSocketPublicProfile(socket);
+    const existing = players.get(socket.id) || {};
+    const p = {
+      ...existing,
+      userId: socketToUserId.get(socket.id) || socket.user?.id || existing.userId || null,
+      name: profile?.username || existing.name || `Player_${socket.id.slice(0, 4)}`,
+      rating: {
+        chess: profile?.chessRating ?? existing.rating?.chess ?? 1500,
+        checkers: profile?.checkersRating ?? existing.rating?.checkers ?? 1450,
+      },
+      gamesPlayed: {
+        chess: profile?.chessGames ?? existing.gamesPlayed?.chess ?? 0,
+        checkers: profile?.checkersGames ?? existing.gamesPlayed?.checkers ?? 0,
+      },
+      status: 'idle',
+      universe: roomUniverse,
+      country: profile?.country || existing.country || '',
+    };
     players.set(socket.id, p);
 
     codes.delete(upper);
@@ -1418,7 +1471,7 @@ io.on('connection', (socket) => {
 
 
   // ── Spectate events ──────────────────────────────────────────────────────
-  socket.on('spectate:join', ({ roomId, username }) => {
+  socket.on('spectate:join', async ({ roomId }) => {
     const room = rooms.get(roomId);
     if (!room) { socket.emit('room:error', { message: 'Game not found' }); return; }
     socket.join(roomId);
@@ -1427,9 +1480,9 @@ io.on('connection', (socket) => {
     room.spectators.add(socket.id);
     spectators.set(socket.id, roomId);
 
-    // Determine display name (use registered player name, provided username, or fallback)
+    const profile = await loadSocketPublicProfile(socket);
     const displayName = sanitizeText(
-      players.get(socket.id)?.name || username || `Spectator_${socket.id.slice(0, 4)}`,
+      profile?.username || `Spectator_${socket.id.slice(0, 4)}`,
       30
     );
     room.spectatorNames.set(socket.id, displayName);
@@ -2784,7 +2837,7 @@ app.get('/api/leaderboard', async (req, res) => {
     });
     const entries = users.map((u, i) => ({
       rank: offset + i + 1,
-      id: u.id,
+      id: u.username,
       username: u.username,
       country: u.country || '',
       chessRating: u.chessRating,

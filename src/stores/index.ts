@@ -389,7 +389,18 @@ export const useUserStore = create<UserStore>()(
         });
       },
     }),
-    { name: 'damcash-user', partialize: (s) => ({ user: s.user, isLoggedIn: s.isLoggedIn, gamesPlayed: s.gamesPlayed, ratingHistory: s.ratingHistory }) }
+    {
+      name: 'damcash-user',
+      partialize: (s) => ({ gamesPlayed: s.gamesPlayed, ratingHistory: s.ratingHistory }),
+      merge: (persisted, current) => {
+        const safe = (persisted || {}) as Partial<UserStore>;
+        return {
+          ...current,
+          gamesPlayed: safe.gamesPlayed ?? current.gamesPlayed,
+          ratingHistory: safe.ratingHistory ?? current.ratingHistory,
+        };
+      },
+    }
   )
 );
 
