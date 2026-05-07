@@ -3052,26 +3052,43 @@ function getTournamentPairingCutoff(tournament) {
 
 app.get('/api/tournaments', async (req, res) => {
   try {
+    const limit = parseListLimit(req.query.limit, 100, 500);
+    const offset = parseInt(req.query.offset, 10) || 0;
     const ts = await prisma.tournament.findMany({
-      include: {
-        players: {
-          include: { user: { select: { id: true, username: true, chessRating: true, checkersRating: true } } }
-        }
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+        universe: true,
+        format: true,
+        timeControl: true,
+        rated: true,
+        betEntry: true,
+        prizePool: true,
+        ratingMin: true,
+        ratingMax: true,
+        minGames: true,
+        minAccountAgeDays: true,
+        startsAt: true,
+        createdAt: true,
+        durationMs: true,
+        maxPlayers: true,
+        totalRounds: true,
+        description: true,
+        _count: { select: { players: true } },
       },
       orderBy: { startsAt: 'asc' },
+      take: limit,
+      skip: offset,
     });
     const nowMs = Date.now();
     const visibleTournaments = ts.filter(t => isTournamentVisibleInLobby(t, nowMs));
     res.json(visibleTournaments.map(t => ({
       ...t,
       status: getTournamentLifecycle(t, nowMs),
-      playerCount: t.players.length,
-      players: t.players.map(p => ({
-        id: p.id, userId: p.userId, score: p.score,
-        wins: p.wins, draws: p.draws, losses: p.losses,
-        rating: t.universe === 'checkers' ? p.user.checkersRating : p.user.chessRating,
-        user: { id: p.user.id, username: p.user.username },
-      })),
+      playerCount: t._count.players,
+      players: [],
+      _count: undefined,
     })));
   } catch (err) { res.status(500).json({ error: 'Failed' }); }
 });

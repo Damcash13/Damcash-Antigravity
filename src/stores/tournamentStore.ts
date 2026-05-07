@@ -48,6 +48,7 @@ export interface Tournament {
   startsAt: number;
   durationMs: number;
   maxPlayers: number;
+  playerCount: number;
   players: TournamentPlayer[];
   games: TournamentGame[];
   status: TournamentStatus;
@@ -99,6 +100,7 @@ function mapApiTournament(t: ApiTournament): Tournament {
     startsAt:     new Date(t.startsAt).getTime(),
     durationMs:   t.durationMs,
     maxPlayers:   t.maxPlayers,
+    playerCount:  t.playerCount ?? players.length,
     players,
     games:        [],          // tournament-specific games not yet tracked in DB
     status:       t.status as TournamentStatus,

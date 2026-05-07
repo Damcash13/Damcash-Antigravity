@@ -476,13 +476,13 @@ export interface ApiTournament {
   minGames?: number;
   minAccountAgeDays?: number;
   maxPlayers: number;
+  playerCount: number;
   durationMs: number;
   totalRounds: number;
   status: string;
   description: string;
   startsAt: string;
   createdAt: string;
-  playerCount: number;
   players?: ApiTournamentPlayer[];
 }
 

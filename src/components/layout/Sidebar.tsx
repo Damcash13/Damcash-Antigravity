@@ -113,7 +113,7 @@ export const Sidebar: React.FC<Props> = ({
             <div className="tournament-info">
               <div className="tournament-name">{displayTournamentName(t_)}</div>
               <div className="tournament-meta">
-                {formatLocalDateTime(t_.startsAt, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }, true)} · {t_.players.length} {t('lobby.players')}
+                {formatLocalDateTime(t_.startsAt, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }, true)} · {t_.playerCount} {t('lobby.players')}
                 {t_.status === 'running' && (
                   <span style={{
                     marginLeft: 6,

@@ -601,7 +601,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
               {/* Footer */}
               <div className="tl-card-footer">
                 <div className="tl-footer-info">
-                  <span>👥 {tourn.players.length}{tourn.maxPlayers ? `/${tourn.maxPlayers}` : ''}</span>
+                  <span>👥 {tourn.playerCount}{tourn.maxPlayers ? `/${tourn.maxPlayers}` : ''}</span>
                   <span>·</span>
                   <span>
                     {status === 'running'
