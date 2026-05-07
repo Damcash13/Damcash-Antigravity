@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from './Modal';
 import { useUserStore } from '../../stores';
-import { supabase, withTimeout } from '../../lib/supabase';
+import { supabase, withTimeout, checkSupabaseHealth } from '../../lib/supabase';
 import { CountrySelect } from './CountrySelect';
 
 interface Props {
@@ -22,6 +22,15 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
   const { t } = useTranslation();
   const { login, restoreSession, guestLogin, updateProfile } = useUserStore();
   const [tab, setTab] = useState<'login' | 'register' | 'forgot'>('register');
+  const [serverDown, setServerDown] = useState(false);
+  const checkedRef = useRef(false);
+
+  // Run a health check when the modal opens so we can warn before the user tries
+  useEffect(() => {
+    if (!open || checkedRef.current) return;
+    checkedRef.current = true;
+    checkSupabaseHealth().then(ok => setServerDown(!ok));
+  }, [open]);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -150,7 +159,8 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
     } catch (err: any) {
       const msg: string = err?.message || '';
       if (msg.includes('did not respond within')) {
-        setError(t('auth.supabaseTimeout', 'Could not reach the server. Your Supabase project may be paused — visit supabase.com/dashboard to restore it, then try again.'));
+        setServerDown(true);
+        setError(t('auth.supabaseTimeout', 'Could not reach the authentication server. Your Supabase project may be paused — visit supabase.com/dashboard to restore it, then click Retry.'));
       } else if (msg.toLowerCase().includes('email not confirmed')) {
         setError(t('auth.emailNotConfirmed'));
       } else if (msg.toLowerCase().includes('invalid login credentials')) {
@@ -180,8 +190,39 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
     </div>
   );
 
+  const serverDownBanner = serverDown && (
+    <div style={{
+      fontSize: 12, padding: '10px 12px', borderRadius: 8, marginBottom: 12,
+      background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)',
+      color: '#f59e0b', lineHeight: 1.5,
+    }}>
+      ⚠️ <strong>Authentication server unreachable.</strong><br />
+      Your Supabase project may be paused.{' '}
+      <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer"
+        style={{ color: '#f59e0b', fontWeight: 700 }}>
+        Restore it here →
+      </a>
+      <button
+        type="button"
+        onClick={() => {
+          setServerDown(false);
+          checkedRef.current = false;
+          checkSupabaseHealth().then(ok => setServerDown(!ok));
+        }}
+        style={{
+          display: 'block', marginTop: 6, fontSize: 11, fontWeight: 700,
+          background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)',
+          color: '#f59e0b', borderRadius: 6, padding: '3px 10px', cursor: 'pointer',
+        }}
+      >
+        ↺ Check again
+      </button>
+    </div>
+  );
+
   return (
     <Modal open={open} onClose={onClose} maxWidth={380}>
+      {serverDownBanner}
 
       {/* ── Forgot password view ── */}
       {tab === 'forgot' ? (
