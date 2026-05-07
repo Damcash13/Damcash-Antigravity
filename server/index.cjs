@@ -1022,23 +1022,6 @@ io.on('connection', (socket) => {
     broadcastPlayerList();
   });
 
-  // ── Global Lobby Chat ───────────────────────────────────────────────────
-  socket.on('lobby:chat:send', ({ message, universe }) => {
-    if (socketRateLimit(socket.id, 15)) return;
-    const player = players.get(socket.id);
-    if (!player) return;
-    const safe = sanitizeText(message);
-    if (!safe) return;
-    io.emit('lobby:chat:message', {
-      id: crypto.randomBytes(8).toString('hex'),
-      senderId: socket.id,
-      senderName: sanitizeText(player.name, 30),
-      universe: universe || player.universe,
-      text: safe,
-      timestamp: Date.now(),
-    });
-  });
-
   // ── Quick pairing (matchmaking queue) ───────────────────────────────────
   // Registered as both 'seek' (LobbyTab) and 'seek:create' (App.tsx home page)
   const handleSeek = ({ timeControl, universe, betAmount, rated, config: rawConfig }) => {
@@ -1547,18 +1530,6 @@ io.on('connection', (socket) => {
   });
 
   // ── Friend events ────────────────────────────────────────────────────────
-  socket.on('friend:request', ({ targetSocketId }) => {
-    const sender = players.get(socket.id);
-    if (!sender) return;
-    io.to(targetSocketId).emit('friend:request', {
-      id: genId(),
-      fromSocketId: socket.id,
-      fromName: sender.name,
-      fromRating: sender.rating || { chess: 1500, checkers: 1450 },
-      sentAt: Date.now(),
-    });
-  });
-
   socket.on('friend:accept', ({ fromSocketId }) => {
     const accepter = players.get(socket.id);
     if (!accepter) return;

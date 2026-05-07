@@ -94,6 +94,9 @@ const buildMenus = (universe: 'chess' | 'checkers'): NavMenu[] => [
         items: [
           { label: 'Analysis board', path: `/${universe}/analysis` },
           { label: 'Board editor', path: `/${universe}/board-editor` },
+          { label: 'Puzzles', path: `/${universe}/puzzles` },
+          { label: 'Puzzle Streak', path: `/${universe}/puzzle-streak` },
+          { label: 'Puzzle Storm', path: `/${universe}/puzzle-storm` },
         ],
       },
     ],
