@@ -16,7 +16,7 @@
 .pf-page {
   max-width: 960px;
   margin: 0 auto;
-  padding-bottom: 48px;
+  padding: 0 16px 48px;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -557,8 +557,8 @@
 .pf-result-dot.draw { background: #94a3b8; }
 .pf-result-dot.loss { background: #ef4444; }
 
-.pf-recent-info { flex: 1; }
-.pf-recent-opp  { font-size: 13px; font-weight: 600; color: var(--text-1); }
+.pf-recent-info { flex: 1; min-width: 0; }
+.pf-recent-opp  { font-size: 13px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pf-recent-tc   { font-size: 11px; color: var(--text-3); }
 
 .pf-recent-delta {
@@ -688,7 +688,7 @@
 .pf-tourn-row:last-child { border-bottom: none; }
 .pf-tourn-row:hover { background: var(--bg-2); padding: 12px 8px; }
 
-.pf-tourn-info { flex: 1; }
+.pf-tourn-info { flex: 1; min-width: 0; }
 .pf-tourn-name { font-size: 14px; font-weight: 700; color: var(--text-1); }
 .pf-tourn-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
 
@@ -1053,15 +1053,54 @@
 }
 
 /* ═══════════════════════════════════════════════════
+   TABLE SCROLL WRAPPER
+   ══════════════════════════════════════════════════════ */
+.pf-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+.pf-table-scroll .pf-hist-head,
+.pf-table-scroll .pf-hist-row {
+  min-width: max-content;
+}
+
+/* ═══════════════════════════════════════════════════
    RESPONSIVE ADJUSTMENTS
    ══════════════════════════════════════════════════════ */
 
 @media (max-width: 600px) {
+  .pf-page {
+    padding: 0 8px 32px;
+  }
+  .pf-hero-inner {
+    padding: 20px 16px;
+    gap: 16px;
+  }
+  .pf-hero-name {
+    font-size: 22px;
+  }
+  .pf-section {
+    padding: 14px 12px;
+  }
   .pf-section-title::after {
     width: 24px;
   }
   .pf-empty {
     padding: 24px 12px;
+  }
+  .pf-kpi-strip {
+    gap: 8px;
+  }
+  .pf-kpi-val {
+    font-size: 20px;
+  }
+  .pf-kpi-lbl {
+    font-size: 10px;
+  }
+  .pf-hist-head,
+  .pf-hist-row {
+    font-size: 12px;
   }
   .pf-setting-row {
     flex-direction: column;
@@ -1074,5 +1113,19 @@
   .pf-setting-val {
     flex-direction: column;
     align-items: stretch;
+  }
+  .pf-tab {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+  .pf-tourn-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pf-tourn-stats {
+    gap: 12px;
+  }
+  .pf-tourn-name {
+    font-size: 13px;
   }
 }

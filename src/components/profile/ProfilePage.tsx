@@ -643,15 +643,16 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
             {publicRecentGames.length > 0 && (
               <div className="pf-section">
                 <div className="pf-section-title">{t('profile.recentGames')}</div>
-                <div className="pf-hist-head pf-public-games">
-                  <span>{t('common.player')}</span>
-                  <span className="c">{t('common.white')}/{t('common.black')}</span>
-                  <span className="c">{t('game.drawResult')}</span>
-                  <span className="c">TC</span>
-                  <span className="c">{t('common.today')}</span>
-                  <span className="c">Review</span>
-                </div>
-                {publicRecentGames.map(g => {
+                <div className="pf-table-scroll">
+                  <div className="pf-hist-head pf-public-games">
+                    <span>{t('common.player')}</span>
+                    <span className="c">{t('common.white')}/{t('common.black')}</span>
+                    <span className="c">{t('game.drawResult')}</span>
+                    <span className="c">TC</span>
+                    <span className="c">{t('common.today')}</span>
+                    <span className="c">Review</span>
+                  </div>
+                  {publicRecentGames.map(g => {
                   const isWhite = g.white.username === profile.username;
                   const myResult = matchResultForUser(g, profile.username);
                   const rc = myResult ?? '';
@@ -675,6 +676,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
                     </div>
                   );
                 })}
+                </div>
               </div>
             )}
           </div>
@@ -1305,16 +1307,17 @@ export const ProfilePage: React.FC = () => {
                       </div>
                     ) : (
                       <>
-                        <div className="pf-hist-head pf-game-history">
-                          <span>#</span><span>Opponent</span>
-                          <span className="c">Color</span>
-                          <span className="c">Result</span>
-                          <span className="c">TC</span>
-                          <span className="c">Δ</span>
-                          <span className="c">Date</span>
-                          <span className="c">Review</span>
-                        </div>
-                        {paged.map((g, idx) => {
+                        <div className="pf-table-scroll">
+                          <div className="pf-hist-head pf-game-history">
+                            <span>#</span><span>Opponent</span>
+                            <span className="c">Color</span>
+                            <span className="c">Result</span>
+                            <span className="c">TC</span>
+                            <span className="c">Δ</span>
+                            <span className="c">Date</span>
+                            <span className="c">Review</span>
+                          </div>
+                          {paged.map((g, idx) => {
                           const isWhite  = g.white.username === user.name;
                           const myResult = matchResultForUser(g, user.name);
                           const delta    = matchRatingDeltaForUser(g, user.name);
@@ -1341,6 +1344,7 @@ export const ProfilePage: React.FC = () => {
                             </div>
                           );
                         })}
+                        </div>
                         {totalPages > 1 && (
                           <div className="pf-pagination">
                             <button className="btn btn-ghost btn-sm" disabled={historyPage === 0} onClick={() => setHistoryPage(p => p - 1)}>Previous</button>
@@ -1363,15 +1367,16 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="pf-hist-head">
-                      <span>#</span><span>Opponent</span>
-                      <span className="c">Opp. Rating</span>
-                      <span className="c">Result</span>
-                      <span className="c">Rating</span>
-                      <span className="c">Δ</span>
-                      <span className="c">Date</span>
-                    </div>
-                    {history.map((e, idx) => {
+                    <div className="pf-table-scroll">
+                      <div className="pf-hist-head">
+                        <span>#</span><span>Opponent</span>
+                        <span className="c">Opp. Rating</span>
+                        <span className="c">Result</span>
+                        <span className="c">Rating</span>
+                        <span className="c">Δ</span>
+                        <span className="c">Date</span>
+                      </div>
+                      {history.map((e, idx) => {
                       const date = formatLocalDate(e.playedAt);
                       const rc   = e.result === 'win' ? 'win' : e.result === 'draw' ? 'draw' : 'loss';
                       return (
@@ -1388,6 +1393,7 @@ export const ProfilePage: React.FC = () => {
                         </div>
                       );
                     })}
+                    </div>
                   </>
                 )}
               </>
@@ -1404,13 +1410,14 @@ export const ProfilePage: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  <div className="pf-hist-head pf-wallet-history">
-                    <span>Type</span>
-                    <span className="c">Amount</span>
-                    <span className="c">Status</span>
-                    <span className="c">Date</span>
-                  </div>
-                  {fullStats.wallet.transactions.slice(0, 50).map(tx => {
+                  <div className="pf-table-scroll">
+                    <div className="pf-hist-head pf-wallet-history">
+                      <span>Type</span>
+                      <span className="c">Amount</span>
+                      <span className="c">Status</span>
+                      <span className="c">Date</span>
+                    </div>
+                    {fullStats.wallet.transactions.slice(0, 50).map(tx => {
                     const amount = Number(tx.amount);
                     const positive = amount >= 0;
                     return (
@@ -1431,6 +1438,7 @@ export const ProfilePage: React.FC = () => {
                       </div>
                     );
                   })}
+                  </div>
                 </>
               )}
             </div>
