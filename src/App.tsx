@@ -380,8 +380,8 @@ export default function App() {
             <Route path="/:universe/coordinates" element={<PageFrame><CoordinatesPage /></PageFrame>} />
             <Route path="/:universe/import" element={<PageFrame><GameImporterPage /></PageFrame>} />
             <Route path="/:universe/coming-soon/:feature" element={<PageFrame><ComingSoonPage /></PageFrame>} />
-            <Route path="/:universe/admin" element={<ProtectedRoute><PageFrame><AdminSafetyPage /></PageFrame></ProtectedRoute>} />
-            <Route path="/:universe/admin/safety" element={<ProtectedRoute><PageFrame><AdminSafetyPage /></PageFrame></ProtectedRoute>} />
+            <Route path="/:universe/admin" element={<AdminRoute><PageFrame><AdminSafetyPage /></PageFrame></AdminRoute>} />
+            <Route path="/:universe/admin/safety" element={<AdminRoute><PageFrame><AdminSafetyPage /></PageFrame></AdminRoute>} />
 
             <Route path="/:universe/puzzles"        element={<PageFrame><PuzzlesPage /></PageFrame>} />
             <Route path="/:universe/puzzle-streak" element={<PageFrame><PuzzleStreakPage /></PageFrame>} />
@@ -440,6 +440,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   if (!user || !isLoggedIn) {
+    return <Navigate to="/" state={{ from: location }} replace />;
+  }
+  return <>{children}</>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const user = useUserStore(s => s.user);
+  const isLoggedIn = useUserStore(s => s.isLoggedIn);
+  const location = useLocation();
+
+  if (!user || !isLoggedIn || !user.isAdmin) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
   return <>{children}</>;
