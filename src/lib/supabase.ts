@@ -38,7 +38,7 @@ export const supabase: any = supabaseUrl && supabaseKey
 // call hangs forever because the underlying fetch never resolves.  This helper
 // races any promise against a timeout so the UI always gets a response.
 
-const DEFAULT_AUTH_TIMEOUT = 12_000; // 12 seconds – generous but not infinite
+const DEFAULT_AUTH_TIMEOUT = 20_000; // 20 seconds – handles cold-start latency
 
 export function withTimeout<T>(
   promise: Promise<T>,
@@ -73,7 +73,7 @@ export function checkSupabaseHealth(): Promise<boolean> {
   // Use Promise.race — AbortController alone is unreliable when the TCP
   // connection is stuck (paused Supabase project accepts TCP but never responds).
   const timeout = new Promise<boolean>(resolve =>
-    setTimeout(() => { _supabaseReachable = false; resolve(false); }, 8_000),
+    setTimeout(() => { _supabaseReachable = false; resolve(false); }, 12_000),
   );
 
   const check = fetch(`${supabaseUrl}/auth/v1/health`, {
