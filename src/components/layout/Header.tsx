@@ -6,6 +6,7 @@ import { PlayerSearchBar } from '../invite/PlayerSearchBar';
 import { OnlinePlayer } from '../../stores/inviteStore';
 import { getSoundEnabled, toggleSoundGlobal } from '../../hooks/useSound';
 import { useDirectMessageStore } from '../../stores/directMessageStore';
+import { NotificationCenter } from '../common/NotificationCenter';
 import { countryFlag, countryName } from '../../lib/countries';
 import '../../styles/nav-dropdown.css';
 
@@ -343,6 +344,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
   const { universe, toggleUniverse } = useUniverseStore();
   const { user, isLoggedIn, logout, lastRatingChange } = useUserStore();
   const openMessages = useDirectMessageStore(s => s.openInbox);
+  const messageUnreadCount = useDirectMessageStore(s => s.unreadCount);
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(() => getSoundEnabled());
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -423,30 +425,55 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
 
           {/* Wallet / Auth */}
           {isAuthenticated && user ? (
-            <button
-              className="header-profile-btn"
-              onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`)}
-              title={t('header.profileTitle', { name: user.name })}
-            >
-              <span className="header-profile-meta">
-                <span className="header-profile-name">
-                  {user.country && (
-                    <span className="header-profile-flag" title={countryName(user.country)}>
-                      {countryFlag(user.country)}
-                    </span>
-                  )}
-                  <span className="header-profile-name-text">{user.name}</span>
+            <>
+              <div className="header-notification-wrap">
+                <NotificationCenter />
+              </div>
+              <button
+                className="header-message-btn"
+                onClick={openMessages}
+                title="Messages"
+                aria-label="Messages"
+              >
+                <span className="header-icon-glyph">💬</span>
+                {messageUnreadCount > 0 && (
+                  <span>{messageUnreadCount > 9 ? '9+' : messageUnreadCount}</span>
+                )}
+              </button>
+              <button
+                className="header-wallet-btn"
+                onClick={onOpenWallet}
+                title={t('betting.wallet')}
+                aria-label={t('betting.wallet')}
+              >
+                <span className="header-icon-glyph">💰</span>
+                <span className="header-wallet-balance">${Number(user.walletBalance).toFixed(2)}</span>
+              </button>
+              <button
+                className="header-profile-btn"
+                onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`)}
+                title={t('header.profileTitle', { name: user.name })}
+              >
+                <span className="header-profile-meta">
+                  <span className="header-profile-name">
+                    {user.country && (
+                      <span className="header-profile-flag" title={countryName(user.country)}>
+                        {countryFlag(user.country)}
+                      </span>
+                    )}
+                    <span className="header-profile-name-text">{user.name}</span>
+                  </span>
+                  <span className="header-profile-rating">
+                    {user.rating[universe]}
+                    {lastRatingChange && lastRatingChange.universe === universe && Date.now() - lastRatingChange.playedAt < 120_000 && (
+                      <span className={lastRatingChange.delta >= 0 ? 'rating-delta-up' : 'rating-delta-down'}>
+                        {lastRatingChange.delta >= 0 ? '+' : ''}{lastRatingChange.delta}
+                      </span>
+                    )}
+                  </span>
                 </span>
-                <span className="header-profile-rating">
-                  {user.rating[universe]}
-                  {lastRatingChange && lastRatingChange.universe === universe && Date.now() - lastRatingChange.playedAt < 120_000 && (
-                    <span className={lastRatingChange.delta >= 0 ? 'rating-delta-up' : 'rating-delta-down'}>
-                      {lastRatingChange.delta >= 0 ? '+' : ''}{lastRatingChange.delta}
-                    </span>
-                  )}
-                </span>
-              </span>
-            </button>
+              </button>
+            </>
           ) : (
             <div className="header-auth-actions">
               <button className="btn-signin"   onClick={onOpenAuth}>{t('nav.signIn')}</button>
