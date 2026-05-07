@@ -448,10 +448,10 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
               </span>
             </button>
           ) : (
-            <>
+            <div className="header-auth-actions">
               <button className="btn-signin"   onClick={onOpenAuth}>{t('nav.signIn')}</button>
               <button className="btn-register" onClick={onOpenAuth}>{t('nav.register')}</button>
-            </>
+            </div>
           )}
 
           {/* Hamburger — contains nav, universe switch, language, sound */}

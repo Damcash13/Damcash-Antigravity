@@ -1371,6 +1371,13 @@ button,
 
 .btn-signin:hover { color: var(--text-1); border-color: var(--text-3); }
 
+.header-auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .header-message-btn {
   position: relative;
   width: 34px;
@@ -3473,6 +3480,7 @@ html, body {
 @media (max-width: 700px) {
   /* Header — hide wide items so everything fits without horizontal scroll */
   .header-search-wrap { display: none; }
+  .header-auth-actions { display: none; }
   .header-inner { padding: 0 8px; gap: 6px; height: 48px; }
   .logo { font-size: 16px; }
   .header .logo-mark { width: 34px; height: 34px; border-radius: 8px; }

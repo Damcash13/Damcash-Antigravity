@@ -85,7 +85,7 @@ const ONBOARDING_ITEMS = [
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
-  onCreateGame: (tc: string, mode: 'online' | 'computer') => void;
+  onCreateGame: (tc: string, mode: 'online' | 'computer', color?: 'white' | 'black' | 'random') => void;
   onOpenWallet: () => void;
 }
 
@@ -379,8 +379,8 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
       <CustomGameModal
         open={showCustom}
         onClose={() => setShowCustom(false)}
-        onConfirm={(tc, mode, _color) => {
-          onCreateGame(tc, mode);
+        onConfirm={(tc, mode, color) => {
+          onCreateGame(tc, mode, color);
           setShowCustom(false);
         }}
       />

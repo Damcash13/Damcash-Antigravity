@@ -47,7 +47,7 @@ const LegalPage = lazy(() => import('./components/common/LegalPage').then(m => (
 // ── Lobby wrapper ─────────────────────────────────────────────────────────────
 
 const LobbyView: React.FC<{
-  onCreateGame:    (tc: string, mode: 'online' | 'computer') => void;
+  onCreateGame:    (tc: string, mode: 'online' | 'computer', color?: 'white' | 'black' | 'random') => void;
   onChallengeFriend: () => void;
   onPlayComputer:  () => void;
   onInvitePlayer:  (player: OnlinePlayer) => void;
@@ -278,10 +278,11 @@ export default function App() {
     };
   }, [bumpMessageUnreadCount, navigate, pushCenterNotification, restoreSession, setOnlinePlayers, setWalletBalance, syncOnlinePlayers, user?.id, user?.name]);
 
-  const handleCreateGame = (tc: string, mode: 'online' | 'computer') => {
+  const handleCreateGame = (tc: string, mode: 'online' | 'computer', color: 'white' | 'black' | 'random' = 'random') => {
     if (!user) { setShowAuth(true); return; }
     if (mode === 'computer') {
-      navigate(`/${universe}/play/computer/${tc}`);
+      const colorParam = color === 'random' ? '' : `?color=${color}`;
+      navigate(`/${universe}/play/computer/${tc}${colorParam}`);
     } else {
       if (!isLoggedIn) {
         setShowAuth(true);
@@ -362,8 +363,8 @@ export default function App() {
 
             <Route path="/chess/game/:id"    element={<ProtectedRoute><main className="main-content"><ChessGame /></main></ProtectedRoute>} />
             <Route path="/checkers/game/:id" element={<ProtectedRoute><main className="main-content"><DraughtsGame /></main></ProtectedRoute>} />
-            <Route path="/chess/play/:mode/:tc"    element={<ProtectedRoute><main className="main-content"><ChessGame /></main></ProtectedRoute>} />
-            <Route path="/checkers/play/:mode/:tc" element={<ProtectedRoute><main className="main-content"><DraughtsGame /></main></ProtectedRoute>} />
+            <Route path="/chess/play/:mode/:tc"    element={<GuestPlayableRoute><main className="main-content"><ChessGame /></main></GuestPlayableRoute>} />
+            <Route path="/checkers/play/:mode/:tc" element={<GuestPlayableRoute><main className="main-content"><DraughtsGame /></main></GuestPlayableRoute>} />
 
             <Route path="/:universe/tournaments"     element={<ProtectedRoute><PageFrame><TournamentPage /></PageFrame></ProtectedRoute>} />
             <Route path="/:universe/tournament/:id" element={<ProtectedRoute><PageFrame><TournamentPage /></PageFrame></ProtectedRoute>} />
@@ -440,6 +441,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   if (!user || !isLoggedIn) {
+    return <Navigate to="/" state={{ from: location }} replace />;
+  }
+  return <>{children}</>;
+}
+
+function GuestPlayableRoute({ children }: { children: React.ReactNode }) {
+  const user = useUserStore(s => s.user);
+  const location = useLocation();
+
+  if (!user) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
   return <>{children}</>;
