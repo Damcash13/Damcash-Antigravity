@@ -154,11 +154,18 @@ export const useUserStore = create<UserStore>()(
       lastRatingChange: null,
       login: async (email, password) => {
         if (!supabase) throw new Error('Supabase not initialized');
-        const { data, error } = await withTimeout<any>(
-          supabase.auth.signInWithPassword({ email, password: password ?? '' }),
-          12_000,
+        const attemptSignIn = () => withTimeout<any>(
+          supabase!.auth.signInWithPassword({ email, password: password ?? '' }),
+          20_000,
           'Sign-in',
         );
+        let result = await attemptSignIn();
+        // Supabase may be waking from a cold start — retry once after a short pause
+        if (result.error?.message?.includes('did not respond within')) {
+          await new Promise(r => setTimeout(r, 4_000));
+          result = await attemptSignIn();
+        }
+        const { data, error } = result;
         if (error) throw error;
 
         // Fetch backend profile (may fail if server is starting up — fall back gracefully)
