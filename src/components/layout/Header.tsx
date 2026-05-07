@@ -108,7 +108,8 @@ const NavDropdown: React.FC<{
   onOpen: (key: string) => void;
   onClose: () => void;
   navigate: (path: string) => void;
-}> = ({ menu, activeKey, onOpen, onClose, navigate }) => {
+  runAction: (action?: string) => void;
+}> = ({ menu, activeKey, onOpen, onClose, navigate, runAction }) => {
   const isOpen = activeKey === menu.key;
   const ref = useRef<HTMLDivElement>(null);
 
@@ -142,6 +143,7 @@ const NavDropdown: React.FC<{
                   className="nav-dropdown-item"
                   onClick={() => {
                     if (item.path) navigate(item.path);
+                    else if (item.action) runAction(item.action);
                     onClose();
                   }}
                 >
@@ -322,6 +324,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
   const navigate = useNavigate();
   const [soundOn, setSoundOn] = useState(() => getSoundEnabled());
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   const menus = buildMenus(universe);
   const showAdminTools = Boolean(user?.isAdmin);
@@ -340,6 +343,20 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
       onInvitePlayer(player);
     }
   };
+
+  const runNavAction = useCallback((action?: string) => {
+    if (!action) return;
+    if (action === 'quickGame' || action === 'challengeFriend') {
+      onOpenCreateGame();
+    } else if (action === 'wallet') {
+      user ? onOpenWallet() : onOpenAuth();
+    } else if (action === 'messages') {
+      user ? openMessages() : onOpenAuth();
+    } else if (action === 'profile') {
+      user ? navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`) : onOpenAuth();
+    }
+    setActiveMenu(null);
+  }, [navigate, onOpenAuth, onOpenCreateGame, onOpenWallet, openMessages, universe, user]);
 
   return (
     <header className="header">
@@ -360,6 +377,20 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
             ))}
           </span>
         </a>
+
+        <nav className="header-nav">
+          {menus.map(menu => (
+            <NavDropdown
+              key={menu.key}
+              menu={menu}
+              activeKey={activeMenu}
+              onOpen={setActiveMenu}
+              onClose={() => setActiveMenu(null)}
+              navigate={navigate}
+              runAction={runNavAction}
+            />
+          ))}
+        </nav>
 
         {/* Right side */}
         <div className="header-right">
