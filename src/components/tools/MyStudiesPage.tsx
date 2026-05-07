@@ -54,7 +54,7 @@ export const MyStudiesPage: React.FC = () => {
             <button className="btn btn-primary btn-sm" onClick={() => navigate(`/${universe}/analysis`)}>
               Open Analysis Board
             </button>
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/chess/import`)}>
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/${universe}/import`)}>
               Import a PGN
             </button>
           </div>

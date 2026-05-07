@@ -167,6 +167,23 @@ function inlineAvatarUrl(contentType, rawBase64, buffer) {
   return `data:${contentType};base64,${rawBase64}`;
 }
 
+function isAllowedProfileAvatarUrl(value, authUserId) {
+  if (value === '') return true;
+  if (typeof value !== 'string') return false;
+  if (value.startsWith('data:image/')) return value.length <= MAX_INLINE_AVATAR_BYTES * 2;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:') return false;
+    const supabaseHost = process.env.SUPABASE_URL ? new URL(process.env.SUPABASE_URL).host : '';
+    const appHost = APP_URL ? new URL(APP_URL).host : '';
+    const allowedHosts = new Set([supabaseHost, appHost].filter(Boolean));
+    if (!allowedHosts.has(url.host)) return false;
+    return url.pathname.includes(`/${AVATAR_BUCKET}/`) && url.pathname.includes(`/${authUserId}/`);
+  } catch {
+    return false;
+  }
+}
+
 async function ensureAvatarBucket() {
   if (!supabaseUsesServiceRole) return;
 
@@ -2616,6 +2633,9 @@ app.patch('/api/auth/profile', requireAuth, async (req, res) => {
       updateData.country = country.toUpperCase().slice(0, 2);
     }
     if (typeof avatarUrl === 'string') {
+      if (!isAllowedProfileAvatarUrl(avatarUrl, req.user.id)) {
+        return res.status(400).json({ error: 'Avatar URL must be a DamCash-hosted avatar. Use the avatar upload endpoint.' });
+      }
       updateData.avatarUrl = avatarUrl;
     }
     if (typeof bio === 'string') {
