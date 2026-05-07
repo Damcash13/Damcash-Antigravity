@@ -42,7 +42,7 @@ interface CorrespondenceStore {
     myName: string;
     opponentName?: string;
   }) => Promise<CorrGame>;
-  joinGame: (gameId: string, myName: string) => void;
+  joinGame: (gameId: string, myName: string, myColor?: 'white' | 'black') => void;
   makeMove: (gameId: string, move: Omit<CorrMove, 'movedAt' | 'player'>) => Promise<void>;
   resignGame: (gameId: string) => Promise<void>;
   offerDraw: (gameId: string) => Promise<void>;
@@ -97,11 +97,17 @@ export const useCorrespondenceStore = create<CorrespondenceStore>()(
         return game;
       },
 
-      joinGame: (gameId, myName) => {
+      joinGame: (gameId, myName, myColor = 'black') => {
         set(s => ({
           games: s.games.map(g =>
             g.id === gameId && g.status === 'waiting'
-              ? { ...g, blackPlayer: myName, myColor: 'black', status: 'active' }
+              ? {
+                  ...g,
+                  whitePlayer: myColor === 'white' ? myName : g.whitePlayer,
+                  blackPlayer: myColor === 'black' ? myName : g.blackPlayer,
+                  myColor,
+                  status: 'active',
+                }
               : g
           ),
         }));
