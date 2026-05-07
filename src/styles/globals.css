@@ -3479,9 +3479,27 @@ html, body {
 
 @media (max-width: 700px) {
   /* Header — hide wide items so everything fits without horizontal scroll */
+  .header-nav { display: none; }
   .header-search-wrap { display: none; }
   .header-auth-actions { display: none; }
-  .header-inner { padding: 0 8px; gap: 6px; height: 48px; }
+  .header-profile-btn { display: none; }
+  .header-inner {
+    padding: 0 8px;
+    gap: 6px;
+    height: 48px;
+    justify-content: space-between;
+  }
+  .header-right {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+  .hamburger-btn {
+    display: inline-flex !important;
+    visibility: visible;
+    min-width: 62px;
+    height: 36px;
+    padding: 0 12px;
+  }
   .logo { font-size: 16px; }
   .header .logo-mark { width: 34px; height: 34px; border-radius: 8px; }
   .logo-letter { font-size: 21px; }
@@ -3536,8 +3554,8 @@ html, body {
   .header-inner { padding: 0 6px; gap: 4px; }
   .header-right { gap: 3px; }
   .header .logo-mark { width: 26px; height: 26px; border-radius: 6px; }
-  .logo-letter { font-size: 14px; }
-  .hamburger-btn { min-width: 46px; height: 34px; padding: 0 8px; }
+  .logo-wordmark { display: none; }
+  .hamburger-btn { min-width: 62px; height: 34px; padding: 0 10px; }
   .btn-signin,
   .btn-register { font-size: 10px; padding: 5px 8px; }
   .header-profile-btn { min-width: 88px; max-width: 112px; padding: 5px 7px; }
