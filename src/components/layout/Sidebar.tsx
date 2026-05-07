@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useUniverseStore, useUserStore, useLiveGamesStore } from '../../stores';
@@ -29,9 +29,10 @@ export const Sidebar: React.FC<Props> = ({
   const { onlinePlayers } = useInviteStore();
   const { games } = useLiveGamesStore();
 
-  const visibleTournaments = tournaments
-    .filter(t_ => t_.universe === universe)
-    .slice(0, 4);
+  const visibleTournaments = useMemo(
+    () => tournaments.filter(t_ => t_.universe === universe && t_.status !== 'finished').slice(0, 4),
+    [tournaments, universe],
+  );
 
   const playerCount = onlinePlayers.filter(p => p.universe === universe).length;
   const gameCount   = games.filter(g => g.universe === universe && g.status === 'playing').length;

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserStore, useNotificationStore, RatingEntry } from '../../stores';
@@ -745,77 +745,112 @@ export const ProfilePage: React.FC = () => {
     setSocialChessCom(user.socialLinks?.chessCom || '');
   }, [user?.id, user?.name, user?.country, user?.bio, user?.socialLinks?.twitter, user?.socialLinks?.lichess, user?.socialLinks?.chessCom]);
 
-  // Viewing another user's profile
-  if (paramUsername && paramUsername !== user?.name) {
-    return <PublicProfilePage username={paramUsername} />;
-  }
+  const storedRatingHistory = useMemo(
+    () => getStoredRatingHistory(fullStats, ratingHistory),
+    [fullStats, ratingHistory],
+  );
 
-  if (!user) {
-    return (
-      <div className="pf-no-user">
-        <h2 style={{ color: 'var(--text-1)', margin: '16px 0 8px' }}>{t('common.login')}</h2>
-        <p style={{ color: 'var(--text-3)', marginBottom: 20 }}>{t('auth.playAsGuest')}</p>
-        <button className="btn btn-primary" onClick={() => navigate('/')}>{t('lobby.lobby')}</button>
-      </div>
-    );
-  }
+  const profileMetrics = useMemo(() => {
+    const history = storedRatingHistory.filter(e => e.universe === universe);
+    const uvStats = fullStats?.[universe];
+    const activeRating = user?.rating[universe] ?? 0;
+    const rating = uvStats?.rating ?? activeRating;
+    const totalGames = uvStats?.games ?? gamesPlayed[universe] ?? 0;
+    const wins = uvStats?.wins ?? history.filter(e => e.result === 'win').length;
+    const draws = uvStats?.draws ?? history.filter(e => e.result === 'draw').length;
+    const losses = uvStats?.losses ?? history.filter(e => e.result === 'loss').length;
+    const ratingPoints = history.flatMap(e => [e.before, e.after]);
+    const apiGamesForUniverse = apiGames.filter(match => match.universe === universe);
 
-  const storedRatingHistory = getStoredRatingHistory(fullStats, ratingHistory);
-  const history      = storedRatingHistory.filter(e => e.universe === universe);
-  const uvStats      = fullStats?.[universe];
-  const rating       = uvStats?.rating ?? user.rating[universe];
-  const band         = ratingBand(rating);
-  const totalGames   = uvStats?.games ?? gamesPlayed[universe] ?? 0;
-  const wins         = uvStats?.wins ?? history.filter(e => e.result === 'win').length;
-  const draws        = uvStats?.draws ?? history.filter(e => e.result === 'draw').length;
-  const losses       = uvStats?.losses ?? history.filter(e => e.result === 'loss').length;
-  const winRate      = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-  const ratingPoints = history.flatMap(e => [e.before, e.after]);
-  const peak         = uvStats?.peak ?? (ratingPoints.length > 0 ? Math.max(rating, ...ratingPoints) : rating);
-  const low          = ratingPoints.length > 0 ? Math.min(rating, ...ratingPoints) : rating;
-  const sparkData    = [...history].reverse().slice(-40).map(e => e.after);
-  const last10       = history.slice(0, 10);
-  const currentStreak = (() => {
-    if (apiGames.length > 0) {
-      let n = 0;
-      for (const g of apiGames.filter(match => match.universe === universe)) {
-        if (matchResultForUser(g, user.name) === 'win') n++;
+    let currentStreak = 0;
+    if (apiGamesForUniverse.length > 0 && user?.name) {
+      for (const g of apiGamesForUniverse) {
+        if (matchResultForUser(g, user.name) === 'win') currentStreak++;
         else break;
       }
-      return n;
+    } else {
+      for (const e of history) {
+        if (e.result === 'win') currentStreak++;
+        else break;
+      }
     }
-    let n = 0;
-    for (const e of history) { if (e.result === 'win') n++; else break; }
-    return n;
-  })();
-  const bestStreak   = uvStats?.bestStreak ?? fullStats?.bestStreak ?? currentStreak;
-  const activityEntries = apiGames.length > 0
-    ? apiGames.map(g => ({ playedAt: matchPlayedAt(g) })).filter(e => Number.isFinite(e.playedAt))
-    : storedRatingHistory;
-  const recentMatches = apiGames.filter(g => g.universe === universe).slice(0, 5);
 
-  const perfRating   = history.length > 0
-    ? performanceRating(history.map(e => e.opponentRating), history.map(e => e.result))
-    : rating;
+    return {
+      history,
+      uvStats,
+      rating,
+      band: ratingBand(rating),
+      totalGames,
+      wins,
+      draws,
+      losses,
+      winRate: totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0,
+      peak: uvStats?.peak ?? (ratingPoints.length > 0 ? Math.max(rating, ...ratingPoints) : rating),
+      low: ratingPoints.length > 0 ? Math.min(rating, ...ratingPoints) : rating,
+      sparkData: [...history].reverse().slice(-40).map(e => e.after),
+      last10: history.slice(0, 10),
+      currentStreak,
+      bestStreak: uvStats?.bestStreak ?? fullStats?.bestStreak ?? currentStreak,
+      activityEntries: apiGames.length > 0
+        ? apiGames.map(g => ({ playedAt: matchPlayedAt(g) })).filter(e => Number.isFinite(e.playedAt))
+        : storedRatingHistory,
+      recentMatches: apiGamesForUniverse.slice(0, 5),
+      perfRating: history.length > 0
+        ? performanceRating(history.map(e => e.opponentRating), history.map(e => e.result))
+        : rating,
+      myTournaments: user?.name
+        ? tournaments.filter(tn => tn.players.some(p => p.name === user.name))
+        : [],
+    };
+  }, [
+    apiGames,
+    fullStats,
+    gamesPlayed,
+    storedRatingHistory,
+    tournaments,
+    universe,
+    user?.name,
+    user?.rating.chess,
+    user?.rating.checkers,
+  ]);
 
-  const myTournaments = tournaments.filter(t => t.players.some(p => p.name === user.name));
+  const {
+    history,
+    uvStats,
+    rating,
+    band,
+    totalGames,
+    wins,
+    draws,
+    losses,
+    winRate,
+    peak,
+    low,
+    sparkData,
+    last10,
+    currentStreak,
+    bestStreak,
+    activityEntries,
+    recentMatches,
+    perfRating,
+    myTournaments,
+  } = profileMetrics;
 
-  const byCategory: Record<string, RatingEntry[]> = { Bullet: [], Blitz: [], Rapid: [], Classical: [] };
-
-  const socialLinksPayload = (): SocialLinks => ({
+  const socialLinksPayload = useCallback((): SocialLinks => ({
     ...(socialTwitter.trim() ? { twitter: socialTwitter.trim() } : {}),
     ...(socialLichess.trim() ? { lichess: socialLichess.trim() } : {}),
     ...(socialChessCom.trim() ? { chessCom: socialChessCom.trim() } : {}),
-  });
+  }), [socialChessCom, socialLichess, socialTwitter]);
 
-  const navigateToUpdatedProfile = (previousName: string) => {
+  const navigateToUpdatedProfile = useCallback((previousName: string) => {
     const updatedName = useUserStore.getState().user?.name;
     if (updatedName && updatedName !== previousName) {
       navigate(`/${universe}/profile/${encodeURIComponent(updatedName)}`, { replace: true });
     }
-  };
+  }, [navigate, universe]);
 
-  const saveProfileSettings = async () => {
+  const saveProfileSettings = useCallback(async () => {
+    if (!user) return;
     const requestedName = newUsername.trim();
     if (requestedName.length < 2) {
       setSettingsMsg('Username must contain at least 2 characters.');
@@ -838,9 +873,10 @@ export const ProfilePage: React.FC = () => {
       setSettingsMsg(e?.message || t('auth.somethingWentWrong'));
     }
     setTimeout(() => setSettingsMsg(''), 3000);
-  };
+  }, [addNotification, bioInput, countryCode, navigateToUpdatedProfile, newUsername, socialLinksPayload, t, updateProfile, user]);
 
-  const saveHeroUsername = async () => {
+  const saveHeroUsername = useCallback(async () => {
+    if (!user) return;
     const requestedName = nameInput.trim();
     setEditName(false);
     if (!requestedName || requestedName === user.name) return;
@@ -854,7 +890,22 @@ export const ProfilePage: React.FC = () => {
       addNotification(e?.message || t('auth.somethingWentWrong'), 'error');
       setNameInput(user.name);
     }
-  };
+  }, [addNotification, nameInput, navigateToUpdatedProfile, t, updateProfile, user]);
+
+  // Viewing another user's profile
+  if (paramUsername && paramUsername !== user?.name) {
+    return <PublicProfilePage username={paramUsername} />;
+  }
+
+  if (!user) {
+    return (
+      <div className="pf-no-user">
+        <h2 style={{ color: 'var(--text-1)', margin: '16px 0 8px' }}>{t('common.login')}</h2>
+        <p style={{ color: 'var(--text-3)', marginBottom: 20 }}>{t('auth.playAsGuest')}</p>
+        <button className="btn btn-primary" onClick={() => navigate('/')}>{t('lobby.lobby')}</button>
+      </div>
+    );
+  }
 
   return (
     <div className="pf-page">
