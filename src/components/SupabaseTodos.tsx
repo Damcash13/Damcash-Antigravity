@@ -26,7 +26,7 @@ export const SupabaseTodos: React.FC = () => {
         console.error('Error fetching todos:', err);
         setError(err.message);
       } finally {
-        setLoading(setLoading(false) as any);
+        setLoading(false);
       }
     }
 

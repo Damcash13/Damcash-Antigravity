@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { socket } from '../../lib/socket';
-import { useUniverseStore } from '../../stores';
 
 interface Props {
   timeControl: string;
@@ -12,7 +11,6 @@ interface Props {
 
 export const SearchingOverlay: React.FC<Props> = ({ timeControl, betAmount = 0, onCancel }) => {
   const { t } = useTranslation();
-  const { universe } = useUniverseStore();
   const [dots, setDots] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [expired, setExpired] = useState(false);
@@ -20,8 +18,6 @@ export const SearchingOverlay: React.FC<Props> = ({ timeControl, betAmount = 0, 
   onCancelRef.current = onCancel;
 
   useEffect(() => {
-    socket.emit('seek', { timeControl, universe, betAmount });
-
     const handleExpired = () => {
       setExpired(true);
       setTimeout(() => onCancelRef.current(), 2500);
@@ -41,7 +37,7 @@ export const SearchingOverlay: React.FC<Props> = ({ timeControl, betAmount = 0, 
       clearInterval(dotsInterval);
       clearInterval(elapsedInterval);
     };
-  }, [timeControl, universe, betAmount]);
+  }, []);
 
   if (expired) {
     return (
