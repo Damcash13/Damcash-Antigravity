@@ -373,7 +373,6 @@ export default function App() {
             <Route path="/:universe/leaderboard"  element={<PageFrame><LeaderboardPage /></PageFrame>} />
 
             <Route path="/:universe/analysis" element={<PageFrame><AnalysisBoard /></PageFrame>} />
-            <Route path="/:universe/editor"   element={<PageFrame><BoardEditorPage /></PageFrame>} />
             <Route path="/:universe/board-editor" element={<PageFrame><BoardEditorPage /></PageFrame>} />
             <Route path="/:universe/opening-explorer" element={<PageFrame><OpeningExplorerPage /></PageFrame>} />
             <Route path="/:universe/my-studies" element={<ProtectedRoute><PageFrame><MyStudiesPage /></PageFrame></ProtectedRoute>} />
