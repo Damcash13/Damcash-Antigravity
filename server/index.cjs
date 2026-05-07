@@ -684,6 +684,15 @@ function buildMatchEndData(room, result, reason, ratingAudit = {}) {
   };
 }
 
+const SETTLED_MATCH_RESULTS = ['white', 'black', 'draw'];
+
+function resultForUserInMatch(m, userId) {
+  if (m.result === 'draw') return 'draw';
+  if ((m.whiteId === userId && m.result === 'white') || (m.blackId === userId && m.result === 'black')) return 'win';
+  if ((m.whiteId === userId && m.result === 'black') || (m.blackId === userId && m.result === 'white')) return 'loss';
+  return null;
+}
+
 async function resetStaleTournamentPairingStatuses() {
   const result = await prisma.tournamentPlayer.updateMany({
     where: { status: 'in_game' },
@@ -3560,14 +3569,18 @@ app.get('/api/users/:username/stats', async (req, res) => {
     const u = await prisma.user.findUnique({ where: { username: req.params.username } });
     if (!u) return res.status(404).json({ error: 'Not found' });
     const matches = await prisma.match.findMany({
-      where: { OR: [{ whiteId: u.id }, { blackId: u.id }], status: 'ended' },
+      where: {
+        OR: [{ whiteId: u.id }, { blackId: u.id }],
+        status: 'ended',
+        result: { in: SETTLED_MATCH_RESULTS },
+      },
       select: { universe: true, result: true, whiteId: true, blackId: true },
     });
     const summarize = (universe) => {
       const games = matches.filter(m => m.universe === universe);
-      const wins = games.filter(m => (m.whiteId === u.id && m.result === 'white') || (m.blackId === u.id && m.result === 'black')).length;
-      const losses = games.filter(m => (m.whiteId === u.id && m.result === 'black') || (m.blackId === u.id && m.result === 'white')).length;
-      const draws = games.filter(m => m.result === 'draw').length;
+      const wins = games.filter(m => resultForUserInMatch(m, u.id) === 'win').length;
+      const losses = games.filter(m => resultForUserInMatch(m, u.id) === 'loss').length;
+      const draws = games.filter(m => resultForUserInMatch(m, u.id) === 'draw').length;
       return { games: games.length, wins, losses, draws, winRate: games.length > 0 ? Math.round((wins / games.length) * 100) : 0 };
     };
     const chessStats = summarize('chess');
@@ -3591,7 +3604,11 @@ app.get('/api/users/:username/games', async (req, res) => {
     const u = await prisma.user.findUnique({ where: { username: req.params.username } });
     if (!u) return res.status(404).json({ error: 'Not found' });
     const matches = await prisma.match.findMany({
-      where: { OR: [{ whiteId: u.id }, { blackId: u.id }], status: 'ended' },
+      where: {
+        OR: [{ whiteId: u.id }, { blackId: u.id }],
+        status: 'ended',
+        result: { in: SETTLED_MATCH_RESULTS },
+      },
       include: {
         white: { select: { id: true, username: true, country: true, chessRating: true, checkersRating: true } },
         black: { select: { id: true, username: true, country: true, chessRating: true, checkersRating: true } },
@@ -3620,7 +3637,11 @@ app.get('/api/users/:username/full-stats', requireAuth, async (req, res) => {
     if (!u) return res.status(404).json({ error: 'Not found' });
 
     const matches = await prisma.match.findMany({
-      where: { OR: [{ whiteId: u.id }, { blackId: u.id }], status: 'ended' },
+      where: {
+        OR: [{ whiteId: u.id }, { blackId: u.id }],
+        status: 'ended',
+        result: { in: SETTLED_MATCH_RESULTS },
+      },
       include: {
         white: { select: { id: true, username: true } },
         black: { select: { id: true, username: true } },
@@ -3635,12 +3656,7 @@ app.get('/api/users/:username/full-stats', requireAuth, async (req, res) => {
       return sum + 5 * 60 * 1000;
     }, 0);
 
-    const resultForUser = (m) => {
-      if (m.result === 'draw') return 'draw';
-      if ((m.whiteId === u.id && m.result === 'white') || (m.blackId === u.id && m.result === 'black')) return 'win';
-      if ((m.whiteId === u.id && m.result === 'black') || (m.blackId === u.id && m.result === 'white')) return 'loss';
-      return null;
-    };
+    const resultForUser = (m) => resultForUserInMatch(m, u.id);
 
     const bestStreakFor = (rows) => {
       let best = 0, cur = 0;

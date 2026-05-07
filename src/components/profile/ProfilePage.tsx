@@ -52,6 +52,12 @@ type ProfileRatingEntry = RatingEntry & {
 
 type ActivityEntry = { playedAt: number };
 
+function coherentGameCount(games: number | undefined, wins: number, draws: number, losses: number) {
+  const settled = wins + draws + losses;
+  if (!Number.isFinite(games) || games === undefined) return settled;
+  return settled === 0 && games > 0 ? 0 : Math.max(games, settled);
+}
+
 const PlayerFlag: React.FC<{ country?: string; className?: string }> = ({ country, className }) => {
   const flag = countryFlag(country || '');
   if (!flag) return null;
@@ -755,12 +761,13 @@ export const ProfilePage: React.FC = () => {
   const profileMetrics = useMemo(() => {
     const history = storedRatingHistory.filter(e => e.universe === universe);
     const uvStats = fullStats?.[universe];
+    const userStats = user?.[universe];
     const activeRating = user?.rating[universe] ?? 0;
     const rating = uvStats?.rating ?? activeRating;
-    const totalGames = uvStats?.games ?? gamesPlayed[universe] ?? 0;
-    const wins = uvStats?.wins ?? history.filter(e => e.result === 'win').length;
-    const draws = uvStats?.draws ?? history.filter(e => e.result === 'draw').length;
-    const losses = uvStats?.losses ?? history.filter(e => e.result === 'loss').length;
+    const wins = uvStats?.wins ?? userStats?.wins ?? history.filter(e => e.result === 'win').length;
+    const draws = uvStats?.draws ?? userStats?.draws ?? history.filter(e => e.result === 'draw').length;
+    const losses = uvStats?.losses ?? userStats?.losses ?? history.filter(e => e.result === 'loss').length;
+    const totalGames = coherentGameCount(uvStats?.games ?? userStats?.games ?? gamesPlayed[universe], wins, draws, losses);
     const ratingPoints = history.flatMap(e => [e.before, e.after]);
     const apiGamesForUniverse = apiGames.filter(match => match.universe === universe);
 
@@ -812,6 +819,8 @@ export const ProfilePage: React.FC = () => {
     tournaments,
     universe,
     user?.name,
+    user?.chess,
+    user?.checkers,
     user?.rating.chess,
     user?.rating.checkers,
   ]);
@@ -837,6 +846,13 @@ export const ProfilePage: React.FC = () => {
     perfRating,
     myTournaments,
   } = profileMetrics;
+
+  const fallbackChessGames = coherentGameCount(user?.chess?.games ?? gamesPlayed.chess, user?.chess?.wins ?? 0, user?.chess?.draws ?? 0, user?.chess?.losses ?? 0);
+  const fallbackCheckersGames = coherentGameCount(user?.checkers?.games ?? gamesPlayed.checkers, user?.checkers?.wins ?? 0, user?.checkers?.draws ?? 0, user?.checkers?.losses ?? 0);
+  const fallbackTotalGames = fallbackChessGames + fallbackCheckersGames;
+  const fallbackTotalWins = (user?.chess?.wins ?? 0) + (user?.checkers?.wins ?? 0) || wins;
+  const fallbackTotalLosses = (user?.chess?.losses ?? 0) + (user?.checkers?.losses ?? 0) || losses;
+  const fallbackTotalDraws = (user?.chess?.draws ?? 0) + (user?.checkers?.draws ?? 0) || draws;
 
   const socialLinksPayload = useCallback((): SocialLinks => ({
     ...(socialTwitter.trim() ? { twitter: socialTwitter.trim() } : {}),
@@ -1000,24 +1016,24 @@ export const ProfilePage: React.FC = () => {
           {/* ── Top KPI strip ── */}
           <div className="pf-kpi-strip">
             <div className="pf-kpi">
-              <div className="pf-kpi-val">{fullStats ? fullStats.totalGames : (gamesPlayed.chess + gamesPlayed.checkers)}</div>
+              <div className="pf-kpi-val">{fullStats ? fullStats.totalGames : fallbackTotalGames}</div>
               <div className="pf-kpi-lbl">{t('profile.totalGames')}</div>
             </div>
             <div className="pf-kpi">
               <div className="pf-kpi-val" style={{ color: '#22c55e' }}>
-                {fullStats ? fullStats.chess.wins + fullStats.checkers.wins : wins}
+                {fullStats ? fullStats.chess.wins + fullStats.checkers.wins : fallbackTotalWins}
               </div>
               <div className="pf-kpi-lbl">{t('common.wins')}</div>
             </div>
             <div className="pf-kpi">
               <div className="pf-kpi-val" style={{ color: '#ef4444' }}>
-                {fullStats ? fullStats.chess.losses + fullStats.checkers.losses : losses}
+                {fullStats ? fullStats.chess.losses + fullStats.checkers.losses : fallbackTotalLosses}
               </div>
               <div className="pf-kpi-lbl">{t('common.losses')}</div>
             </div>
             <div className="pf-kpi">
               <div className="pf-kpi-val" style={{ color: '#94a3b8' }}>
-                {fullStats ? fullStats.chess.draws + fullStats.checkers.draws : draws}
+                {fullStats ? fullStats.chess.draws + fullStats.checkers.draws : fallbackTotalDraws}
               </div>
               <div className="pf-kpi-lbl">{t('common.draws')}</div>
             </div>
