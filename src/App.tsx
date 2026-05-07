@@ -434,9 +434,10 @@ function JoinByCodeRedirect() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useUserStore(s => s.user);
+  const isLoggedIn = useUserStore(s => s.isLoggedIn);
   const location = useLocation();
 
-  if (!user) {
+  if (!user || !isLoggedIn) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
   return <>{children}</>;
