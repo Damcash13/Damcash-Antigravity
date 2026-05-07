@@ -28,6 +28,7 @@ export interface PublicSeek {
   betAmount: number;
   rated: boolean;
   createdAt: number;
+  source?: 'quick' | 'lobby';
 }
 
 export interface LobbyChatMessage {
@@ -369,6 +370,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
               <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>
                 {mySeek.timeControl} · {mySeek.rated ? t('tournament.rated') : t('lobby.casual')}
                 {mySeek.betAmount > 0 && ` · $${mySeek.betAmount}`}
+                {mySeek.source === 'quick' && ` · ${t('lobby.quickPairing')}`}
               </div>
             </div>
             <button className="lobby-cancel-seek" onClick={handleCancel}>
@@ -428,6 +430,7 @@ export const LobbyTab: React.FC<Props> = ({ onMatchFound }) => {
                       </div>
                       <div className="lobby-seek-meta">
                         {seek.rated ? t('tournament.rated') : t('lobby.casual')}
+                        {seek.source === 'quick' && ` · ${t('lobby.quickPairing')}`}
                       </div>
                     </div>
                   </div>

@@ -291,7 +291,15 @@ export default function App() {
         return;
       }
       setSearching({ tc, mode });
-      socket.emit('seek', { timeControl: tc, universe, betAmount: 0, rated: true });
+      socket.emit('seek', {
+        timeControl: tc,
+        universe,
+        betAmount: 0,
+        rated: true,
+        publishAfterMs: 30_000,
+        expireAfterMs: 10 * 60_000,
+        source: 'quick',
+      });
     }
   };
 
@@ -338,6 +346,7 @@ export default function App() {
         {searching && (
           <SearchingOverlay
             timeControl={searching.tc}
+            onOpenTable={() => setSearching(null)}
             onCancel={() => {
               setSearching(null);
               socket.emit('seek:cancel');

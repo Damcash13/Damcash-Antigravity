@@ -255,7 +255,10 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
                   <div
                     key={value}
                     className="time-card"
-                    onClick={() => onCreateGame(value, 'online')}
+                    onClick={() => {
+                      setActiveTab('lobby');
+                      onCreateGame(value, 'online');
+                    }}
                     style={{ borderTop: `2px solid ${CAT_COLOR[cat]}` }}
                   >
                     <div className="time-value">{label}</div>

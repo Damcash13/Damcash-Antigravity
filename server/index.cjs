@@ -436,7 +436,8 @@ const invites    = new Map(); // inviteId -> { fromId, toId, config, expiresAt }
 const seeks      = new Map(); // seekId  -> { socketId, name, rating, timeControl, universe, betAmount, rated, createdAt }
 const spectators       = new Map(); // socketId -> roomId  (which room they're watching)
 const takebackRequests = new Map(); // roomId   -> { fromId, timeoutId }
-const seekTimeouts     = new Map(); // seekId   -> timeoutId (120s auto-expiry)
+const seekTimeouts     = new Map(); // seekId   -> timeoutId for auto-expiry
+const seekPublishTimers = new Map(); // seekId  -> timeoutId for delayed public posting
 const reconnectTokens  = new Map(); // roomId   -> { white: {token,socketId}, black: {token,socketId} }
 const roomDisconnectTimers = new Map(); // roomId -> timeoutId for grace cleanup
 const socketToUserId = new Map(); // socketId -> db user id
@@ -745,25 +746,37 @@ function broadcastPlayerList() {
   io.emit('players:online', list);
 }
 
+function publicSeekList() {
+  const now = Date.now();
+  return Array.from(seeks.entries())
+    .filter(([, s]) => !s.publicAt || s.publicAt <= now)
+    .map(([seekId, s]) => ({ seekId, ...s }));
+}
+
 function broadcastSeeks() {
-  const list = Array.from(seeks.entries()).map(([seekId, s]) => ({ seekId, ...s }));
+  const list = publicSeekList();
   io.emit('seeks:list', list);
+}
+
+function clearSeekTimers(seekId) {
+  const expireTid = seekTimeouts.get(seekId);
+  if (expireTid) { clearTimeout(expireTid); seekTimeouts.delete(seekId); }
+  const publishTid = seekPublishTimers.get(seekId);
+  if (publishTid) { clearTimeout(publishTid); seekPublishTimers.delete(seekId); }
 }
 
 function removeSeekBySocket(socketId) {
   for (const [seekId, s] of seeks.entries()) {
     if (s.socketId === socketId) {
       seeks.delete(seekId);
-      const tid = seekTimeouts.get(seekId);
-      if (tid) { clearTimeout(tid); seekTimeouts.delete(seekId); }
+      clearSeekTimers(seekId);
     }
   }
   broadcastSeeks();
 }
 
 function removeSeekById(seekId) {
-  const tid = seekTimeouts.get(seekId);
-  if (tid) { clearTimeout(tid); seekTimeouts.delete(seekId); }
+  clearSeekTimers(seekId);
   seeks.delete(seekId);
   broadcastSeeks();
 }
@@ -1027,7 +1040,7 @@ io.on('connection', (socket) => {
     });
     broadcastPlayerList();
     socket.emit('players:online', buildPublicPlayerList());
-    socket.emit('seeks:list', Array.from(seeks.entries()).map(([seekId, s]) => ({ seekId, ...s })));
+    socket.emit('seeks:list', publicSeekList());
   });
 
   socket.on('player:update-universe', ({ universe }) => {
@@ -1050,7 +1063,7 @@ io.on('connection', (socket) => {
 
   // ── Quick pairing (matchmaking queue) ───────────────────────────────────
   // Registered as both 'seek' (LobbyTab) and 'seek:create' (App.tsx home page)
-  const handleSeek = ({ timeControl, universe, betAmount, rated, config: rawConfig }) => {
+  const handleSeek = ({ timeControl, universe, betAmount, rated, config: rawConfig, publishAfterMs, expireAfterMs, source }) => {
     universe = normalizeUniverse(universe || rawConfig?.universe || players.get(socket.id)?.universe);
     if (socketRateLimit(socket.id, 10)) {
       socket.emit('room:error', { message: 'Too many seek requests. Please wait.' });
@@ -1071,13 +1084,17 @@ io.on('connection', (socket) => {
     if (!queue.has(key)) queue.set(key, []);
     const q = queue.get(key);
 
+    // A player can only have one active seek. This also clears delayed-publish timers
+    // from a previous quick-pairing click.
+    removeSeekBySocket(socket.id);
+    for (const [, queuedSockets] of queue) {
+      const existingIdx = queuedSockets.indexOf(socket.id);
+      if (existingIdx !== -1) queuedSockets.splice(existingIdx, 1);
+    }
+
     // Update player status
     const p = players.get(socket.id);
     if (p) { p.status = 'seeking'; p.currentTC = timeControl; p.universe = universe; players.set(socket.id, p); broadcastPlayerList(); }
-
-    // Remove any stale entry of this socket from the queue to prevent self-matching
-    const existingIdx = q.indexOf(socket.id);
-    if (existingIdx !== -1) q.splice(existingIdx, 1);
 
     // ── Rating-band matchmaking ──────────────────────────────────────────────
     // Find best candidate in queue within ±300 ELO (expands +100 per 30s, max ±600)
@@ -1123,6 +1140,9 @@ io.on('connection', (socket) => {
       // Add to public seeks list
       const seekId = genId();
       const playerInfo = players.get(socket.id) || {};
+      const publishDelay = Math.max(0, Math.min(Number(publishAfterMs) || 0, 60_000));
+      const now = Date.now();
+      const publicAt = now + publishDelay;
       seeks.set(seekId, {
         socketId: socket.id,
         name: playerInfo.name || 'Anonymous',
@@ -1132,16 +1152,36 @@ io.on('connection', (socket) => {
         universe,
         betAmount: safeBet,
         rated: rated !== false,
-        createdAt: Date.now(),
+        createdAt: now,
+        publicAt,
+        source: source === 'quick' ? 'quick' : 'lobby',
       });
       broadcastSeeks();
       socket.emit('seeking', { timeControl, universe, seekId });
 
-      // ── 120-second seek expiry ─────────────────────────────────────────────
+      if (publishDelay > 0) {
+        const publishTimeout = setTimeout(() => {
+          seekPublishTimers.delete(seekId);
+          const seek = seeks.get(seekId);
+          if (!seek) return;
+          seek.publicAt = Date.now();
+          seeks.set(seekId, seek);
+          socket.emit('seek:published', { seekId, timeControl, universe });
+          broadcastSeeks();
+        }, publishDelay);
+        seekPublishTimers.set(seekId, publishTimeout);
+      } else {
+        socket.emit('seek:published', { seekId, timeControl, universe });
+      }
+
+      // ── Seek expiry ────────────────────────────────────────────────────────
+      const expiryMs = Math.max(30_000, Math.min(Number(expireAfterMs) || 120_000, 10 * 60_000));
       const expireTimeout = setTimeout(() => {
         if (!seeks.has(seekId)) return; // already matched or cancelled
         seeks.delete(seekId);
         seekTimeouts.delete(seekId);
+        const publishTid = seekPublishTimers.get(seekId);
+        if (publishTid) { clearTimeout(publishTid); seekPublishTimers.delete(seekId); }
         // Remove from queue
         const qNow = queue.get(key) || [];
         const qi   = qNow.indexOf(socket.id);
@@ -1152,7 +1192,7 @@ io.on('connection', (socket) => {
         socket.emit('seek:expired', { seekId });
         socket.emit('seek:expire', { seekId });
         broadcastSeeks();
-      }, 120_000);
+      }, expiryMs);
       seekTimeouts.set(seekId, expireTimeout);
     }
   };
@@ -1325,8 +1365,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('seeks:request', () => {
-    const list = Array.from(seeks.entries()).map(([seekId, s]) => ({ seekId, ...s }));
-    socket.emit('seeks:list', list);
+    socket.emit('seeks:list', publicSeekList());
   });
 
   // ── Berserk ──────────────────────────────────────────────────────────────
@@ -5198,7 +5237,10 @@ setInterval(() => {
 
   // Seeks older than 10 minutes
   for (const [id, seek] of seeks.entries()) {
-    if (now - seek.createdAt > 10 * 60 * 1000) seeks.delete(id);
+    if (now - seek.createdAt > 10 * 60 * 1000) {
+      clearSeekTimers(id);
+      seeks.delete(id);
+    }
   }
 
   // Socket rate limiter entries older than 2 minutes
