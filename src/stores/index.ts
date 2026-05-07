@@ -477,20 +477,66 @@ export const useBettingStore = create<BettingStore>((set) => ({
     }),
 }));
 
+type NotificationType = 'info' | 'success' | 'error' | 'warning';
+
+interface ToastNotification {
+  id: string;
+  message: string;
+  type: NotificationType;
+  createdAt: number;
+}
+
 interface NotificationStore {
-  notifications: Array<{ id: string; message: string; type: 'info' | 'success' | 'error' | 'warning' }>;
+  notifications: ToastNotification[];
   addNotification: (message: string, type?: 'info' | 'success' | 'error' | 'warning') => void;
   removeNotification: (id: string) => void;
+}
+
+const MAX_TOAST_NOTIFICATIONS = 3;
+const TOAST_DEDUPE_MS = 4_000;
+const NOISY_TOAST_PATTERNS = [
+  /game starting/i,
+  /redirecting/i,
+  /premove queued/i,
+  /queued premove cancelled/i,
+  /pdn copied/i,
+  /pdn exported/i,
+  /king promotion/i,
+  /admin dashboard refreshed/i,
+  /berserk/i,
+];
+
+function shouldShowToast(message: string, type: NotificationType) {
+  if (type === 'error' || type === 'warning') return true;
+  const normalized = message.trim();
+  if (!normalized) return false;
+  return !NOISY_TOAST_PATTERNS.some(pattern => pattern.test(normalized));
 }
 
 export const useNotificationStore = create<NotificationStore>((set) => ({
   notifications: [],
   addNotification: (message, type = 'info') => {
-    const id = `notif-${Date.now()}`;
-    set((s) => ({ notifications: [...s.notifications, { id, message, type }] }));
+    if (!shouldShowToast(message, type)) return;
+    const now = Date.now();
+    const id = `notif-${now}-${Math.random().toString(36).slice(2, 6)}`;
+    const ttl = type === 'error' || type === 'warning' ? 6_000 : 3_000;
+    set((s) => {
+      const recentDuplicate = s.notifications.some(n =>
+        n.message === message &&
+        n.type === type &&
+        now - n.createdAt < TOAST_DEDUPE_MS
+      );
+      if (recentDuplicate) return s;
+      return {
+        notifications: [
+          ...s.notifications.filter(n => now - n.createdAt < ttl),
+          { id, message, type, createdAt: now },
+        ].slice(-MAX_TOAST_NOTIFICATIONS),
+      };
+    });
     setTimeout(() => {
       set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) }));
-    }, 4000);
+    }, ttl);
   },
   removeNotification: (id) =>
     set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) })),

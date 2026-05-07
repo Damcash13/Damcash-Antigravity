@@ -81,10 +81,14 @@ const NotifRow: React.FC<{ n: CenterNotif; onRead: () => void }> = ({ n, onRead 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export const NotificationCenter: React.FC = () => {
-  const { notifs, unread, markRead, markAllRead } = useNotifCenterStore();
+  const { notifs, unread, markRead, markAllRead, prune } = useNotifCenterStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+
+  useEffect(() => {
+    prune();
+  }, [prune]);
 
   // Close on outside click
   useEffect(() => {

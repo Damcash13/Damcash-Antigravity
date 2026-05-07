@@ -29,7 +29,23 @@ interface NotifCenterStore {
   push: (n: Omit<CenterNotif, 'id' | 'read' | 'createdAt'>) => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
+  prune: () => void;
   clear: () => void;
+}
+
+const MAX_CENTER_NOTIFS = 30;
+const CENTER_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const CENTER_DEDUPE_MS = 30_000;
+
+function pruneCenterNotifs(notifs: CenterNotif[], now = Date.now()) {
+  return notifs
+    .filter(n => now - n.createdAt <= CENTER_MAX_AGE_MS)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, MAX_CENTER_NOTIFS);
+}
+
+function unreadCount(notifs: CenterNotif[]) {
+  return notifs.filter(n => !n.read).length;
 }
 
 export const useNotifCenterStore = create<NotifCenterStore>()(
@@ -39,29 +55,44 @@ export const useNotifCenterStore = create<NotifCenterStore>()(
       unread: 0,
 
       push: (n) => {
+        const now = Date.now();
         const notif: CenterNotif = {
           ...n,
-          id: `nc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `nc-${now}-${Math.random().toString(36).slice(2, 6)}`,
           read: false,
-          createdAt: Date.now(),
+          createdAt: now,
         };
-        set((s) => ({
-          notifs: [notif, ...s.notifs].slice(0, 100),
-          unread: s.unread + 1,
-        }));
+        set((s) => {
+          const current = pruneCenterNotifs(s.notifs, now);
+          const duplicate = current.some(existing =>
+            existing.type === notif.type &&
+            existing.title === notif.title &&
+            existing.body === notif.body &&
+            now - existing.createdAt < CENTER_DEDUPE_MS
+          );
+          if (duplicate) return { notifs: current, unread: unreadCount(current) };
+          const next = pruneCenterNotifs([notif, ...current], now);
+          return { notifs: next, unread: unreadCount(next) };
+        });
       },
 
       markRead: (id) =>
-        set((s) => ({
-          notifs: s.notifs.map(n => n.id === id ? { ...n, read: true } : n),
-          unread: Math.max(0, s.unread - (s.notifs.find(n => n.id === id && !n.read) ? 1 : 0)),
-        })),
+        set((s) => {
+          const next = pruneCenterNotifs(s.notifs.map(n => n.id === id ? { ...n, read: true } : n));
+          return { notifs: next, unread: unreadCount(next) };
+        }),
 
       markAllRead: () =>
-        set((s) => ({
-          notifs: s.notifs.map(n => ({ ...n, read: true })),
-          unread: 0,
-        })),
+        set((s) => {
+          const next = pruneCenterNotifs(s.notifs.map(n => ({ ...n, read: true })));
+          return { notifs: next, unread: 0 };
+        }),
+
+      prune: () =>
+        set((s) => {
+          const next = pruneCenterNotifs(s.notifs);
+          return { notifs: next, unread: unreadCount(next) };
+        }),
 
       clear: () => set({ notifs: [], unread: 0 }),
     }),
