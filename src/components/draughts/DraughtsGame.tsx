@@ -17,6 +17,9 @@ import {
   getLegalMoves,
   applyMove,
   isGameOver,
+  createDraughtsDrawState,
+  updateDraughtsDrawState,
+  DraughtsDrawState,
   getBestAIMove,
   formatMove,
   getMovesFromSquare,
@@ -57,6 +60,7 @@ export const DraughtsGame: React.FC = () => {
   const playerColor: Color = (colorParam === 'black' || colorParam === 'b') ? 'black' : 'white';
 
   const [board, setBoard] = useState<DraughtsBoardType>(() => createInitialBoard());
+  const [drawState, setDrawState] = useState<DraughtsDrawState>(() => createDraughtsDrawState(createInitialBoard(), 'white'));
   const [turn, setTurn] = useState<Color>('white');
   const [selected, setSelected] = useState<Position | null>(null);
   const [legalMovesForSelected, setLegalMovesForSelected] = useState<DraughtsMove[]>([]);
@@ -90,8 +94,10 @@ export const DraughtsGame: React.FC = () => {
   const [berserkWindowKey, setBerserkWindowKey] = useState(0);
   const chatRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef(board);
+  const drawStateRef = useRef(drawState);
   const turnRef = useRef(turn);
   boardRef.current = board;
+  drawStateRef.current = drawState;
   turnRef.current = turn;
   const userRef = useRef(user);
   userRef.current = user;
@@ -197,12 +203,16 @@ export const DraughtsGame: React.FC = () => {
     if (currentTurn === 'white') setWhiteTime(t => t + timeControl.increment);
     else setBlackTime(t => t + timeControl.increment);
 
+    const nextDrawState = updateDraughtsDrawState(drawStateRef.current, currentBoard, newBoard, move, nextTurn);
+    drawStateRef.current = nextDrawState;
+    setDrawState(nextDrawState);
+
     if (isOnline && !isRemote) {
       // Include serialized board so receiver can reconstruct exact state
       socket.emit('move', { roomId, move, board: JSON.stringify(newBoard) });
     }
 
-    const { over, winner } = isGameOver(newBoard, nextTurn);
+    const { over, winner } = isGameOver(newBoard, nextTurn, nextDrawState);
     if (over) {
       handleGameEnd(winner || 'draw', newBoard);
     }
@@ -341,7 +351,11 @@ export const DraughtsGame: React.FC = () => {
 
   const handleNewGame = () => {
     timeoutClaimedRef.current = false;
-    setBoard(createInitialBoard());
+    const initialBoard = createInitialBoard();
+    setBoard(initialBoard);
+    const initialDrawState = createDraughtsDrawState(initialBoard, 'white');
+    drawStateRef.current = initialDrawState;
+    setDrawState(initialDrawState);
     setTurn('white');
     setSelected(null);
     setLegalMovesForSelected([]);
@@ -415,7 +429,12 @@ export const DraughtsGame: React.FC = () => {
           // Sync authoritative clocks
           if (payload.whiteTime !== undefined) setWhiteTime(payload.whiteTime);
           if (payload.blackTime !== undefined) setBlackTime(payload.blackTime);
-          const { over, winner } = isGameOver(syncedBoard, nextTurn);
+          const nextDrawState = payload.move
+            ? updateDraughtsDrawState(drawStateRef.current, boardRef.current, syncedBoard, payload.move, nextTurn)
+            : createDraughtsDrawState(syncedBoard, nextTurn);
+          drawStateRef.current = nextDrawState;
+          setDrawState(nextDrawState);
+          const { over, winner } = isGameOver(syncedBoard, nextTurn, nextDrawState);
           if (over) handleGameEnd(winner || 'draw', syncedBoard);
           return;
         } catch {}
@@ -482,6 +501,10 @@ export const DraughtsGame: React.FC = () => {
         try {
           const restoredBoard: DraughtsBoardType = JSON.parse(data.board);
           setBoard(restoredBoard);
+          const restoredTurn = (data.turn as Color) || turnRef.current;
+          const restoredDrawState = createDraughtsDrawState(restoredBoard, restoredTurn);
+          drawStateRef.current = restoredDrawState;
+          setDrawState(restoredDrawState);
         } catch { /* corrupt board — keep current */ }
       }
       if (Array.isArray(data.moves)) {
@@ -503,7 +526,13 @@ export const DraughtsGame: React.FC = () => {
       addNotification(t('game.takebackAccepted', 'Takeback accepted'), 'success');
       const count = data?.undoCount ?? 1;
       if (data.board) {
-        try { setBoard(JSON.parse(data.board)); } catch { /* keep current */ }
+        try {
+          const restoredBoard = JSON.parse(data.board);
+          setBoard(restoredBoard);
+          const restoredDrawState = createDraughtsDrawState(restoredBoard, turnRef.current);
+          drawStateRef.current = restoredDrawState;
+          setDrawState(restoredDrawState);
+        } catch { /* keep current */ }
       }
       setMoveHistory(prev => prev.slice(0, Math.max(0, prev.length - count)));
       setLastMove(null);

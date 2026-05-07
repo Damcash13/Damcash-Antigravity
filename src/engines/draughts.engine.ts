@@ -218,7 +218,92 @@ export function applyMove(board: DraughtsBoard, move: DraughtsMove): DraughtsBoa
   return newBoard;
 }
 
-export function isGameOver(board: DraughtsBoard, nextTurn: Color): { over: boolean; winner: Color | 'draw' | null } {
+export interface DraughtsDrawState {
+  positionCounts: Record<string, number>;
+  quietPly: number;
+  endgameKey: string | null;
+  endgamePly: number;
+}
+
+const QUIET_DRAW_PLY = 25;
+const THREE_KINGS_VS_ONE_PLY = 16;
+const TWO_KINGS_VS_ONE_PLY = 5;
+
+function boardPositionKey(board: DraughtsBoard, turn: Color): string {
+  return `${turn}:${board.map(row => row.map(cell => {
+    if (!cell) return '.';
+    return `${cell.color[0]}${cell.type[0]}`;
+  }).join('')).join('/')}`;
+}
+
+function pieceCounts(board: DraughtsBoard) {
+  const counts = {
+    whiteMen: 0,
+    blackMen: 0,
+    whiteKings: 0,
+    blackKings: 0,
+  };
+  for (const row of board) {
+    for (const cell of row) {
+      if (!cell) continue;
+      if (cell.color === 'white' && cell.type === 'king') counts.whiteKings++;
+      else if (cell.color === 'black' && cell.type === 'king') counts.blackKings++;
+      else if (cell.color === 'white') counts.whiteMen++;
+      else counts.blackMen++;
+    }
+  }
+  return counts;
+}
+
+function kingEndgameKey(board: DraughtsBoard): string | null {
+  const c = pieceCounts(board);
+  if (c.whiteMen > 0 || c.blackMen > 0) return null;
+  const low = Math.min(c.whiteKings, c.blackKings);
+  const high = Math.max(c.whiteKings, c.blackKings);
+  if (low === 0) return null;
+  if (low === 1 && (high === 2 || high === 3)) return `${high}v1`;
+  return null;
+}
+
+function isTwoKingsVsTwoKings(board: DraughtsBoard): boolean {
+  const c = pieceCounts(board);
+  return c.whiteMen === 0 && c.blackMen === 0 && c.whiteKings === 2 && c.blackKings === 2;
+}
+
+export function createDraughtsDrawState(board: DraughtsBoard, turn: Color): DraughtsDrawState {
+  const key = boardPositionKey(board, turn);
+  return {
+    positionCounts: { [key]: 1 },
+    quietPly: 0,
+    endgameKey: kingEndgameKey(board),
+    endgamePly: 0,
+  };
+}
+
+export function updateDraughtsDrawState(
+  previous: DraughtsDrawState | null | undefined,
+  beforeBoard: DraughtsBoard,
+  afterBoard: DraughtsBoard,
+  move: DraughtsMove,
+  nextTurn: Color,
+): DraughtsDrawState {
+  const base = previous ?? createDraughtsDrawState(beforeBoard, move.from.row < move.to.row ? 'black' : 'white');
+  const positionKey = boardPositionKey(afterBoard, nextTurn);
+  const wasCapture = Boolean(move.captured?.length);
+  const wasPromotion = Boolean(move.promotesToKing);
+  const nextEndgameKey = kingEndgameKey(afterBoard);
+  return {
+    positionCounts: {
+      ...base.positionCounts,
+      [positionKey]: (base.positionCounts[positionKey] || 0) + 1,
+    },
+    quietPly: wasCapture || wasPromotion ? 0 : base.quietPly + 1,
+    endgameKey: nextEndgameKey,
+    endgamePly: nextEndgameKey && nextEndgameKey === base.endgameKey ? base.endgamePly + 1 : 0,
+  };
+}
+
+export function isGameOver(board: DraughtsBoard, nextTurn: Color, drawState?: DraughtsDrawState): { over: boolean; winner: Color | 'draw' | null } {
   const moves = getLegalMoves(board, nextTurn);
   if (moves.length === 0) {
     const opponent: Color = nextTurn === 'white' ? 'black' : 'white';
@@ -229,6 +314,14 @@ export function isGameOver(board: DraughtsBoard, nextTurn: Color): { over: boole
   if (!hasPieces) {
     const opponent: Color = nextTurn === 'white' ? 'black' : 'white';
     return { over: true, winner: opponent };
+  }
+  if (isTwoKingsVsTwoKings(board)) return { over: true, winner: 'draw' };
+  if (drawState) {
+    const positionKey = boardPositionKey(board, nextTurn);
+    if ((drawState.positionCounts[positionKey] || 0) >= 3) return { over: true, winner: 'draw' };
+    if (drawState.quietPly >= QUIET_DRAW_PLY) return { over: true, winner: 'draw' };
+    if (drawState.endgameKey === '3v1' && drawState.endgamePly >= THREE_KINGS_VS_ONE_PLY) return { over: true, winner: 'draw' };
+    if (drawState.endgameKey === '2v1' && drawState.endgamePly >= TWO_KINGS_VS_ONE_PLY) return { over: true, winner: 'draw' };
   }
   return { over: false, winner: null };
 }
