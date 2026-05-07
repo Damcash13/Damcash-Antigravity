@@ -159,11 +159,17 @@ export const useUserStore = create<UserStore>()(
           20_000,
           'Sign-in',
         );
-        let result = await attemptSignIn();
-        // Supabase may be waking from a cold start — retry once after a short pause
-        if (result.error?.message?.includes('did not respond within')) {
-          await new Promise(r => setTimeout(r, 4_000));
+        let result: any;
+        try {
           result = await attemptSignIn();
+        } catch (firstErr: any) {
+          // withTimeout throws on timeout — retry once after a pause (Supabase cold start)
+          if (firstErr?.message?.includes('did not respond within')) {
+            await new Promise(r => setTimeout(r, 4_000));
+            result = await attemptSignIn();
+          } else {
+            throw firstErr;
+          }
         }
         const { data, error } = result;
         if (error) throw error;
