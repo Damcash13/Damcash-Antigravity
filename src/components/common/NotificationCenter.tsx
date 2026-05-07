@@ -130,8 +130,11 @@ export const NotificationCenter: React.FC = () => {
       {/* Panel */}
       {open && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-          width: 'min(340px, calc(100vw - 24px))', maxHeight: 480,
+          position: 'fixed',
+          top: 56,
+          right: 8,
+          width: 'min(340px, calc(100vw - 16px))',
+          maxHeight: 'min(480px, calc(100vh - 72px))',
           background: 'var(--bg-1)', border: '1px solid var(--border)',
           borderRadius: 12, boxShadow: 'var(--shadow)',
           display: 'flex', flexDirection: 'column',

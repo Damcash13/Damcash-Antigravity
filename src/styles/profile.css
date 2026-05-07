@@ -1070,6 +1070,9 @@
    ══════════════════════════════════════════════════════ */
 
 @media (max-width: 600px) {
+  .pf-rating-row { grid-template-columns: repeat(2, 1fr); }
+  .pf-stat-row   { grid-template-columns: repeat(2, 1fr); }
+
   .pf-page {
     padding: 0 8px 32px;
   }
