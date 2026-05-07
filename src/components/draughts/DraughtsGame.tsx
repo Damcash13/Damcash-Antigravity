@@ -567,6 +567,48 @@ export const DraughtsGame: React.FC = () => {
       }
     };
 
+    const handleMoveRejected = (data: any) => {
+      timeoutClaimedRef.current = false;
+      setSavingResult(false);
+      setPremove(null);
+      setSelected(null);
+      setLegalMovesForSelected([]);
+
+      if (data.whiteTime !== undefined) setWhiteTime(data.whiteTime);
+      if (data.blackTime !== undefined) setBlackTime(data.blackTime);
+
+      if (data.board) {
+        try {
+          const restoredBoard: DraughtsBoardType = JSON.parse(data.board);
+          setBoard(restoredBoard);
+          const restoredTurn: Color = Array.isArray(data.moves) && data.moves.length % 2 === 0 ? 'white' : 'black';
+          setTurn(restoredTurn);
+          const restoredDrawState = createDraughtsDrawState(restoredBoard, restoredTurn);
+          drawStateRef.current = restoredDrawState;
+          setDrawState(restoredDrawState);
+        } catch { /* keep current board if server board is malformed */ }
+      }
+
+      if (Array.isArray(data.moves)) {
+        const restoredMoves = data.moves
+          .map((m: any) => m.move ? formatMove(m.move) : m.san || '')
+          .filter(Boolean);
+        setMoveHistory(restoredMoves);
+        const last = [...data.moves].reverse().find((m: any) => m.move)?.move;
+        setLastMove(last || null);
+        if (!data.board) {
+          setTurn(data.moves.length % 2 === 0 ? 'white' : 'black');
+        }
+      }
+
+      addNotification(
+        data?.reason === 'out_of_turn'
+          ? 'Move was rejected because the server has a different turn. Board resynced.'
+          : 'Move was rejected by the server. Board resynced.',
+        'warning',
+      );
+    };
+
     const handleDrawOfferEvent = () => { setIncomingDraw(true); addNotification(t('game.opponentOfferedDraw', 'Your opponent offered a draw'), 'info'); };
     const handleDrawDeclined = () => {
       setDrawOffered(false);
@@ -594,18 +636,22 @@ export const DraughtsGame: React.FC = () => {
         try {
           const restoredBoard: DraughtsBoardType = JSON.parse(data.board);
           setBoard(restoredBoard);
-          const restoredTurn = (data.turn as Color) || turnRef.current;
+          const restoredTurn = (data.turn as Color) || (Array.isArray(data.moves) && data.moves.length % 2 === 0 ? 'white' : 'black');
           const restoredDrawState = createDraughtsDrawState(restoredBoard, restoredTurn);
           drawStateRef.current = restoredDrawState;
           setDrawState(restoredDrawState);
         } catch { /* corrupt board — keep current */ }
       }
       if (Array.isArray(data.moves)) {
-        setMoveHistory(data.moves.map((m: any) => formatMove(m)));
+        setMoveHistory(data.moves.map((m: any) => m.move ? formatMove(m.move) : formatMove(m)).filter(Boolean));
         const last = data.moves[data.moves.length - 1];
-        if (last) setLastMove(last);
+        if (last) setLastMove(last.move || last);
+        if (!data.turn) setTurn(data.moves.length % 2 === 0 ? 'white' : 'black');
       }
       if (data.turn) setTurn(data.turn as Color);
+      if (data.whiteTime !== undefined) setWhiteTime(data.whiteTime);
+      if (data.blackTime !== undefined) setBlackTime(data.blackTime);
+      setIsOpponentDisconnected(false);
       const myCol: Color = data.color || playerColor;
       const opp = myCol === 'white' ? data.blackPlayer : data.whitePlayer;
       if (opp) setOpponentInfo({ name: opp.name || 'Opponent', rating: Number(opp.rating?.checkers ?? opp.rating) || 1450, country: opp.country || '' });
@@ -683,6 +729,7 @@ export const DraughtsGame: React.FC = () => {
     socket.on('game-start', handleGameStart);
     socket.on('spectate:list', handleSpectateList);
     socket.on('move', handleSocketMove);
+    socket.on('move:rejected', handleMoveRejected);
     socket.on('chat', handleSocketChat);
     socket.on('game-over', handleGameOverEmit);
     socket.on('draw:offer', handleDrawOfferEvent);
@@ -719,6 +766,7 @@ export const DraughtsGame: React.FC = () => {
       socket.off('game-start', handleGameStart);
       socket.off('spectate:list', handleSpectateList);
       socket.off('move', handleSocketMove);
+      socket.off('move:rejected', handleMoveRejected);
       socket.off('chat', handleSocketChat);
       socket.off('game-over', handleGameOverEmit);
       socket.off('draw:offer', handleDrawOfferEvent);

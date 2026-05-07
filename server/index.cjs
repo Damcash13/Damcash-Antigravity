@@ -438,6 +438,7 @@ const spectators       = new Map(); // socketId -> roomId  (which room they're w
 const takebackRequests = new Map(); // roomId   -> { fromId, timeoutId }
 const seekTimeouts     = new Map(); // seekId   -> timeoutId (120s auto-expiry)
 const reconnectTokens  = new Map(); // roomId   -> { white: {token,socketId}, black: {token,socketId} }
+const roomDisconnectTimers = new Map(); // roomId -> timeoutId for grace cleanup
 const socketToUserId = new Map(); // socketId -> db user id
 const userIdToSocketId = new Map(); // db user id -> socketId
 let tournamentMatchSchemaReady = false;
@@ -789,6 +790,10 @@ async function startRoom(roomId, creatorId, joinerId, config) {
     whiteTime: tc.initial,
     blackTime: tc.initial,
     lastMoveTime: null,
+    userIds: {
+      white: socketToUserId.get(white) || null,
+      black: socketToUserId.get(black) || null,
+    },
   });
 
   // Create DB Match records for every signed-in game, rated or casual.
@@ -848,6 +853,10 @@ async function startRoom(roomId, creatorId, joinerId, config) {
   if (startedRoom) {
     startedRoom.startedAt = startedAt;
     startedRoom.lastMoveTime = startedAt;
+    startedRoom.playerInfo = {
+      white: wp ? { ...wp } : null,
+      black: bp ? { ...bp } : null,
+    };
   }
   const gameData = {
     roomId, white, black, config,
@@ -1215,6 +1224,12 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) { socket.emit('room:rejoin:denied', { reason: 'Game over' }); return; }
 
+    const pendingCleanup = roomDisconnectTimers.get(roomId);
+    if (pendingCleanup) {
+      clearTimeout(pendingCleanup);
+      roomDisconnectTimers.delete(roomId);
+    }
+
     // Update socket ID in room and token store
     const oldSocketId = tokens[color].socketId;
     tokens[color].socketId = socket.id;
@@ -1223,7 +1238,11 @@ io.on('connection', (socket) => {
 
     // Re-register in players map under new socket ID
     const oldPlayer = players.get(oldSocketId);
-    if (oldPlayer) { players.set(socket.id, oldPlayer); players.delete(oldSocketId); }
+    const fallbackPlayer = room.playerInfo?.[color];
+    if (oldPlayer || fallbackPlayer) {
+      players.set(socket.id, oldPlayer || fallbackPlayer);
+      players.delete(oldSocketId);
+    }
 
     const lastMove  = room.moves.length > 0 ? room.moves[room.moves.length - 1] : null;
     const isCheckers = room.config?.universe === 'checkers';
@@ -1237,8 +1256,8 @@ io.on('connection', (socket) => {
       board:    isCheckers  ? (lastMove?.board || null) : null,
       white: room.players.white,
       black: room.players.black,
-      whitePlayer: players.get(room.players.white),
-      blackPlayer: players.get(room.players.black),
+      whitePlayer: players.get(room.players.white) || room.playerInfo?.white,
+      blackPlayer: players.get(room.players.black) || room.playerInfo?.black,
       whiteTime: room.whiteTime,
       blackTime: room.blackTime,
     });
@@ -1254,31 +1273,46 @@ io.on('connection', (socket) => {
 
     const room = rooms.get(roomId);
     if (!room) return;
-    const wp = players.get(room.players.white);
-    const bp = players.get(room.players.black);
 
     // Shortcut reconnect for mobile users who lost sessionStorage (can't use room:rejoin).
     // Guard: only update the slot when the original socket is confirmed dead.
     // If the original socket is still alive, the second tab gets read-only player info only.
     const myUserId = socketToUserId.get(socket.id);
     if (myUserId) {
-      const whiteUserId = socketToUserId.get(room.players.white);
-      const blackUserId = socketToUserId.get(room.players.black);
+      const whiteUserId = room.userIds?.white || socketToUserId.get(room.players.white);
+      const blackUserId = room.userIds?.black || socketToUserId.get(room.players.black);
 
       if (whiteUserId === myUserId) {
         const oldSocketId = room.players.white;
         if (!io.sockets.sockets.has(oldSocketId)) {
           room.players.white = socket.id;
+          const tokens = reconnectTokens.get(roomId);
+          if (tokens?.white) tokens.white.socketId = socket.id;
+          const pendingCleanup = roomDisconnectTimers.get(roomId);
+          if (pendingCleanup) {
+            clearTimeout(pendingCleanup);
+            roomDisconnectTimers.delete(roomId);
+          }
           log.warn(`[SHORTCUT-REJOIN] userId=${myUserId} roomId=${roomId} newSocket=${socket.id} replacedSocket=${oldSocketId} ts=${Date.now()}`);
         }
       } else if (blackUserId === myUserId) {
         const oldSocketId = room.players.black;
         if (!io.sockets.sockets.has(oldSocketId)) {
           room.players.black = socket.id;
+          const tokens = reconnectTokens.get(roomId);
+          if (tokens?.black) tokens.black.socketId = socket.id;
+          const pendingCleanup = roomDisconnectTimers.get(roomId);
+          if (pendingCleanup) {
+            clearTimeout(pendingCleanup);
+            roomDisconnectTimers.delete(roomId);
+          }
           log.warn(`[SHORTCUT-REJOIN] userId=${myUserId} roomId=${roomId} newSocket=${socket.id} replacedSocket=${oldSocketId} ts=${Date.now()}`);
         }
       }
     }
+
+    const wp = players.get(room.players.white) || room.playerInfo?.white;
+    const bp = players.get(room.players.black) || room.playerInfo?.black;
 
     if (room.players.white === socket.id || room.players.black === socket.id) {
       socket.join(roomId);
@@ -1592,6 +1626,11 @@ io.on('connection', (socket) => {
         const p = players.get(id);
         if (p) { p.status = 'idle'; p.currentTC = null; players.set(id, p); }
       });
+      const pendingCleanup = roomDisconnectTimers.get(roomId);
+      if (pendingCleanup) {
+        clearTimeout(pendingCleanup);
+        roomDisconnectTimers.delete(roomId);
+      }
       rooms.delete(roomId);
       reconnectTokens.delete(roomId);
       broadcastPlayerList();
@@ -1628,6 +1667,7 @@ io.on('connection', (socket) => {
         moves: room.moves.map(m => ({
           from: m.from,
           to: m.to,
+          move: m.move,
           promotion: m.promotion,
           san: m.san,
           fen: m.fen,
@@ -2184,6 +2224,11 @@ io.on('connection', (socket) => {
       socket.to(roomId).emit('room:cancelled');
       markRoomMatchAborted(roomId, 'Cancelled before first move');
       releaseTournamentRoom(roomId);
+      const pendingCleanup = roomDisconnectTimers.get(roomId);
+      if (pendingCleanup) {
+        clearTimeout(pendingCleanup);
+        roomDisconnectTimers.delete(roomId);
+      }
       rooms.delete(roomId);
       reconnectTokens.delete(roomId);
       const p = players.get(socket.id);
@@ -2398,11 +2443,28 @@ io.on('connection', (socket) => {
     // Notify rooms
     for (const [roomId, room] of rooms.entries()) {
       if (Object.values(room.players).includes(socket.id)) {
+        const color = room.players.white === socket.id ? 'white' : 'black';
+        room.disconnected = {
+          ...(room.disconnected || {}),
+          [color]: { socketId: socket.id, at: Date.now() },
+        };
         socket.to(roomId).emit('player-disconnected', { socketId: socket.id });
-        markRoomMatchAborted(roomId, 'Player disconnected');
-        releaseTournamentRoom(roomId);
-        rooms.delete(roomId);
-        reconnectTokens.delete(roomId);
+
+        if (!roomDisconnectTimers.has(roomId)) {
+          const timeoutId = setTimeout(() => {
+            roomDisconnectTimers.delete(roomId);
+            const latestRoom = rooms.get(roomId);
+            if (!latestRoom || latestRoom.settling) return;
+            if (latestRoom.players[color] !== socket.id) return;
+
+            markRoomMatchAborted(roomId, 'Player disconnected');
+            releaseTournamentRoom(roomId);
+            rooms.delete(roomId);
+            reconnectTokens.delete(roomId);
+            log.info(`[ROOM] Closed ${roomId} after disconnected ${color} missed reconnect grace`);
+          }, 90_000);
+          roomDisconnectTimers.set(roomId, timeoutId);
+        }
       }
     }
   });
@@ -5124,6 +5186,11 @@ setInterval(() => {
     if (age > 4 * 60 * 60 * 1000 && room.moves.length === 0) {
       markRoomMatchAborted(id, 'Stale room cleanup');
       releaseTournamentRoom(id);
+      const pendingCleanup = roomDisconnectTimers.get(id);
+      if (pendingCleanup) {
+        clearTimeout(pendingCleanup);
+        roomDisconnectTimers.delete(id);
+      }
       rooms.delete(id);
       log.warn(`[CLEANUP] Removed stale room ${id}`);
     }
