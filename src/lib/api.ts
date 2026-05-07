@@ -7,7 +7,10 @@ const BASE: string = (typeof import.meta !== 'undefined' && (import.meta as any)
 
 const API_TIMEOUT = 15_000; // 15s — enough for cold-start but won't hang forever
 
-type ApiRequestOptions = RequestInit & { requireAuth?: boolean };
+type ApiRequestOptions = RequestInit & {
+  requireAuth?: boolean;
+  suppressAuthEvent?: boolean;
+};
 
 export class ApiRequestError extends Error {
   status: number;
@@ -24,7 +27,7 @@ export class ApiRequestError extends Error {
 }
 
 async function request<T>(path: string, opts?: ApiRequestOptions): Promise<T> {
-  const { requireAuth = false, ...fetchOpts } = opts || {};
+  const { requireAuth = false, suppressAuthEvent = false, ...fetchOpts } = opts || {};
   let token: string | null = null;
   if (supabase) {
     try {
@@ -53,7 +56,7 @@ async function request<T>(path: string, opts?: ApiRequestOptions): Promise<T> {
   }
 
   if (requireAuth && !token) {
-    if (typeof window !== 'undefined') {
+    if (!suppressAuthEvent && typeof window !== 'undefined') {
       window.dispatchEvent(new Event('auth:unauthorized'));
     }
     throw new ApiRequestError('Please sign in again to continue.', 401, path, false);
@@ -100,7 +103,7 @@ async function request<T>(path: string, opts?: ApiRequestOptions): Promise<T> {
 
     if (!res.ok) {
       const authAttempted = Boolean(token);
-      if (res.status === 401 && (authAttempted || requireAuth) && typeof window !== 'undefined') {
+      if (!suppressAuthEvent && res.status === 401 && (authAttempted || requireAuth) && typeof window !== 'undefined') {
         window.dispatchEvent(new Event('auth:unauthorized'));
       }
       const isJson = res.headers.get('content-type')?.includes('application/json');
@@ -134,7 +137,11 @@ export const api = {
   auth: {
     // NOTE: register and login are handled client-side via Supabase Auth.
     // The backend only provides /api/auth/me for profile sync after Supabase login.
-    me: () => request<{ user: ApiUser }>('/api/auth/me'),
+    me: (opts?: { suppressAuthEvent?: boolean }) =>
+      request<{ user: ApiUser }>('/api/auth/me', {
+        requireAuth: true,
+        suppressAuthEvent: opts?.suppressAuthEvent,
+      }),
     updateProfile: (body: {
       username?: string;
       country?: string;

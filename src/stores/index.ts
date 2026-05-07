@@ -163,7 +163,7 @@ export const useUserStore = create<UserStore>()(
 
         // Fetch backend profile (may fail if server is starting up — fall back gracefully)
         try {
-          const res = await api.auth.me();
+          const res = await api.auth.me({ suppressAuthEvent: true });
           const u = apiUserToUser(res.user);
           set({
             user: u,
@@ -310,7 +310,7 @@ export const useUserStore = create<UserStore>()(
             return;
           }
 
-          const res = await api.auth.me();
+          const res = await api.auth.me({ suppressAuthEvent: true });
           const u = apiUserToUser(res.user);
           // Reconnect socket with restored auth token
           reconnectWithToken(session.access_token);
@@ -341,7 +341,7 @@ export const useUserStore = create<UserStore>()(
               );
               if (error || !data?.session) throw error || new Error('No refreshed session');
 
-              const res = await api.auth.me();
+              const res = await api.auth.me({ suppressAuthEvent: true });
               const u = apiUserToUser(res.user);
               reconnectWithToken(data.session.access_token);
               set({
@@ -377,7 +377,7 @@ export const useUserStore = create<UserStore>()(
             if (session?.access_token) {
               reconnectWithToken(session.access_token);
               try {
-                const res = await api.auth.me();
+                const res = await api.auth.me({ suppressAuthEvent: true });
                 const u = apiUserToUser(res.user);
                 set({
                   user: u,
