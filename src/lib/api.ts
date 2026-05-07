@@ -312,7 +312,11 @@ export const api = {
       request<{ ok: boolean }>(`/api/safety/block/${encodeURIComponent(username)}`, {
         method: 'DELETE',
       }),
-    blocked: () => request<{ blockedUsers: string[] }>('/api/safety/blocked'),
+    blocked: (opts?: { suppressAuthEvent?: boolean }) =>
+      request<{ blockedUsers: string[] }>('/api/safety/blocked', {
+        requireAuth: true,
+        suppressAuthEvent: opts?.suppressAuthEvent,
+      }),
     adminModeration: (limit = 50) =>
       request<{ reports: ApiModerationReport[] }>(`/api/admin/moderation?limit=${encodeURIComponent(String(limit))}`),
   },
@@ -336,8 +340,11 @@ export const api = {
   },
 
   messages: {
-    conversations: () =>
-      request<{ conversations: ApiConversation[] }>('/api/messages/conversations'),
+    conversations: (opts?: { suppressAuthEvent?: boolean }) =>
+      request<{ conversations: ApiConversation[] }>('/api/messages/conversations', {
+        requireAuth: true,
+        suppressAuthEvent: opts?.suppressAuthEvent,
+      }),
     thread: (username: string) =>
       request<{ other: { id: string; username: string }; messages: ApiDirectMessage[] }>(
         `/api/messages/thread/${encodeURIComponent(username)}`

@@ -141,10 +141,10 @@ export default function App() {
       initPresence(user.name, user.rating ?? { chess: 1500, checkers: 1450 });
       initFriends();
       if (isLoggedIn) {
-        api.safety.blocked()
+        api.safety.blocked({ suppressAuthEvent: true })
           .then(({ blockedUsers }) => setBlockedUsers(blockedUsers))
           .catch(() => {});
-        api.messages.conversations()
+        api.messages.conversations({ suppressAuthEvent: true })
           .then(({ conversations }) => setMessageUnreadCount(conversations.reduce((sum, item) => sum + item.unreadCount, 0)))
           .catch(() => {});
       }
@@ -230,7 +230,8 @@ export default function App() {
       try {
         const restoreIfStillSignedIn = async () => {
           await restoreSession();
-          return Boolean(useUserStore.getState().user);
+          const state = useUserStore.getState();
+          return Boolean(state.user && state.isLoggedIn);
         };
 
         const { data: { session } } = await withTimeout<any>(
