@@ -3526,15 +3526,18 @@ html, body {
   .header-nav { display: none; }
   .header-search-wrap { display: none; }
   .header-auth-actions { display: none; }
-  .header-profile-btn { display: none; }
-  .header-wallet-balance { display: none; }
-  .header-wallet-btn {
-    width: 34px;
+  .logo-wordmark { display: none; }
+  .header-message-btn,
+  .header-wallet-btn { display: none; }
+  .header-profile-btn {
+    display: flex;
+    min-width: 94px;
+    max-width: 124px;
     min-height: 34px;
-    padding: 0;
-    border-radius: 50%;
-    background: transparent;
+    padding: 4px 8px;
   }
+  .header-profile-name { max-width: 104px; font-size: 11px; }
+  .header-profile-rating { font-size: 10px; line-height: 1; color: var(--accent); }
   .header-inner {
     padding: 0 8px;
     gap: 6px;
@@ -3583,7 +3586,7 @@ html, body {
   .dm-bubble { max-width: 92%; }
   .pairing-grid { grid-template-columns: repeat(2, 1fr); }
   .header-right { gap: 4px; }
-  .header-profile-btn { min-width: 96px; max-width: 132px; padding: 5px 8px; }
+  .header-profile-btn { min-width: 92px; max-width: 116px; padding: 4px 7px; }
   .header-profile-name { display: inline-flex; max-width: 112px; font-size: 11px; }
   .header-profile-rating { font-size: 10px; line-height: 1; color: var(--text-2); }
   .logo { gap: 5px; min-width: 0; }
@@ -3608,13 +3611,12 @@ html, body {
   .header .logo-mark { width: 26px; height: 26px; border-radius: 6px; }
   .logo-wordmark { display: none; }
   .header-wallet-btn,
-  .header-message-btn,
-  .header-notification-wrap { display: none; }
+  .header-message-btn { display: none; }
+  .header-profile-btn { min-width: 86px; max-width: 104px; padding: 4px 6px; }
+  .header-profile-name { max-width: 88px; }
   .hamburger-btn { min-width: 62px; height: 34px; padding: 0 10px; }
   .btn-signin,
   .btn-register { font-size: 10px; padding: 5px 8px; }
-  .header-profile-btn { min-width: 88px; max-width: 112px; padding: 5px 7px; }
-  .header-profile-name { max-width: 92px; }
 }
 
 /* ===== SUPABASE BANNER ===== */
