@@ -230,9 +230,16 @@ export const PremiumHomePage: React.FC<Props> = ({
 
           {/* Logo */}
           <button className="ph-header-logo" onClick={() => navigate(`/${universe}`)}>
-            <img src="/logo.svg" alt="DamCash" className="ph-logo-img" />
-            <span className="ph-logo-crown">👑</span>
-            <span className="ph-logo-word">Dam<span>Cash</span></span>
+            <span className="ph-logo-monogram" aria-hidden="true">
+              <span className="ph-logo-crown">♛</span>
+              <span className="ph-logo-d">D</span>
+              <span className="ph-logo-c">C</span>
+            </span>
+            <span className="ph-logo-separator" aria-hidden="true" />
+            <span className="ph-logo-lockup">
+              <span className="ph-logo-word"><span>Dam</span><span>Cash</span></span>
+              <span className="ph-logo-tagline">Stratégie. Rapidité. Victoire.</span>
+            </span>
           </button>
 
           {/* Nav */}
@@ -256,7 +263,9 @@ export const PremiumHomePage: React.FC<Props> = ({
 
             {isLoggedIn && user ? (
               <>
-                <NotificationCenter />
+                <div className="ph-header-notification">
+                  <NotificationCenter />
+                </div>
                 <button
                   className="ph-header-profile-btn"
                   onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`)}
