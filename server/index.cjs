@@ -1165,6 +1165,32 @@ io.on('connection', (socket) => {
     deliverPendingInvites(socket);
   });
 
+  // ── Player presence tracking ─────────────────────────────────────────────
+  socket.on('player:connect', async (data) => {
+    try {
+      const profile = await loadSocketPublicProfile(socket);
+      if (!profile) return;
+
+      const playerData = {
+        socketId: socket.id,
+        userId: socketToUserId.get(socket.id),
+        name: profile.username,
+        rating: {
+          chess: profile.chessRating || 1500,
+          checkers: profile.checkersRating || 1450,
+        },
+        country: profile.country || '',
+        status: 'idle',
+        universe: data?.universe || 'chess',
+      };
+
+      // Broadcast to all other players
+      socket.broadcast.emit('player:connected', playerData);
+    } catch (err) {
+      log.error('[player:connect]', err instanceof Error ? err.message : String(err));
+    }
+  });
+
   socket.on('player:update-universe', ({ universe }) => {
     const p = players.get(socket.id);
     if (!p) return;
@@ -1182,6 +1208,11 @@ io.on('connection', (socket) => {
     players.set(socket.id, p);
     broadcastPlayerList();
     deliverPendingInvites(socket);
+    // Broadcast universe change to all other players
+    socket.broadcast.emit('player:universe-changed', {
+      socketId: socket.id,
+      universe: nextUniverse,
+    });
   });
 
   // ── Quick pairing (matchmaking queue) ───────────────────────────────────
@@ -2599,6 +2630,8 @@ io.on('connection', (socket) => {
     console.log(`[-] ${socket.id}`);
     players.delete(socket.id);
     broadcastPlayerList();
+    // Notify all other players that this socket has left
+    socket.broadcast.emit('player:disconnected', { socketId: socket.id });
 
     // Cancel seeks
     removeSeekBySocket(socket.id);
