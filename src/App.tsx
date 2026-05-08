@@ -55,7 +55,8 @@ const LobbyView: React.FC<{
   onChallengeFriendDirect: (socketId: string, name: string) => void;
   onOpenWallet:    () => void;
   onOpenAuth:      () => void;
-}> = ({ onCreateGame, onChallengeFriend, onPlayComputer, onInvitePlayer, onOpenWallet, onOpenAuth }) => {
+  onOpenMessages:  () => void;
+}> = ({ onCreateGame, onChallengeFriend, onPlayComputer, onInvitePlayer, onOpenWallet, onOpenAuth, onOpenMessages }) => {
   return (
     <PremiumHomePage
       onCreateGame={onCreateGame}
@@ -64,6 +65,7 @@ const LobbyView: React.FC<{
       onPlayComputer={onPlayComputer}
       onInvitePlayer={onInvitePlayer}
       onOpenAuth={onOpenAuth}
+      onOpenMessages={onOpenMessages}
     />
   );
 };
@@ -115,6 +117,7 @@ export default function App() {
   const setBlockedUsers    = useSafetyStore(s => s.setBlockedUsers);
   const setMessageUnreadCount = useDirectMessageStore(s => s.setUnreadCount);
   const bumpMessageUnreadCount = useDirectMessageStore(s => s.bumpUnreadCount);
+  const openMessages = useDirectMessageStore(s => s.openInbox);
   const pushCenterNotification = useNotifCenterStore(s => s.push);
 
   const [showAuth, setShowAuth] = useState(false);
@@ -441,6 +444,7 @@ export default function App() {
                 onChallengeFriendDirect={handleChallengeFriendDirect}
                 onOpenWallet={() => setShowWallet(true)}
                 onOpenAuth={() => setShowAuth(true)}
+                onOpenMessages={openMessages}
               />
             } />
 

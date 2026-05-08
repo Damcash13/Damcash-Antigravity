@@ -1208,17 +1208,22 @@
 }
 
 .ph-activity-tag {
+  border: none;
   padding: 3px 9px;
   border-radius: 20px;
   font-size: 11.5px;
   font-weight: 700;
   flex-shrink: 0;
   white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.14s ease, filter 0.14s ease;
 }
 
 .ph-activity-tag.win       { background: rgba(22,163,74,0.1);   color: var(--ph-green); }
 .ph-activity-tag.loss      { background: rgba(220,38,38,0.1);   color: var(--ph-red); }
 .ph-activity-tag.challenge { background: var(--ph-gold-light);  color: var(--ph-gold); }
+.ph-activity-tag:hover { filter: brightness(0.96); transform: translateY(-1px); }
 
 /* ═══════════════════════════════
    QUICK PAIRING
@@ -1684,6 +1689,13 @@
   display: grid;
   align-items: center;
   border-bottom: 1px solid var(--ph-border-soft);
+  width: 100%;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.14s ease, transform 0.14s ease;
 }
 
 .ph-upcoming-row {
@@ -1695,6 +1707,24 @@
 .ph-upcoming-row:last-child,
 .ph-rank-row:last-child {
   border-bottom: 0;
+}
+
+.ph-upcoming-row:hover,
+.ph-rank-row:hover {
+  background: rgba(201, 149, 30, 0.06);
+  transform: translateY(-1px);
+}
+
+.ph-upcoming-row {
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+}
+
+.ph-rank-row {
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
 }
 
 .ph-upcoming-icon {

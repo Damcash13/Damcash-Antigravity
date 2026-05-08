@@ -22,6 +22,7 @@ interface Props {
   onPlayComputer: () => void;
   onInvitePlayer: (player: OnlinePlayer) => void;
   onOpenAuth: () => void;
+  onOpenMessages: () => void;
 }
 
 // ── Static content ────────────────────────────────────────────────────────────
@@ -109,7 +110,7 @@ const HEADER_NAV = [
 
 export const PremiumHomePage: React.FC<Props> = ({
   onCreateGame, onOpenWallet, onChallengeFriend, onPlayComputer,
-  onInvitePlayer, onOpenAuth,
+  onInvitePlayer, onOpenAuth, onOpenMessages,
 }) => {
   const navigate    = useNavigate();
   const location    = useLocation();
@@ -198,6 +199,9 @@ export const PremiumHomePage: React.FC<Props> = ({
     else if (key === 'challenges')  onChallengeFriend();
     else if (key === 'tournaments') navigate(`/${universe}/tournaments`);
     else if (key === 'leaderboard') navigate(`/${universe}/leaderboard`);
+    else if (key === 'messages')    isLoggedIn ? onOpenMessages() : onOpenAuth();
+    else if (key === 'friends')     setActiveTab('lobby');
+    else if (key === 'settings')    user ? navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`) : onOpenAuth();
     else navigate(`/${universe}/coming-soon/${key}`);
   };
 
@@ -222,6 +226,11 @@ export const PremiumHomePage: React.FC<Props> = ({
   const avatarInitial = user?.name ? user.name.charAt(0).toUpperCase() : '?';
   const userFlag = user?.country ? countryFlag(user.country) : '';
   const userCountryName = user?.country ? countryName(user.country) : '';
+  const viewLiveGames = () => {
+    const firstLiveGame = liveActiveGames[0];
+    if (firstLiveGame) navigate(`/${firstLiveGame.universe}/watch/${firstLiveGame.id}`);
+    else setActiveTab('lobby');
+  };
 
   return (
     <div className="ph-layout">
@@ -512,7 +521,9 @@ export const PremiumHomePage: React.FC<Props> = ({
                   <div className="ph-card ph-activity-card">
                     <div className="ph-card-head">
                       <div className="ph-card-title">Activité récente</div>
-                      <button className="ph-card-action">Tout voir →</button>
+                      <button className="ph-card-action" onClick={() => user ? navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`) : onOpenAuth()}>
+                        Tout voir →
+                      </button>
                     </div>
                     <div className="ph-activity-list">
                       {MOCK_ACTIVITY.map(a => (
@@ -524,7 +535,12 @@ export const PremiumHomePage: React.FC<Props> = ({
                             <div className="ph-activity-title">{a.title}</div>
                             <div className="ph-activity-meta">{a.detail && `${a.detail} · `}{a.time}</div>
                           </div>
-                          <span className={`ph-activity-tag ${a.type}`}>{a.tag}</span>
+                          <button
+                            className={`ph-activity-tag ${a.type}`}
+                            onClick={() => a.type === 'challenge' ? onChallengeFriend() : navigate(`/${universe}/leaderboard`)}
+                          >
+                            {a.tag}
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -582,7 +598,7 @@ export const PremiumHomePage: React.FC<Props> = ({
                         <span className="ph-live-dot" />
                         <span className="ph-live-label">LIVE</span>
                       </div>
-                      <button className="ph-card-action" onClick={() => navigate(`/${universe}`)}>Voir toutes →</button>
+                      <button className="ph-card-action" onClick={viewLiveGames}>Voir toutes →</button>
                     </div>
                     {liveGamesLoading ? (
                       <div style={{ display: 'flex', gap: 10 }}>
@@ -640,12 +656,16 @@ export const PremiumHomePage: React.FC<Props> = ({
                         ['🏆', 'Week-End Arena', 'Demain • 15:00', '256'],
                         ['🏆', 'Classique Prestige', 'Dim. 26 mai • 17:00', '64'],
                       ].map(([icon, name, date, players]) => (
-                        <div key={name} className="ph-upcoming-row">
+                        <button
+                          key={name}
+                          className="ph-upcoming-row"
+                          onClick={() => navigate(`/${universe}/tournaments`)}
+                        >
                           <span className="ph-upcoming-icon">{icon}</span>
                           <span className="ph-upcoming-main"><strong>{name}</strong><small>{date}</small></span>
                           <span className="ph-upcoming-players">♟ {players}</span>
                           <span className="ph-register-badge">Inscription</span>
-                        </div>
+                        </button>
                       ))}
                     </div>
 
@@ -655,19 +675,26 @@ export const PremiumHomePage: React.FC<Props> = ({
                         <button className="ph-card-action" onClick={() => navigate(`/${universe}/leaderboard`)}>Voir le classement →</button>
                       </div>
                       {displayLeaderboard.slice(0, 5).map(entry => (
-                        <div key={entry.rank} className="ph-rank-row">
+                        <button
+                          key={entry.rank}
+                          className="ph-rank-row"
+                          onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(entry.name)}`)}
+                        >
                           <span className={`ph-rank-medal rank-${entry.rank}`}>{entry.rank}</span>
                           <span className="ph-rank-avatar">{entry.name.slice(0, 1).toUpperCase()}</span>
                           <strong>{entry.name}</strong>
                           <em>{entry.score}</em>
-                        </div>
+                        </button>
                       ))}
-                      <div className="ph-rank-row ph-rank-me">
+                      <button
+                        className="ph-rank-row ph-rank-me"
+                        onClick={() => user ? navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`) : onOpenAuth()}
+                      >
                         <span className="ph-rank-medal">—</span>
                         <span className="ph-rank-avatar">{(user?.name || 'Vous').slice(0, 1).toUpperCase()}</span>
                         <strong>Vous</strong>
                         <em>{user?.rating?.[universe] ?? 1987}</em>
-                      </div>
+                      </button>
                     </div>
                   </div>
 
