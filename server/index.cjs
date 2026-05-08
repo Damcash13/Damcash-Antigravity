@@ -443,6 +443,7 @@ const reconnectTokens  = new Map(); // roomId   -> { white: {token,socketId}, bl
 const roomDisconnectTimers = new Map(); // roomId -> timeoutId for grace cleanup
 const socketToUserId = new Map(); // socketId -> db user id
 const userIdToSocketId = new Map(); // db user id -> socketId
+const INVITE_TTL_MS = 30_000;
 let tournamentMatchSchemaReady = false;
 
 function reconnectGraceMs(room) {
@@ -776,6 +777,43 @@ function latestSocketForClient(clientId) {
   return null;
 }
 
+function inviteDeliveryPayload(invite) {
+  const inviteUniverse = normalizeUniverse(invite.config?.universe);
+  const inviterSocketId =
+    latestSocketForUser(invite.fromUserId) ||
+    latestSocketForClient(invite.fromClientId) ||
+    (io.sockets.sockets.has(invite.fromId) ? invite.fromId : null);
+  const sender = inviterSocketId ? players.get(inviterSocketId) : null;
+  return {
+    inviteId: invite.id,
+    fromSocketId: inviterSocketId || invite.fromId,
+    fromName: sender?.name || invite.fromSnapshot?.name || 'Unknown',
+    fromRating: sender?.rating?.[inviteUniverse] || invite.fromSnapshot?.rating || 1500,
+    config: invite.config,
+    expiresAt: invite.expiresAt,
+  };
+}
+
+function deliverPendingInvites(socket) {
+  const recipient = players.get(socket.id);
+  if (!recipient) return;
+  const now = Date.now();
+  for (const [inviteId, invite] of invites.entries()) {
+    if (invite.expiresAt <= now) {
+      invites.delete(inviteId);
+      continue;
+    }
+    const inviteUniverse = normalizeUniverse(invite.config?.universe);
+    const isRecipient =
+      invite.toId === socket.id ||
+      (invite.toUserId && recipient.userId === invite.toUserId) ||
+      (invite.toClientId && recipient.clientId === invite.toClientId);
+    if (!isRecipient || normalizeUniverse(recipient.universe) !== inviteUniverse) continue;
+    invite.toId = socket.id;
+    io.to(socket.id).emit('invite:received', inviteDeliveryPayload(invite));
+  }
+}
+
 function broadcastPlayerList() {
   const list = buildPublicPlayerList();
   io.emit('players:online', list);
@@ -1104,6 +1142,7 @@ io.on('connection', (socket) => {
     broadcastPlayerList();
     socket.emit('players:online', buildPublicPlayerList());
     socket.emit('seeks:list', publicSeekList());
+    deliverPendingInvites(socket);
   });
 
   socket.on('player:update-universe', ({ universe }) => {
@@ -1122,6 +1161,7 @@ io.on('connection', (socket) => {
     p.universe = nextUniverse;
     players.set(socket.id, p);
     broadcastPlayerList();
+    deliverPendingInvites(socket);
   });
 
   // ── Quick pairing (matchmaking queue) ───────────────────────────────────
@@ -1457,18 +1497,20 @@ io.on('connection', (socket) => {
   // ── Direct invite ────────────────────────────────────────────────────────
   socket.on('invite:send', ({ targetSocketId, targetUserId, targetClientId, config }) => {
     const sender = players.get(socket.id);
+    const safeTargetUserId = sanitizeText(targetUserId || '', 80) || null;
+    const safeTargetClientId = sanitizeText(targetClientId || '', 80) || null;
     const resolvedTargetSocketId =
-      latestSocketForUser(sanitizeText(targetUserId || '', 80)) ||
-      latestSocketForClient(sanitizeText(targetClientId || '', 80)) ||
+      latestSocketForUser(safeTargetUserId) ||
+      latestSocketForClient(safeTargetClientId) ||
       targetSocketId;
     const target = players.get(resolvedTargetSocketId);
-    if (!sender || !target) {
+    if (!sender || (!target && !safeTargetUserId && !safeTargetClientId)) {
       socket.emit('room:error', { message: 'That player is no longer available.' });
       return;
     }
 
     const inviteUniverse = normalizeUniverse(config?.universe || sender.universe);
-    if (normalizeUniverse(sender.universe) !== inviteUniverse || normalizeUniverse(target.universe) !== inviteUniverse) {
+    if (normalizeUniverse(sender.universe) !== inviteUniverse || (target && normalizeUniverse(target.universe) !== inviteUniverse)) {
       socket.emit('room:error', {
         message: `You can only challenge players who are in the ${universeLabel(inviteUniverse)} lobby.`,
       });
@@ -1477,34 +1519,42 @@ io.on('connection', (socket) => {
 
     const safeConfig = { ...config, universe: inviteUniverse };
     const inviteId = genId();
-    const expiresAt = Date.now() + 30_000;
-    invites.set(inviteId, {
+    const expiresAt = Date.now() + INVITE_TTL_MS;
+    const invite = {
+      id: inviteId,
       fromId: socket.id,
       fromUserId: sender.userId || null,
       fromClientId: sender.clientId || null,
       toId: resolvedTargetSocketId,
-      toUserId: target.userId || null,
-      toClientId: target.clientId || null,
+      toUserId: target?.userId || safeTargetUserId,
+      toClientId: target?.clientId || safeTargetClientId,
       config: safeConfig,
       expiresAt,
-    });
+      fromSnapshot: {
+        name: sender.name || 'Unknown',
+        rating: sender.rating?.[inviteUniverse] || 1500,
+      },
+    };
+    invites.set(inviteId, invite);
 
-    io.to(resolvedTargetSocketId).emit('invite:received', {
-      inviteId,
-      fromSocketId: socket.id,
-      fromName:   sender.name || 'Unknown',
-      fromRating: sender.rating?.[inviteUniverse] || 1500,
-      config: safeConfig,
-      expiresAt,
-    });
+    if (target) {
+      io.to(resolvedTargetSocketId).emit('invite:received', inviteDeliveryPayload(invite));
+    } else {
+      socket.emit('invite:queued', { inviteId, expiresAt });
+    }
 
     // Auto-expire
-    setTimeout(() => invites.delete(inviteId), 30_000);
+    setTimeout(() => invites.delete(inviteId), INVITE_TTL_MS);
   });
 
   socket.on('invite:accept', ({ inviteId, fromSocketId }) => {
     const invite = invites.get(inviteId);
     if (!invite) { socket.emit('invite:expired'); return; }
+    if (invite.expiresAt <= Date.now()) {
+      invites.delete(inviteId);
+      socket.emit('invite:expired');
+      return;
+    }
     const accepter = players.get(socket.id);
     const isRecipient =
       invite.toId === socket.id ||
@@ -1565,9 +1615,17 @@ io.on('connection', (socket) => {
 
   socket.on('invite:cancel', () => {
     for (const [inviteId, invite] of invites.entries()) {
-      if (invite.fromId !== socket.id) continue;
+      const isSender =
+        invite.fromId === socket.id ||
+        (invite.fromUserId && socket.user?.id === invite.fromUserId) ||
+        (invite.fromClientId && players.get(socket.id)?.clientId === invite.fromClientId);
+      if (!isSender) continue;
       invites.delete(inviteId);
-      io.to(invite.toId).emit('invite:cancelled', { inviteId });
+      const notifySocket =
+        latestSocketForUser(invite.toUserId) ||
+        latestSocketForClient(invite.toClientId) ||
+        invite.toId;
+      io.to(notifySocket).emit('invite:cancelled', { inviteId });
     }
   });
 
