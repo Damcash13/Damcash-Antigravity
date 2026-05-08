@@ -2,10 +2,11 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Pure extraction of the Stripe webhook deposit logic.
 // In production this runs inside prisma.$transaction — deps represent
-// tx.transaction.findUnique, tx.wallet.update, tx.transaction.create.
+// tx.transaction.findUnique, tx.wallet.lookup, tx.wallet.update, tx.transaction.create.
 async function processDeposit(
   deps: {
     findUnique: (sessionId: string) => Promise<{ id: string } | null>;
+    walletLookup: (userId: string) => Promise<{ id: string } | null>;
     walletUpdate: (userId: string, amount: number) => Promise<{ id: string }>;
     transactionCreate: (data: {
       walletId: string;
@@ -16,11 +17,13 @@ async function processDeposit(
   userId: string,
   amount: number,
   sessionId: string,
-): Promise<'credited' | 'duplicate'> {
+): Promise<'credited' | 'duplicate' | 'no_wallet'> {
   const existing = await deps.findUnique(sessionId);
   if (existing) return 'duplicate';
-  const wallet = await deps.walletUpdate(userId, amount);
-  await deps.transactionCreate({ walletId: wallet.id, amount, sessionId });
+  const wallet = await deps.walletLookup(userId);
+  if (!wallet) return 'no_wallet';
+  const updated = await deps.walletUpdate(userId, amount);
+  await deps.transactionCreate({ walletId: updated.id, amount, sessionId });
   return 'credited';
 }
 
@@ -28,6 +31,7 @@ describe('Stripe webhook idempotency (audit #8)', () => {
   it('credits the wallet exactly once for a new sessionId', async () => {
     const committed = new Set<string>();
     const walletUpdate = vi.fn().mockResolvedValue({ id: 'wallet-1' });
+    const walletLookup = vi.fn().mockResolvedValue({ id: 'wallet-1' });
     const transactionCreate = vi.fn().mockImplementation(
       async ({ sessionId }: { sessionId: string }) => { committed.add(sessionId); },
     );
@@ -36,7 +40,7 @@ describe('Stripe webhook idempotency (audit #8)', () => {
     );
 
     const result = await processDeposit(
-      { findUnique, walletUpdate, transactionCreate },
+      { findUnique, walletLookup, walletUpdate, transactionCreate },
       'user-1', 50, 'cs_test_abc123',
     );
 
@@ -47,6 +51,7 @@ describe('Stripe webhook idempotency (audit #8)', () => {
   it('two sequential webhooks for the same sessionId result in exactly one wallet credit', async () => {
     const committed = new Set<string>();
     const walletUpdate = vi.fn().mockResolvedValue({ id: 'wallet-1' });
+    const walletLookup = vi.fn().mockResolvedValue({ id: 'wallet-1' });
     const transactionCreate = vi.fn().mockImplementation(
       async ({ sessionId }: { sessionId: string }) => { committed.add(sessionId); },
     );
@@ -56,10 +61,10 @@ describe('Stripe webhook idempotency (audit #8)', () => {
 
     const SESSION_ID = 'cs_test_abc123';
     const r1 = await processDeposit(
-      { findUnique, walletUpdate, transactionCreate }, 'user-1', 50, SESSION_ID,
+      { findUnique, walletLookup, walletUpdate, transactionCreate }, 'user-1', 50, SESSION_ID,
     );
     const r2 = await processDeposit(
-      { findUnique, walletUpdate, transactionCreate }, 'user-1', 50, SESSION_ID,
+      { findUnique, walletLookup, walletUpdate, transactionCreate }, 'user-1', 50, SESSION_ID,
     );
 
     expect(r1).toBe('credited');
@@ -67,16 +72,19 @@ describe('Stripe webhook idempotency (audit #8)', () => {
     expect(walletUpdate).toHaveBeenCalledTimes(1); // ← only once
   });
 
-  it('does not credit if amount is outside valid range', async () => {
+  it('does not credit when wallet does not exist for the user', async () => {
     const walletUpdate = vi.fn().mockResolvedValue({ id: 'wallet-1' });
-    // The amount guard lives in the webhook handler, not processDeposit.
-    // This test documents the boundary: amounts < 5 or > 10000 must be
-    // rejected BEFORE processDeposit is called.
-    const isValidAmount = (amount: number) => amount >= 5 && amount <= 10000;
-    expect(isValidAmount(4)).toBe(false);
-    expect(isValidAmount(5)).toBe(true);
-    expect(isValidAmount(10000)).toBe(true);
-    expect(isValidAmount(10001)).toBe(false);
+    const transactionCreate = vi.fn();
+    const findUnique = vi.fn().mockResolvedValue(null); // no prior transaction
+    const walletLookup = vi.fn().mockResolvedValue(null); // wallet does not exist
+
+    const result = await processDeposit(
+      { findUnique, walletLookup, walletUpdate, transactionCreate },
+      'user-1', 50, 'cs_test_no_wallet',
+    );
+
+    expect(result).toBe('no_wallet');
     expect(walletUpdate).not.toHaveBeenCalled();
+    expect(transactionCreate).not.toHaveBeenCalled();
   });
 });
