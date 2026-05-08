@@ -1,3 +1,5 @@
+import type { Universe } from '../types';
+
 // In dev, Vite proxies /socket.io → localhost:3002 so we connect to same origin ('').
 // In production, set VITE_SOCKET_URL to the backend URL if it differs from the frontend origin.
 // @ts-ignore
@@ -93,7 +95,7 @@ if (_io) {
     });
   });
 
-  socket.on('player:universe-changed', (data: { socketId: string; universe: string }) => {
+  socket.on('player:universe-changed', (data: { socketId: string; universe: Universe }) => {
     import('../stores/inviteStore').then(({ useInviteStore }) => {
       const { upsertPlayer, onlinePlayers } = useInviteStore.getState();
       const player = onlinePlayers.find((p: any) => p.socketId === data.socketId);
