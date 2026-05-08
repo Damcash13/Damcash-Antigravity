@@ -161,8 +161,8 @@ model Tournament {
   format      String   // 'arena', 'swiss', 'roundrobin'
   timeControl String
   rated       Boolean  @default(true)
-  betEntry    Float    @default(0)
-  prizePool   Float    @default(0)
+  betEntry  Decimal  @default(0) @db.Decimal(12, 2)
+  prizePool Decimal  @default(0) @db.Decimal(12, 2)
   ratingMin   Int?
   ratingMax   Int?
   minGames    Int      @default(0)
