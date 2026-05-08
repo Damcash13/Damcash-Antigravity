@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   useUniverseStore, useLiveGamesStore, useUserStore, LiveGame,
@@ -28,38 +29,38 @@ interface Props {
 // ── Static content ────────────────────────────────────────────────────────────
 
 const SHORTCUTS = [
-  { key: 'quick',       label: 'Partie rapide',  detail: 'Jouez sans attendre',       icon: '⚡', action: 'quick'       },
-  { key: 'challenges',  label: 'Défis',          detail: 'Affrontez des adversaires', icon: '⚔️', action: 'challenge'   },
-  { key: 'tournaments', label: 'Tournois',       detail: 'Compétitions exclusives',   icon: '🏆', action: 'tournaments' },
-  { key: 'leaderboard', label: 'Classement',     detail: 'Voyez où vous vous situez', icon: '📊', action: 'leaderboard' },
+  { key: 'quick',       labelKey: 'premiumHome.shortcuts.quick',       detailKey: 'premiumHome.shortcuts.quickDetail',       icon: '⚡', action: 'quick'       },
+  { key: 'challenges',  labelKey: 'premiumHome.shortcuts.challenges',  detailKey: 'premiumHome.shortcuts.challengesDetail',  icon: '⚔️', action: 'challenge'   },
+  { key: 'tournaments', labelKey: 'premiumHome.shortcuts.tournaments', detailKey: 'premiumHome.shortcuts.tournamentsDetail', icon: '🏆', action: 'tournaments' },
+  { key: 'leaderboard', labelKey: 'premiumHome.shortcuts.leaderboard', detailKey: 'premiumHome.shortcuts.leaderboardDetail', icon: '📊', action: 'leaderboard' },
 ] as const;
 
 type ActivityType = 'win' | 'loss' | 'challenge';
 
-interface MockActivity { id: number; type: ActivityType; title: string; detail: string; tag: string; time: string; }
+interface MockActivity { id: number; type: ActivityType; titleKey: string; detail: string; tagKey: string; timeKey: string; }
 
 const MOCK_ACTIVITY: MockActivity[] = [
   {
     id: 1, type: 'win',
-    title: 'Amina_23 a remporté une partie',
-    detail: '3 - 1', tag: 'Victoire', time: 'il y a 5 min',
+    titleKey: 'premiumHome.activity.winCheckers',
+    detail: '3 - 1', tagKey: 'premiumHome.activity.victory', timeKey: 'premiumHome.activity.fiveMin',
   },
   {
     id: 2, type: 'win',
-    title: "LucasM a gagné une partie d'échecs",
-    detail: '1 - 0', tag: 'Victoire', time: 'il y a 12 min',
+    titleKey: 'premiumHome.activity.winChess',
+    detail: '1 - 0', tagKey: 'premiumHome.activity.victory', timeKey: 'premiumHome.activity.twelveMin',
   },
   {
     id: 3, type: 'challenge',
-    title: 'Défi accepté par SophieB',
-    detail: '', tag: 'Voir le défi', time: 'il y a 23 min',
+    titleKey: 'premiumHome.activity.challengeAccepted',
+    detail: '', tagKey: 'premiumHome.activity.viewChallenge', timeKey: 'premiumHome.activity.twentyThreeMin',
   },
 ];
 
 const MOCK_TOURNAMENTS = [
-  { id: 1, name: 'Coupe du Roi',       type: 'Échecs • 32 joueurs', date: '24 mai 2025', time: '20:00' },
-  { id: 2, name: 'Masters des Dames',  type: 'Dames • 64 joueurs',  date: '25 mai 2025', time: '18:00' },
-  { id: 3, name: 'Grand Prix Hebdo',   type: 'Échecs • 16 joueurs', date: '27 mai 2025', time: '21:00' },
+  { id: 1, nameKey: 'premiumHome.mockTournaments.kingCup',      typeKey: 'premiumHome.mockTournaments.chess32',    dateKey: 'premiumHome.mockTournaments.dateMay24', time: '20:00' },
+  { id: 2, nameKey: 'premiumHome.mockTournaments.checkersMasters', typeKey: 'premiumHome.mockTournaments.checkers64', dateKey: 'premiumHome.mockTournaments.dateMay25', time: '18:00' },
+  { id: 3, nameKey: 'premiumHome.mockTournaments.weeklyGrandPrix', typeKey: 'premiumHome.mockTournaments.chess16',    dateKey: 'premiumHome.mockTournaments.dateMay27', time: '21:00' },
 ];
 
 const MOCK_LEADERBOARD = [
@@ -80,30 +81,30 @@ interface LbEntry {
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 
 const SIDEBAR_NAV = [
-  { key: 'home',        label: 'Accueil',        icon: '🏠' },
-  { key: 'checkers',    label: 'Jeu de dames',   icon: '⚫' },
-  { key: 'chess',       label: "Jeu d'échecs",   icon: '♟' },
+  { key: 'home',        labelKey: 'premiumHome.nav.home',        icon: '🏠' },
+  { key: 'checkers',    labelKey: 'premiumHome.nav.checkersGame', icon: '⚫' },
+  { key: 'chess',       labelKey: 'premiumHome.nav.chessGame',    icon: '♟' },
   null,
-  { key: 'challenges',  label: 'Défis',           icon: '⚔️' },
-  { key: 'tournaments', label: 'Tournois',         icon: '🏆' },
-  { key: 'leaderboard', label: 'Classement',       icon: '📊' },
+  { key: 'challenges',  labelKey: 'premiumHome.nav.challenges',   icon: '⚔️' },
+  { key: 'tournaments', labelKey: 'premiumHome.nav.tournaments',  icon: '🏆' },
+  { key: 'leaderboard', labelKey: 'premiumHome.nav.leaderboard',  icon: '📊' },
   null,
-  { key: 'messages',    label: 'Messages',         icon: '💬' },
-  { key: 'friends',     label: 'Amis',             icon: '👥' },
-  { key: 'shop',        label: 'Boutique',         icon: '🛒' },
+  { key: 'messages',    labelKey: 'premiumHome.nav.messages',     icon: '💬' },
+  { key: 'friends',     labelKey: 'premiumHome.nav.friends',      icon: '👥' },
+  { key: 'shop',        labelKey: 'premiumHome.nav.shop',         icon: '🛒' },
   null,
-  { key: 'help',        label: 'Aide & Support',   icon: '❓' },
-  { key: 'settings',    label: 'Paramètres',       icon: '⚙️' },
+  { key: 'help',        labelKey: 'premiumHome.nav.help',         icon: '❓' },
+  { key: 'settings',    labelKey: 'premiumHome.nav.settings',     icon: '⚙️' },
 ] as const;
 
 // ── Header nav ────────────────────────────────────────────────────────────────
 
 const HEADER_NAV = [
-  { label: 'Accueil',     key: 'home' },
-  { label: 'Jeux',        key: 'games' },
-  { label: 'Tournois',    key: 'tournaments' },
-  { label: 'Classement',  key: 'leaderboard' },
-  { label: 'Communauté',  key: 'community' },
+  { labelKey: 'premiumHome.nav.home',        key: 'home' },
+  { labelKey: 'premiumHome.nav.games',       key: 'games' },
+  { labelKey: 'premiumHome.nav.tournaments', key: 'tournaments' },
+  { labelKey: 'premiumHome.nav.leaderboard', key: 'leaderboard' },
+  { labelKey: 'premiumHome.nav.community',   key: 'community' },
 ] as const;
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -112,6 +113,7 @@ export const PremiumHomePage: React.FC<Props> = ({
   onCreateGame, onOpenWallet, onChallengeFriend, onPlayComputer,
   onInvitePlayer, onOpenAuth, onOpenMessages,
 }) => {
+  const { t } = useTranslation();
   const navigate    = useNavigate();
   const location    = useLocation();
   const universe    = useUniverseStore(s => s.universe);
@@ -194,8 +196,8 @@ export const PremiumHomePage: React.FC<Props> = ({
   const quickPairingGroups = [
     { cat: 'Bullet', icon: '▭', values: ['1+0', '2+1', '2+0'] },
     { cat: 'Blitz', icon: '⚡', values: ['3+0', '5+0', '5+3'] },
-    { cat: 'Rapide', icon: '◷', values: ['10+0', '10+5', '15+10'] },
-    { cat: 'Classique', icon: '♜', values: ['30+0', '30+20', '45+0'] },
+    { cat: t('premiumHome.quickModes.rapid'), icon: '◷', values: ['10+0', '10+5', '15+10'] },
+    { cat: t('premiumHome.quickModes.classical'), icon: '♜', values: ['30+0', '30+20', '45+0'] },
   ];
 
   const isHome = /^\/(chess|checkers)\/?$/.test(location.pathname);
@@ -260,7 +262,7 @@ export const PremiumHomePage: React.FC<Props> = ({
             <span className="ph-logo-separator" aria-hidden="true" />
             <span className="ph-logo-lockup">
               <span className="ph-logo-word"><span>Dam</span><span>Cash</span></span>
-              <span className="ph-logo-tagline">Stratégie. Rapidité. Victoire.</span>
+              <span className="ph-logo-tagline">{t('premiumHome.brandTagline')}</span>
             </span>
           </button>
 
@@ -272,7 +274,7 @@ export const PremiumHomePage: React.FC<Props> = ({
                 className={`ph-hnav-item${item.key === 'home' && isHome ? ' active' : ''}`}
                 onClick={() => handleHeaderNav(item.key)}
               >
-                {item.label}
+                {t(item.labelKey)}
               </button>
             ))}
           </nav>
@@ -310,10 +312,10 @@ export const PremiumHomePage: React.FC<Props> = ({
             ) : (
               <div className="ph-header-auth">
                 <button className="ph-btn-auth secondary" onClick={onOpenAuth}>
-                  Se connecter
+                  {t('nav.signIn')}
                 </button>
                 <button className="ph-btn-auth primary" onClick={onOpenAuth}>
-                  S'inscrire
+                  {t('nav.register')}
                 </button>
               </div>
             )}
@@ -321,7 +323,7 @@ export const PremiumHomePage: React.FC<Props> = ({
             <button
               className={`ph-mobile-menu-btn${mobileMenuOpen ? ' active' : ''}`}
               onClick={() => setMobileMenuOpen(open => !open)}
-              aria-label="Ouvrir le menu"
+              aria-label={t('premiumHome.menu.open')}
               aria-expanded={mobileMenuOpen}
             >
               <span />
@@ -334,11 +336,11 @@ export const PremiumHomePage: React.FC<Props> = ({
             <>
               <button
                 className="ph-mobile-menu-backdrop"
-                aria-label="Fermer le menu"
+                aria-label={t('premiumHome.menu.close')}
                 onClick={() => setMobileMenuOpen(false)}
               />
               <div className="ph-mobile-menu-panel">
-                <div className="ph-mobile-menu-title">Menu</div>
+                <div className="ph-mobile-menu-title">{t('premiumHome.menu.title')}</div>
                 {SIDEBAR_NAV.map((item, i) =>
                   item === null ? (
                     <div key={`mobile-hr-${i}`} className="ph-mobile-menu-hr" />
@@ -349,13 +351,13 @@ export const PremiumHomePage: React.FC<Props> = ({
                       onClick={() => handleSidebarNav(item.key)}
                     >
                       <span>{item.icon}</span>
-                      {item.label}
+                      {t(item.labelKey)}
                     </button>
                   )
                 )}
                 {user && (
                   <button className="ph-mobile-menu-wallet" onClick={() => { setMobileMenuOpen(false); onOpenWallet(); }}>
-                    Portefeuille · ${Number(user.walletBalance).toFixed(2)}
+                    {t('premiumHome.wallet')} · ${Number(user.walletBalance).toFixed(2)}
                   </button>
                 )}
               </div>
@@ -370,7 +372,7 @@ export const PremiumHomePage: React.FC<Props> = ({
       <div className="ph-body">
 
         {/* ── Left sidebar ── */}
-        <aside className="ph-sidebar" aria-label="Navigation latérale">
+        <aside className="ph-sidebar" aria-label={t('premiumHome.nav.sidebarAria')}>
           <nav className="ph-sidebar-nav" role="navigation">
             {SIDEBAR_NAV.map((item, i) =>
               item === null
@@ -380,10 +382,10 @@ export const PremiumHomePage: React.FC<Props> = ({
                     key={item.key}
                     className={`ph-sidebar-item${item.key === 'home' && isHome ? ' active' : ''}`}
                     onClick={() => handleSidebarNav(item.key)}
-                    title={item.label}
+                    title={t(item.labelKey)}
                   >
                     <span className="ph-sidebar-icon">{item.icon}</span>
-                    {item.label}
+                    {t(item.labelKey)}
                   </button>
                 )
             )}
@@ -391,12 +393,12 @@ export const PremiumHomePage: React.FC<Props> = ({
 
           {user && (
             <div className="ph-sidebar-wallet">
-              <div className="ph-sidebar-wallet-label">Solde du portefeuille</div>
+              <div className="ph-sidebar-wallet-label">{t('premiumHome.walletBalance')}</div>
               <div className="ph-sidebar-wallet-amount">
                 ${Number(user.walletBalance).toFixed(2)}
               </div>
               <button className="ph-sidebar-deposit" onClick={onOpenWallet}>
-                + Déposer des fonds
+                {t('premiumHome.depositFunds')}
               </button>
             </div>
           )}
@@ -419,7 +421,7 @@ export const PremiumHomePage: React.FC<Props> = ({
                 className={`ph-tab-btn${activeTab === tab ? ' active' : ''}`}
                 onClick={() => setActiveTab(tab)}
               >
-                {tab === 'quick' ? 'Partie rapide' : tab === 'lobby' ? 'Lobby' : 'Correspondance'}
+                {tab === 'quick' ? t('premiumHome.tabs.quick') : tab === 'lobby' ? t('premiumHome.tabs.lobby') : t('premiumHome.tabs.correspondence')}
               </button>
             ))}
           </div>
@@ -428,29 +430,29 @@ export const PremiumHomePage: React.FC<Props> = ({
           {activeTab === 'quick' && (
             <>
               {/* Hero banner */}
-              <section className="ph-hero" aria-label="Bannière saison">
+              <section className="ph-hero" aria-label={t('premiumHome.hero.aria')}>
                 <div className="ph-hero-bg-dots" aria-hidden="true" />
                 <div className="ph-hero-glow" aria-hidden="true" />
 
                 <div className="ph-hero-copy">
-                  <div className="ph-hero-eyebrow">DAMCASH — SAISON ACTUELLE</div>
+                  <div className="ph-hero-eyebrow">{t('premiumHome.hero.eyebrow')}</div>
                   <h1 className="ph-hero-h1">
-                    SAISON DES
-                    <span className="ph-hero-h1-gold">CHAMPIONS</span>
+                    {t('premiumHome.hero.titleLine1')}
+                    <span className="ph-hero-h1-gold">{t('premiumHome.hero.titleLine2')}</span>
                   </h1>
-                  <p className="ph-hero-tagline">Participez. Gagnez. Soyez légende.</p>
+                  <p className="ph-hero-tagline">{t('premiumHome.hero.tagline')}</p>
                   <p className="ph-hero-desc">
-                    Des tournois excitants et des récompenses exclusives vous attendent.
+                    {t('premiumHome.hero.description')}
                   </p>
                   <div className="ph-hero-actions">
                     <button
                       className="ph-hero-cta"
                       onClick={() => navigate(`/${universe}/tournaments`)}
                     >
-                      Découvrir les tournois
+                      {t('premiumHome.hero.primaryCta')}
                     </button>
                     <button className="ph-hero-cta-ghost" onClick={() => setShowCustom(true)}>
-                      Partie personnalisée
+                      {t('premiumHome.hero.secondaryCta')}
                     </button>
                   </div>
                 </div>
@@ -491,14 +493,14 @@ export const PremiumHomePage: React.FC<Props> = ({
                         <span style={{ fontSize: 72, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.5))', display: 'block', lineHeight: 1 }}>⚫</span>
                       </div>
                       <div className="ph-game-card-content">
-                        <div className="ph-gc-badge">JEU DE DAMES</div>
-                        <div className="ph-gc-title">Affrontez des joueurs du monde entier</div>
-                        <div className="ph-gc-sub">Tactiques rapides et finales nettes.</div>
-                        <button className="ph-gc-btn">Jouer maintenant →</button>
+                        <div className="ph-gc-badge">{t('premiumHome.gameCards.checkersBadge')}</div>
+                        <div className="ph-gc-title">{t('premiumHome.gameCards.checkersTitle')}</div>
+                        <div className="ph-gc-sub">{t('premiumHome.gameCards.checkersSub')}</div>
+                        <button className="ph-gc-btn">{t('premiumHome.gameCards.playNow')} →</button>
                       </div>
                     </div>
 
-                    {/* Échecs card */}
+                    {/* Chess card */}
                     <div
                       className="ph-game-card ph-game-card-chess"
                       role="button"
@@ -510,10 +512,10 @@ export const PremiumHomePage: React.FC<Props> = ({
                         <img src="/pieces/wn.svg" alt="" className="ph-gc-piece" />
                       </div>
                       <div className="ph-game-card-content">
-                        <div className="ph-gc-badge">JEU D'ÉCHECS</div>
-                        <div className="ph-gc-title">Stratégie. Réflexion. Victoire.</div>
-                        <div className="ph-gc-sub">Calcul, vision, maîtrise.</div>
-                        <button className="ph-gc-btn">Jouer maintenant →</button>
+                        <div className="ph-gc-badge">{t('premiumHome.gameCards.chessBadge')}</div>
+                        <div className="ph-gc-title">{t('premiumHome.gameCards.chessTitle')}</div>
+                        <div className="ph-gc-sub">{t('premiumHome.gameCards.chessSub')}</div>
+                        <button className="ph-gc-btn">{t('premiumHome.gameCards.playNow')} →</button>
                       </div>
                     </div>
                   </div>
@@ -527,8 +529,8 @@ export const PremiumHomePage: React.FC<Props> = ({
                         onClick={() => handleShortcut(s.action)}
                       >
                         <div className="ph-shortcut-icon">{s.icon}</div>
-                        <div className="ph-shortcut-label">{s.label}</div>
-                        <div className="ph-shortcut-detail">{s.detail}</div>
+                        <div className="ph-shortcut-label">{t(s.labelKey)}</div>
+                        <div className="ph-shortcut-detail">{t(s.detailKey)}</div>
                       </button>
                     ))}
                   </div>
@@ -536,9 +538,9 @@ export const PremiumHomePage: React.FC<Props> = ({
                   {/* Recent activity */}
                   <div className="ph-card ph-activity-card">
                     <div className="ph-card-head">
-                      <div className="ph-card-title">Activité récente</div>
+                      <div className="ph-card-title">{t('premiumHome.activity.title')}</div>
                       <button className="ph-card-action" onClick={() => user ? navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`) : onOpenAuth()}>
-                        Tout voir →
+                        {t('premiumHome.common.seeAll')} →
                       </button>
                     </div>
                     <div className="ph-activity-list">
@@ -548,14 +550,14 @@ export const PremiumHomePage: React.FC<Props> = ({
                             {a.type === 'win' ? '✓' : a.type === 'loss' ? '✗' : '⚔️'}
                           </div>
                           <div className="ph-activity-body">
-                            <div className="ph-activity-title">{a.title}</div>
-                            <div className="ph-activity-meta">{a.detail && `${a.detail} · `}{a.time}</div>
+                            <div className="ph-activity-title">{t(a.titleKey)}</div>
+                            <div className="ph-activity-meta">{a.detail && `${a.detail} · `}{t(a.timeKey)}</div>
                           </div>
                           <button
                             className={`ph-activity-tag ${a.type}`}
                             onClick={() => a.type === 'challenge' ? onChallengeFriend() : navigate(`/${universe}/leaderboard`)}
                           >
-                            {a.tag}
+                            {t(a.tagKey)}
                           </button>
                         </div>
                       ))}
@@ -565,9 +567,9 @@ export const PremiumHomePage: React.FC<Props> = ({
                   {/* Quick pairing */}
                   <div className="ph-card ph-quick-card">
                     <div className="ph-card-head">
-                      <div className="ph-card-title"><span className="ph-card-title-icon">⚡</span> Appariement rapide</div>
+                      <div className="ph-card-title"><span className="ph-card-title-icon">⚡</span> {t('premiumHome.quickPairing.title')}</div>
                       <button className="ph-card-action" onClick={() => setActiveTab('lobby')}>
-                        Voir le lobby →
+                        {t('premiumHome.quickPairing.viewLobby')} →
                       </button>
                     </div>
                     <div className="ph-quick-modes">
@@ -592,9 +594,9 @@ export const PremiumHomePage: React.FC<Props> = ({
                   <div className="ph-card ph-daily-card">
                     <div className="ph-daily-illustration" aria-hidden="true">◎</div>
                     <div className="ph-daily-copy">
-                      <div className="ph-daily-kicker">Défi du jour</div>
-                      <div className="ph-daily-title">Gagnez avec les Blancs</div>
-                      <div className="ph-daily-sub">Terminez la partie avec une victoire.</div>
+                      <div className="ph-daily-kicker">{t('premiumHome.daily.kicker')}</div>
+                      <div className="ph-daily-title">{t('premiumHome.daily.title')}</div>
+                      <div className="ph-daily-sub">{t('premiumHome.daily.sub')}</div>
                       <div className="ph-daily-rewards">
                         <span>🪙 + 50 DC</span>
                         <span>🏆 + 10 XP</span>
@@ -602,7 +604,7 @@ export const PremiumHomePage: React.FC<Props> = ({
                     </div>
                     <div className="ph-daily-side">
                       <div className="ph-daily-progress">0 / 1</div>
-                      <button className="ph-daily-btn" onClick={() => onCreateGame('10+5', 'online')}>Jouer</button>
+                      <button className="ph-daily-btn" onClick={() => onCreateGame('10+5', 'online')}>{t('premiumHome.daily.play')}</button>
                     </div>
                   </div>
 
@@ -610,11 +612,11 @@ export const PremiumHomePage: React.FC<Props> = ({
                   <div className="ph-card ph-live-card">
                     <div className="ph-card-head">
                       <div className="ph-card-title">
-                        Parties en direct
+                        {t('premiumHome.live.title')}
                         <span className="ph-live-dot" />
                         <span className="ph-live-label">LIVE</span>
                       </div>
-                      <button className="ph-card-action" onClick={viewLiveGames}>Voir toutes →</button>
+                      <button className="ph-card-action" onClick={viewLiveGames}>{t('premiumHome.live.viewAll')} →</button>
                     </div>
                     {liveGamesLoading ? (
                       <div style={{ display: 'flex', gap: 10 }}>
@@ -637,7 +639,7 @@ export const PremiumHomePage: React.FC<Props> = ({
                             <div className="ph-live-match-info">
                               <span className="ph-live-feature">
                                 <span className="ph-live-mini-badge">LIVE</span>
-                                {index === 0 ? 'En vedette' : 'En direct'}
+                                {index === 0 ? t('premiumHome.live.featured') : t('premiumHome.live.liveNow')}
                               </span>
                               <div className="ph-live-player">
                                 <span className="ph-live-avatar">{game.white.name.slice(0, 1).toUpperCase()}</span>
@@ -649,14 +651,14 @@ export const PremiumHomePage: React.FC<Props> = ({
                                 <strong>{game.black.name}</strong>
                                 <em>{game.black.rating}</em>
                               </div>
-                              <div className="ph-live-meta">{game.tc} • {index === 0 ? 12 : 8} spectateurs</div>
+                              <div className="ph-live-meta">{game.tc} • {t('premiumHome.live.spectators', { count: index === 0 ? 12 : 8 })}</div>
                             </div>
                           </button>
                         ))}
                       </div>
                     ) : (
                       <div className="ph-live-empty">
-                        Aucune partie en direct pour le moment.
+                        {t('premiumHome.live.empty')}
                       </div>
                     )}
                   </div>
@@ -664,13 +666,13 @@ export const PremiumHomePage: React.FC<Props> = ({
                   <div className="ph-lower-grid">
                     <div className="ph-card ph-upcoming-card">
                       <div className="ph-card-head">
-                        <div className="ph-card-title">Tournois à venir</div>
-                        <button className="ph-card-action" onClick={() => navigate(`/${universe}/tournaments`)}>Voir tout →</button>
+                        <div className="ph-card-title">{t('premiumHome.upcoming.title')}</div>
+                        <button className="ph-card-action" onClick={() => navigate(`/${universe}/tournaments`)}>{t('premiumHome.common.seeAll')} →</button>
                       </div>
                       {[
-                        ['🏆', 'Tournoi du Soir', "Aujourd'hui • 20:00", '128'],
-                        ['🏆', 'Week-End Arena', 'Demain • 15:00', '256'],
-                        ['🏆', 'Classique Prestige', 'Dim. 26 mai • 17:00', '64'],
+                        ['🏆', t('premiumHome.upcoming.eveningTournament'), t('premiumHome.upcoming.todayAt', { time: '20:00' }), '128'],
+                        ['🏆', t('premiumHome.upcoming.weekendArena'), t('premiumHome.upcoming.tomorrowAt', { time: '15:00' }), '256'],
+                        ['🏆', t('premiumHome.upcoming.classicPrestige'), t('premiumHome.upcoming.sundayMay26', { time: '17:00' }), '64'],
                       ].map(([icon, name, date, players]) => (
                         <button
                           key={name}
@@ -680,15 +682,15 @@ export const PremiumHomePage: React.FC<Props> = ({
                           <span className="ph-upcoming-icon">{icon}</span>
                           <span className="ph-upcoming-main"><strong>{name}</strong><small>{date}</small></span>
                           <span className="ph-upcoming-players">♟ {players}</span>
-                          <span className="ph-register-badge">Inscription</span>
+                          <span className="ph-register-badge">{t('premiumHome.upcoming.registration')}</span>
                         </button>
                       ))}
                     </div>
 
                     <div className="ph-card ph-ranking-card">
                       <div className="ph-card-head">
-                        <div className="ph-card-title">Classement</div>
-                        <button className="ph-card-action" onClick={() => navigate(`/${universe}/leaderboard`)}>Voir le classement →</button>
+                        <div className="ph-card-title">{t('premiumHome.ranking.title')}</div>
+                        <button className="ph-card-action" onClick={() => navigate(`/${universe}/leaderboard`)}>{t('premiumHome.ranking.viewRanking')} →</button>
                       </div>
                       {displayLeaderboard.slice(0, 5).map(entry => (
                         <button
@@ -707,8 +709,8 @@ export const PremiumHomePage: React.FC<Props> = ({
                         onClick={() => user ? navigate(`/${universe}/profile/${encodeURIComponent(user.name)}`) : onOpenAuth()}
                       >
                         <span className="ph-rank-medal">—</span>
-                        <span className="ph-rank-avatar">{(user?.name || 'Vous').slice(0, 1).toUpperCase()}</span>
-                        <strong>Vous</strong>
+                        <span className="ph-rank-avatar">{(user?.name || t('premiumHome.ranking.you')).slice(0, 1).toUpperCase()}</span>
+                        <strong>{t('premiumHome.ranking.you')}</strong>
                         <em>{user?.rating?.[universe] ?? 1987}</em>
                       </button>
                     </div>
@@ -718,10 +720,10 @@ export const PremiumHomePage: React.FC<Props> = ({
                   <div className="ph-quote">
                     <span className="ph-quote-guillemet">"</span>
                     <p className="ph-quote-body">
-                      Chaque coup compte.<br />
-                      Chaque décision<br />
-                      façonne le champion<br />
-                      en vous.
+                      {t('premiumHome.quote.line1')}<br />
+                      {t('premiumHome.quote.line2')}<br />
+                      {t('premiumHome.quote.line3')}<br />
+                      {t('premiumHome.quote.line4')}
                     </p>
                     <div className="ph-quote-sig">DamCash</div>
                   </div>
@@ -734,9 +736,9 @@ export const PremiumHomePage: React.FC<Props> = ({
                   {/* Leaderboard */}
                   <div className="ph-card">
                     <div className="ph-card-head">
-                      <div className="ph-card-title">🏅 Classement général</div>
+                      <div className="ph-card-title">🏅 {t('premiumHome.ranking.general')}</div>
                       <button className="ph-card-action" onClick={() => navigate(`/${universe}/leaderboard`)}>
-                        Voir tout →
+                        {t('premiumHome.common.seeAll')} →
                       </button>
                     </div>
 
@@ -789,14 +791,14 @@ export const PremiumHomePage: React.FC<Props> = ({
                   {/* Upcoming tournaments */}
                   <div className="ph-card">
                     <div className="ph-card-head">
-                      <div className="ph-card-title">📅 Tournois à venir</div>
+                      <div className="ph-card-title">📅 {t('premiumHome.upcoming.title')}</div>
                       <button className="ph-card-action" onClick={() => navigate(`/${universe}/tournaments`)}>
-                        Voir tout →
+                        {t('premiumHome.common.seeAll')} →
                       </button>
                     </div>
-                    {MOCK_TOURNAMENTS.map(t => (
+                    {MOCK_TOURNAMENTS.map(tournament => (
                       <div
-                        key={t.id}
+                        key={tournament.id}
                         className="ph-tourn-row"
                         role="button"
                         tabIndex={0}
@@ -804,12 +806,12 @@ export const PremiumHomePage: React.FC<Props> = ({
                       >
                         <div className="ph-tourn-icon">🏆</div>
                         <div className="ph-tourn-body">
-                          <div className="ph-tourn-name">{t.name}</div>
-                          <div className="ph-tourn-type">{t.type}</div>
+                          <div className="ph-tourn-name">{t(tournament.nameKey)}</div>
+                          <div className="ph-tourn-type">{t(tournament.typeKey)}</div>
                         </div>
                         <div className="ph-tourn-right">
-                          <div className="ph-tourn-date">{t.date}</div>
-                          <div className="ph-tourn-time">{t.time}</div>
+                          <div className="ph-tourn-date">{t(tournament.dateKey)}</div>
+                          <div className="ph-tourn-time">{tournament.time}</div>
                         </div>
                       </div>
                     ))}

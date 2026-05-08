@@ -394,7 +394,7 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
           <span className="dc-brand-separator" aria-hidden="true" />
           <span className="dc-brand-lockup" aria-label="DamCash">
             <span className="dc-brand-word"><span>Dam</span><span>Cash</span></span>
-            <span className="dc-brand-tagline">Stratégie. Rapidité. Victoire.</span>
+            <span className="dc-brand-tagline">{t('premiumHome.brandTagline')}</span>
           </span>
         </a>
 

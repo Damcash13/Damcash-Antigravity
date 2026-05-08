@@ -195,9 +195,9 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
         <div className="tab-content-enter" key="quick">
           <section className="home-hero-panel">
             <div className="home-hero-copy">
-              <span className="home-hero-kicker">Damcash season</span>
-              <h1>Season of Champions</h1>
-              <p>Play chess and checkers, climb the ratings, join tournaments, and follow live games from one clean lobby.</p>
+              <span className="home-hero-kicker">{t('premiumHome.hero.eyebrow')}</span>
+              <h1>{t('premiumHome.hero.titleLine1')} {t('premiumHome.hero.titleLine2')}</h1>
+              <p>{t('premiumHome.hero.description')}</p>
               <div className="home-hero-actions">
                 <button className="home-primary-action" onClick={() => navigate(`/${universe}/tournaments`)}>
                   {t('lobby.tournaments')}
@@ -236,8 +236,8 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
                   <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
                 </svg>
               </div>
-              <h3>Saison des Champions</h3>
-              <p>Relevez le defi, grimpez dans le classement et remportez des tournois prestigieux.</p>
+              <h3>{t('premiumHome.hero.titleLine1')} {t('premiumHome.hero.titleLine2')}</h3>
+              <p>{t('premiumHome.hero.description')}</p>
             </div>
             <div className="home-feature-card worldwide" onClick={() => setActiveTab('lobby')}>
               <div className="feature-glow" />
@@ -248,8 +248,8 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
                   <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                 </svg>
               </div>
-              <h3>Affronter le Monde</h3>
-              <p>Defiez des joueurs de tous horizons en temps reel. Chaque partie est une nouvelle aventure.</p>
+              <h3>{t('premiumHome.gameCards.checkersTitle')}</h3>
+              <p>{t('premiumHome.gameCards.checkersSub')}</p>
             </div>
             <div className="home-feature-card strategy" onClick={() => onCreateGame('10+0', 'online')}>
               <div className="feature-glow" />
@@ -260,8 +260,8 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
                   <path d="M2 12l10 5 10-5"/>
                 </svg>
               </div>
-              <h3>Strategie & Reflexion</h3>
-              <p>Affutez votre esprit tactique. Analysez, anticipez et dominez l'echiquier.</p>
+              <h3>{t('premiumHome.gameCards.chessTitle')}</h3>
+              <p>{t('premiumHome.gameCards.chessSub')}</p>
             </div>
           </section>
 
