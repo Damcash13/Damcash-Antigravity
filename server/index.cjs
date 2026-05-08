@@ -3414,6 +3414,8 @@ app.get('/api/tournaments', async (req, res) => {
     const visibleTournaments = ts.filter(t => isTournamentVisibleInLobby(t, nowMs));
     res.json(visibleTournaments.map(t => ({
       ...t,
+      betEntry: Number(t.betEntry),
+      prizePool: Number(t.prizePool),
       status: getTournamentLifecycle(t, nowMs),
       playerCount: t._count.players,
       players: [],
