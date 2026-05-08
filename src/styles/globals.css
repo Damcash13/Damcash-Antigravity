@@ -5485,3 +5485,611 @@ input:focus, select:focus, textarea:focus {
   background: var(--bg-3);
   color: var(--text-2);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HOME PAGE VISUAL OVERHAUL — Feature cards, animations, glows
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Animated keyframes ── */
+@keyframes cardShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.15); }
+  50% { box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.35); }
+}
+
+@keyframes rotateGradient {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ── Feature Cards Section ── */
+.home-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.home-feature-card {
+  position: relative;
+  min-height: 180px;
+  border-radius: 14px;
+  padding: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  animation: slideUpFade 0.5s ease both;
+}
+
+.home-feature-card:nth-child(1) { animation-delay: 0.05s; }
+.home-feature-card:nth-child(2) { animation-delay: 0.1s; }
+.home-feature-card:nth-child(3) { animation-delay: 0.15s; }
+
+.home-feature-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Champions card — gold crown motif */
+.home-feature-card.champions {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 120%, rgba(251, 191, 36, 0.18), transparent 60%),
+    radial-gradient(circle at 20% 30%, rgba(251, 191, 36, 0.1), transparent 40%),
+    linear-gradient(165deg, rgba(30, 22, 8, 0.95), rgba(15, 12, 6, 0.98));
+}
+.home-feature-card.champions::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -30px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.15), transparent 70%);
+  animation: floatSlow 6s ease-in-out infinite;
+}
+.home-feature-card.champions::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(105deg, transparent 40%, rgba(251, 191, 36, 0.04) 50%, transparent 60%);
+  background-size: 200% 100%;
+  animation: cardShimmer 4s ease-in-out infinite;
+}
+.home-feature-card.champions:hover {
+  box-shadow: 0 20px 50px rgba(251, 191, 36, 0.15);
+}
+
+/* Worldwide card — blue globe/grid motif */
+.home-feature-card.worldwide {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 130%, rgba(59, 130, 246, 0.14), transparent 60%),
+    radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1), transparent 45%),
+    linear-gradient(165deg, rgba(12, 18, 35, 0.95), rgba(8, 12, 28, 0.98));
+}
+.home-feature-card.worldwide::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  background:
+    linear-gradient(0deg, transparent 49%, rgba(59, 130, 246, 0.08) 49%, rgba(59, 130, 246, 0.08) 51%, transparent 51%),
+    linear-gradient(90deg, transparent 49%, rgba(59, 130, 246, 0.08) 49%, rgba(59, 130, 246, 0.08) 51%, transparent 51%);
+  background-size: 24px 24px;
+  animation: floatSlow 7s ease-in-out infinite reverse;
+}
+.home-feature-card.worldwide::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(105deg, transparent 40%, rgba(139, 92, 246, 0.04) 50%, transparent 60%);
+  background-size: 200% 100%;
+  animation: cardShimmer 5s ease-in-out infinite;
+}
+.home-feature-card.worldwide:hover {
+  box-shadow: 0 20px 50px rgba(59, 130, 246, 0.15);
+}
+
+/* Strategy card — green chessboard motif */
+.home-feature-card.strategy {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 130%, rgba(34, 197, 94, 0.12), transparent 60%),
+    radial-gradient(circle at 30% 70%, rgba(16, 185, 129, 0.08), transparent 45%),
+    linear-gradient(165deg, rgba(10, 22, 16, 0.95), rgba(6, 16, 12, 0.98));
+}
+.home-feature-card.strategy::before {
+  content: '';
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 140px;
+  height: 140px;
+  background:
+    conic-gradient(from 0deg at 50% 50%,
+      rgba(34, 197, 94, 0.06) 0deg 90deg,
+      transparent 90deg 180deg,
+      rgba(34, 197, 94, 0.06) 180deg 270deg,
+      transparent 270deg 360deg
+    );
+  background-size: 28px 28px;
+  animation: rotateGradient 20s linear infinite;
+  opacity: 0.6;
+}
+.home-feature-card.strategy::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(105deg, transparent 40%, rgba(34, 197, 94, 0.04) 50%, transparent 60%);
+  background-size: 200% 100%;
+  animation: cardShimmer 4.5s ease-in-out infinite;
+}
+.home-feature-card.strategy:hover {
+  box-shadow: 0 20px 50px rgba(34, 197, 94, 0.12);
+}
+
+.home-feature-card .feature-icon-wrap {
+  position: relative;
+  z-index: 1;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 14px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.home-feature-card.champions .feature-icon-wrap {
+  background: rgba(251, 191, 36, 0.12);
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.1);
+}
+.home-feature-card.worldwide .feature-icon-wrap {
+  background: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.1);
+}
+.home-feature-card.strategy .feature-icon-wrap {
+  background: rgba(34, 197, 94, 0.12);
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.1);
+}
+
+.home-feature-card h3 {
+  position: relative;
+  z-index: 1;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 6px;
+  line-height: 1.2;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.home-feature-card p {
+  position: relative;
+  z-index: 1;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  line-height: 1.4;
+  max-width: 240px;
+}
+
+.home-feature-card .feature-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.3;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.home-feature-card:hover .feature-glow {
+  opacity: 0.5;
+}
+.home-feature-card.champions .feature-glow {
+  background: rgba(251, 191, 36, 0.35);
+}
+.home-feature-card.worldwide .feature-glow {
+  background: rgba(59, 130, 246, 0.3);
+}
+.home-feature-card.strategy .feature-glow {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+/* ── Enhanced Game Cards ── */
+.home-game-card {
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01)),
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.04), transparent 60%),
+    var(--bg-card);
+  border: 1px solid rgba(148,163,184,0.12);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.home-game-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(var(--accent-rgb), 0.45);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.28), 0 0 30px rgba(var(--accent-rgb), 0.08);
+}
+
+.home-game-card em {
+  background: rgba(var(--accent-rgb), 0.08);
+  border-color: rgba(var(--accent-rgb), 0.35);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.home-game-card:hover em {
+  background: rgba(var(--accent-rgb), 0.15);
+  border-color: rgba(var(--accent-rgb), 0.55);
+}
+
+.home-game-token {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.home-game-card:hover .home-game-token {
+  transform: scale(1.08);
+  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.15);
+}
+
+/* ── Enhanced Action Tiles ── */
+.home-action-tile {
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.04), transparent),
+    var(--bg-card);
+  border: 1px solid rgba(148,163,184,0.1);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.home-action-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--accent-rgb), 0.35);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+}
+
+.home-action-icon {
+  transition: transform 0.3s ease;
+}
+
+.home-action-tile:hover .home-action-icon {
+  transform: scale(1.12);
+}
+
+/* ── Enhanced Time Cards ── */
+.time-card {
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.03), transparent 50%),
+    var(--bg-2);
+  border: 1px solid rgba(148,163,184,0.1);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.time-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(var(--accent-rgb), 0.45);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18), 0 0 16px rgba(var(--accent-rgb), 0.06);
+}
+
+/* ── Enhanced Home Panel ── */
+.home-panel {
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.03), transparent),
+    var(--bg-card);
+  border: 1px solid rgba(148,163,184,0.1);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.home-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.home-panel-head p {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+
+/* ── Enhanced Leaderboard Panel ── */
+.home-leaderboard-panel {
+  background:
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.02), transparent 40%),
+    var(--bg-card);
+}
+
+/* ── Enhanced Live Game Cards ── */
+.live-game-card {
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid rgba(148,163,184,0.1);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  flex-shrink: 0;
+}
+
+.live-game-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(var(--accent-rgb), 0.45);
+  box-shadow: 0 16px 36px rgba(0,0,0,0.22), 0 0 20px rgba(var(--accent-rgb), 0.08);
+}
+
+.live-game-meta {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.live-game-players {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.live-game-players .name {
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-game-players .rating {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.live-game-vs {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+.live-game-tags {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.live-tag-live {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 20px;
+  animation: pulse 2s infinite;
+}
+
+.live-tag-stake {
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* ── Enhanced Header Elements ── */
+.header-wallet-btn {
+  transition: border-color 0.2s, background 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.header-wallet-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.12);
+}
+
+.header-profile-btn {
+  transition: border-color 0.2s, background 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.header-profile-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.12);
+}
+
+.header-message-btn {
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.header-message-btn:hover {
+  background: var(--bg-3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.1);
+}
+
+/* ── Home Quote Card ── */
+.home-quote-card {
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.04), transparent),
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.03), transparent 50%),
+    var(--bg-card);
+  border: 1px solid rgba(148,163,184,0.1);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-quote-card::before {
+  content: '';
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.08), transparent 70%);
+}
+
+.home-quote-card span {
+  font-size: 48px;
+  line-height: 1;
+  color: rgba(var(--accent-rgb), 0.25);
+  font-family: Georgia, serif;
+  position: relative;
+  z-index: 1;
+}
+
+.home-quote-card p {
+  font-size: 13px;
+  color: var(--text-2);
+  font-style: italic;
+  line-height: 1.5;
+  margin: -8px 0 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.home-quote-card small {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Home Count Pill ── */
+.home-count-pill {
+  margin-left: 8px;
+  background: var(--bg-3);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* ── Entrance animations for home sections ── */
+.home-hero-panel {
+  animation: scaleIn 0.5s ease both;
+}
+
+.home-feature-card {
+  animation: slideUpFade 0.5s ease both;
+}
+
+.home-game-card {
+  animation: slideUpFade 0.4s ease both;
+}
+.home-game-card:nth-child(1) { animation-delay: 0.05s; }
+.home-game-card:nth-child(2) { animation-delay: 0.1s; }
+
+.home-action-tile {
+  animation: slideUpFade 0.35s ease both;
+}
+.home-action-tile:nth-child(1) { animation-delay: 0.02s; }
+.home-action-tile:nth-child(2) { animation-delay: 0.04s; }
+.home-action-tile:nth-child(3) { animation-delay: 0.06s; }
+.home-action-tile:nth-child(4) { animation-delay: 0.08s; }
+.home-action-tile:nth-child(5) { animation-delay: 0.1s; }
+.home-action-tile:nth-child(6) { animation-delay: 0.12s; }
+
+.home-panel {
+  animation: slideUpFade 0.4s ease both;
+}
+
+/* ── Live Games Empty State ── */
+.live-games-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+  background: var(--bg-card);
+  border-radius: 14px;
+  border: 1px dashed var(--border);
+  animation: fadeSlideUp 0.4s ease both;
+}
+
+.live-games-empty div {
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.live-games-empty span {
+  display: block;
+  font-size: 11px;
+  margin-top: 6px;
+  color: var(--text-3);
+}
+
+/* ── Responsive for feature cards ── */
+@media (max-width: 900px) {
+  .home-features-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-feature-card:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-features-grid {
+    grid-template-columns: 1fr;
+  }
+  .home-feature-card:nth-child(3) {
+    grid-column: auto;
+  }
+  .home-feature-card {
+    min-height: 150px;
+    padding: 18px;
+  }
+  .home-feature-card h3 {
+    font-size: 15px;
+  }
+}

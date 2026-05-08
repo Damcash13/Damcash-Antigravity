@@ -55,33 +55,6 @@ const CAT_COLOR: Record<string, string> = {
   Classical: 'var(--text-3)',
 };
 
-const ONBOARDING_ITEMS = [
-  {
-    title: 'What is Damcash?',
-    body: 'A competitive chess and checkers lobby for casual games, rated games, tournaments, and optional wallet-backed stakes.',
-  },
-  {
-    title: 'Chess or checkers',
-    body: 'Use the game switcher to move between boards; ratings and stats are tracked separately for each mode.',
-  },
-  {
-    title: 'Rated vs unrated',
-    body: 'Rated games affect your player record. Casual games are for practice and do not move your rating.',
-  },
-  {
-    title: 'Casual or tournament',
-    body: 'Quick pairing starts one game. Tournaments have a waiting room, standings, late joins, and pairing windows.',
-  },
-  {
-    title: 'Wallet rules',
-    body: 'Free games cost nothing. Money games escrow stakes and record deposits, payouts, and refunds in wallet history.',
-  },
-  {
-    title: 'Challenge someone',
-    body: 'Click a username to open actions, then choose profile, challenge, message, mute, report, or block.',
-  },
-];
-
 const QUICK_ACTIONS = [
   { key: 'rapid', label: 'Rapid pairing', detail: 'Find a player', tc: '10+0' },
   { key: 'challenge', label: 'Challenges', detail: 'Invite a friend', path: 'lobby' },
@@ -114,16 +87,6 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
   }[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [liveGamesLoading, setLiveGamesLoading] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    try { return localStorage.getItem('damcash_onboarding_dismissed') !== 'yes'; }
-    catch { return true; }
-  });
-
-  const dismissOnboarding = () => {
-    setShowOnboarding(false);
-    try { localStorage.setItem('damcash_onboarding_dismissed', 'yes'); } catch {}
-  };
-
   // Fetch real leaderboard from API
   useEffect(() => {
     setLeaderboardLoading(true);
@@ -260,27 +223,47 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
             </div>
           </section>
 
-          {showOnboarding && (
-            <section className="home-onboarding" aria-label="Damcash quick guide">
-              <div className="home-onboarding-head">
-                <div>
-                  <div className="home-onboarding-kicker">New here</div>
-                  <h2>Damcash in 30 seconds</h2>
-                </div>
-                <button className="home-onboarding-dismiss" onClick={dismissOnboarding} aria-label="Dismiss quick guide">
-                  x
-                </button>
+          <section className="home-features-grid" aria-label="Features">
+            <div className="home-feature-card champions" onClick={() => navigate(`/${universe}/tournaments`)}>
+              <div className="feature-glow" />
+              <div className="feature-icon-wrap">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                  <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                  <path d="M4 22h16"/>
+                  <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+                  <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+                  <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+                </svg>
               </div>
-              <div className="home-onboarding-grid">
-                {ONBOARDING_ITEMS.map(item => (
-                  <div className="home-onboarding-item" key={item.title}>
-                    <strong>{item.title}</strong>
-                    <span>{item.body}</span>
-                  </div>
-                ))}
+              <h3>Saison des Champions</h3>
+              <p>Relevez le defi, grimpez dans le classement et remportez des tournois prestigieux.</p>
+            </div>
+            <div className="home-feature-card worldwide" onClick={() => setActiveTab('lobby')}>
+              <div className="feature-glow" />
+              <div className="feature-icon-wrap">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M2 12h20"/>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
               </div>
-            </section>
-          )}
+              <h3>Affronter le Monde</h3>
+              <p>Defiez des joueurs de tous horizons en temps reel. Chaque partie est une nouvelle aventure.</p>
+            </div>
+            <div className="home-feature-card strategy" onClick={() => onCreateGame('10+0', 'online')}>
+              <div className="feature-glow" />
+              <div className="feature-icon-wrap">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <h3>Strategie & Reflexion</h3>
+              <p>Affutez votre esprit tactique. Analysez, anticipez et dominez l'echiquier.</p>
+            </div>
+          </section>
 
           <div className="home-dashboard-grid">
             <div className="home-dashboard-main">

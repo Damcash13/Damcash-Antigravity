@@ -159,29 +159,9 @@ const LiveGameCard: React.FC<{ game: LiveGame; onClick: () => void }> = ({ game,
 
   return (
     <div
+      className="live-game-card"
       onClick={onClick}
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        overflow: 'hidden',
-        cursor: 'pointer',
-        transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        width: boardSize + 2,   // +2 for the board border
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)';
-        (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--accent)';
-        (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 28px var(--accent-dim)';
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.transform = '';
-        (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)';
-        (e.currentTarget as HTMLDivElement).style.boxShadow = '';
-      }}
+      style={{ width: boardSize + 2 }}
     >
       {/* Board — strict universe guard */}
       <div style={{ lineHeight: 0 }}>
@@ -197,34 +177,25 @@ const LiveGameCard: React.FC<{ game: LiveGame; onClick: () => void }> = ({ game,
       </div>
 
       {/* Info bar */}
-      <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div className="live-game-meta">
         {/* Players */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {game.white.name} <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>({game.white.rating})</span>
+        <div className="live-game-players">
+          <span className="name">
+            {game.white.name} <span className="rating">({game.white.rating})</span>
           </span>
-          <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700, flexShrink: 0, margin: '0 4px' }}>vs</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
-            {game.black.name} <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>({game.black.rating})</span>
+          <span className="live-game-vs">vs</span>
+          <span className="name" style={{ textAlign: 'right' }}>
+            {game.black.name} <span className="rating">({game.black.rating})</span>
           </span>
         </div>
 
         {/* Meta row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span style={{
-              background: 'rgba(239,68,68,0.18)', color: '#ef4444',
-              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20,
-              animation: 'pulse 2s infinite',
-            }}>Live</span>
-            <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{game.tc}</span>
-            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{game.moveCount} moves</span>
-          </div>
+        <div className="live-game-tags">
+          <span className="live-tag-live">Live</span>
+          <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{game.tc}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{game.moveCount} moves</span>
           {game.bet > 0 && (
-            <span style={{
-              background: 'var(--accent-dim)', color: 'var(--accent)',
-              fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-            }}>
+            <span className="live-tag-stake">
               Stake ${game.bet}
             </span>
           )}
@@ -247,17 +218,9 @@ export const LiveGamesSection: React.FC<Props> = ({ games, universe, onClickGame
     .slice(0, 10);
 
   if (visible.length === 0) return (
-    <div style={{
-      padding: '24px 16px',
-      textAlign: 'center',
-      color: 'var(--text-3)',
-      fontSize: 13,
-      background: 'var(--bg-card)',
-      borderRadius: 12,
-      border: '1px dashed var(--border)',
-    }}>
-      <div style={{ fontWeight: 700, color: 'var(--text-2)' }}>No live games right now</div>
-      <div style={{ fontSize: 11, marginTop: 4 }}>Start a game and it will appear here</div>
+    <div className="live-games-empty">
+      <div>No live games right now</div>
+      <span>Start a game and it will appear here</span>
     </div>
   );
 
