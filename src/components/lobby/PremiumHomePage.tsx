@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  useUniverseStore, useLiveGamesStore, useNotificationStore, useUserStore, LiveGame,
+  useUniverseStore, useLiveGamesStore, useUserStore, LiveGame,
 } from '../../stores';
 import { LobbyTab } from './LobbyTab';
 import { CorrespondenceTab } from './CorrespondenceTab';
 import { CustomGameModal } from './CustomGameModal';
-import { LiveGamesSection } from './LiveGamePreview';
 import { api, ApiLeaderboardEntry } from '../../lib/api';
 import { PlayerHoverCard } from '../common/PlayerHoverCard';
 import { NotificationCenter } from '../common/NotificationCenter';
@@ -25,40 +24,6 @@ interface Props {
   onOpenAuth: () => void;
 }
 
-// ── Time controls ─────────────────────────────────────────────────────────────
-
-interface TcOption { value: string; label: string; category: string; }
-
-const CHESS_TC: TcOption[] = [
-  { value: '1+0', label: '1+0', category: 'Bullet' },
-  { value: '2+1', label: '2+1', category: 'Bullet' },
-  { value: '2+0', label: '2+0', category: 'Bullet' },
-  { value: '3+0', label: '3+0', category: 'Blitz' },
-  { value: '5+0', label: '5+0', category: 'Blitz' },
-  { value: '5+3', label: '5+3', category: 'Blitz' },
-  { value: '10+0',  label: '10+0',  category: 'Rapide' },
-  { value: '10+5',  label: '10+5',  category: 'Rapide' },
-  { value: '15+10', label: '15+10', category: 'Rapide' },
-  { value: '30+0',  label: '30+0',  category: 'Classique' },
-  { value: '30+20', label: '30+20', category: 'Classique' },
-  { value: '45+0',  label: '45+0',  category: 'Classique' },
-];
-
-const CHECKERS_TC: TcOption[] = [
-  { value: '1+0',   label: '1+0',   category: 'Bullet' },
-  { value: '2+1',   label: '2+1',   category: 'Bullet' },
-  { value: '2+0',   label: '2+0',   category: 'Bullet' },
-  { value: '3+0',   label: '3+0',   category: 'Blitz' },
-  { value: '5+0',   label: '5+0',   category: 'Blitz' },
-  { value: '5+3',   label: '5+3',   category: 'Blitz' },
-  { value: '10+0',  label: '10+0',  category: 'Rapide' },
-  { value: '15+0',  label: '15+0',  category: 'Rapide' },
-  { value: '15+15', label: '15+15', category: 'Rapide' },
-  { value: '20+0',  label: '20+0',  category: 'Classique' },
-  { value: '30+0',  label: '30+0',  category: 'Classique' },
-  { value: '45+0',  label: '45+0',  category: 'Classique' },
-];
-
 // ── Static content ────────────────────────────────────────────────────────────
 
 const SHORTCUTS = [
@@ -75,18 +40,18 @@ interface MockActivity { id: number; type: ActivityType; title: string; detail: 
 const MOCK_ACTIVITY: MockActivity[] = [
   {
     id: 1, type: 'win',
-    title: 'Amina_23 a remporté une partie de dames',
-    detail: '3 - 1', tag: 'Victoire', time: 'Il y a 5 min',
+    title: 'Amina_23 a remporté une partie',
+    detail: '3 - 1', tag: 'Victoire', time: 'il y a 5 min',
   },
   {
     id: 2, type: 'win',
     title: "LucasM a gagné une partie d'échecs",
-    detail: '1 - 0', tag: 'Victoire', time: 'Il y a 12 min',
+    detail: '1 - 0', tag: 'Victoire', time: 'il y a 12 min',
   },
   {
     id: 3, type: 'challenge',
     title: 'Défi accepté par SophieB',
-    detail: '', tag: 'Voir le défi', time: 'Il y a 23 min',
+    detail: '', tag: 'Voir le défi', time: 'il y a 23 min',
   },
 ];
 
@@ -152,7 +117,6 @@ export const PremiumHomePage: React.FC<Props> = ({
   const setUniverse = useUniverseStore(s => s.setUniverse);
   const games           = useLiveGamesStore(s => s.games);
   const syncServerGames = useLiveGamesStore(s => s.syncServerGames);
-  const addNotification = useNotificationStore(s => s.addNotification);
   const user    = useUserStore(s => s.user);
   const isLoggedIn = useUserStore(s => s.isLoggedIn);
 
@@ -185,7 +149,7 @@ export const PremiumHomePage: React.FC<Props> = ({
   // Fetch live rooms
   useEffect(() => {
     let cancelled = false;
-    const refresh = (showErr: boolean) =>
+    const refresh = () =>
       api.rooms.live({ universe, limit: 10 })
         .then(rooms => {
           if (cancelled) return;
@@ -198,34 +162,30 @@ export const PremiumHomePage: React.FC<Props> = ({
             status: 'playing', source: 'server',
           } as LiveGame)));
         })
-        .catch(() => {
-          if (showErr) addNotification('Impossible de charger les parties en direct', 'error');
-        });
+        .catch(() => undefined);
 
     setLiveGamesLoading(true);
-    refresh(true).finally(() => { if (!cancelled) setLiveGamesLoading(false); });
+    refresh().finally(() => { if (!cancelled) setLiveGamesLoading(false); });
 
     const interval = setInterval(() => {
       if (document.visibilityState === 'hidden') return;
-      refresh(false);
+      refresh();
     }, 5_000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [addNotification, syncServerGames, universe]);
-
-  const timeControls = universe === 'chess' ? CHESS_TC : CHECKERS_TC;
-  const liveCount    = games.filter(g => g.universe === universe && g.status === 'playing').length;
-
-  const grouped: Record<string, TcOption[]> = {};
-  for (const tc of timeControls) {
-    if (!grouped[tc.category]) grouped[tc.category] = [];
-    grouped[tc.category].push(tc);
-  }
+  }, [syncServerGames, universe]);
 
   // Displayed leaderboard: real API data or mock fallback
   const displayLeaderboard: Array<{ rank: number; name: string; score: number; country?: string; wins?: number; losses?: number; draws?: number; games?: number }> =
     leaderboard.length > 0
       ? leaderboard.map(e => ({ rank: e.rank, name: e.name, score: e.rating, country: e.country, wins: e.wins, losses: e.losses, draws: e.draws, games: e.games }))
       : MOCK_LEADERBOARD;
+  const liveActiveGames = games.filter(g => g.universe === universe && g.status === 'playing').slice(0, 2);
+  const quickPairingGroups = [
+    { cat: 'Bullet', icon: '▭', values: ['1+0', '2+1', '2+0'] },
+    { cat: 'Blitz', icon: '⚡', values: ['3+0', '5+0', '5+3'] },
+    { cat: 'Rapide', icon: '◷', values: ['10+0', '10+5', '15+10'] },
+    { cat: 'Classique', icon: '♜', values: ['30+0', '30+20', '45+0'] },
+  ];
 
   const isHome = /^\/(chess|checkers)\/?$/.test(location.pathname);
 
@@ -493,9 +453,10 @@ export const PremiumHomePage: React.FC<Props> = ({
                   </div>
 
                   {/* Recent activity */}
-                  <div className="ph-card">
+                  <div className="ph-card ph-activity-card">
                     <div className="ph-card-head">
                       <div className="ph-card-title">Activité récente</div>
+                      <button className="ph-card-action">Tout voir →</button>
                     </div>
                     <div className="ph-activity-list">
                       {MOCK_ACTIVITY.map(a => (
@@ -514,47 +475,58 @@ export const PremiumHomePage: React.FC<Props> = ({
                   </div>
 
                   {/* Quick pairing */}
-                  <div className="ph-card">
+                  <div className="ph-card ph-quick-card">
                     <div className="ph-card-head">
-                      <div className="ph-card-title">Appariement rapide</div>
+                      <div className="ph-card-title"><span className="ph-card-title-icon">⚡</span> Appariement rapide</div>
                       <button className="ph-card-action" onClick={() => setActiveTab('lobby')}>
                         Voir le lobby →
                       </button>
                     </div>
-                    <div className="ph-pairing-grid">
-                      {Object.entries(grouped).map(([cat, tcs]) => (
-                        <React.Fragment key={cat}>
-                          <div className="ph-pairing-cat-label">
-                            <span className="ph-pairing-cat-dot" />
-                            {cat}
-                          </div>
-                          {tcs.map(({ value, label }) => (
-                            <div
+                    <div className="ph-quick-modes">
+                      {quickPairingGroups.map(group => (
+                        <div className="ph-quick-mode" key={group.cat}>
+                          <div className="ph-quick-mode-title"><span>{group.icon}</span>{group.cat}</div>
+                          {group.values.map(value => (
+                            <button
                               key={value}
-                              className="ph-time-card"
-                              role="button"
-                              tabIndex={0}
+                              className={`ph-quick-pill${value === '10+5' ? ' featured' : ''}`}
                               onClick={() => { setActiveTab('lobby'); onCreateGame(value, 'online'); }}
-                              onKeyDown={e => { if (e.key === 'Enter') { setActiveTab('lobby'); onCreateGame(value, 'online'); } }}
                             >
-                              <div className="ph-time-val">{label}</div>
-                              <div className="ph-time-cat">{cat}</div>
-                            </div>
+                              {value}
+                            </button>
                           ))}
-                        </React.Fragment>
+                        </div>
                       ))}
                     </div>
                   </div>
 
+                  {/* Daily challenge */}
+                  <div className="ph-card ph-daily-card">
+                    <div className="ph-daily-illustration" aria-hidden="true">◎</div>
+                    <div className="ph-daily-copy">
+                      <div className="ph-daily-kicker">Défi du jour</div>
+                      <div className="ph-daily-title">Gagnez avec les Blancs</div>
+                      <div className="ph-daily-sub">Terminez la partie avec une victoire.</div>
+                      <div className="ph-daily-rewards">
+                        <span>🪙 + 50 DC</span>
+                        <span>🏆 + 10 XP</span>
+                      </div>
+                    </div>
+                    <div className="ph-daily-side">
+                      <div className="ph-daily-progress">0 / 1</div>
+                      <button className="ph-daily-btn" onClick={() => onCreateGame('10+5', 'online')}>Jouer</button>
+                    </div>
+                  </div>
+
                   {/* Live games */}
-                  <div className="ph-card">
+                  <div className="ph-card ph-live-card">
                     <div className="ph-card-head">
                       <div className="ph-card-title">
                         Parties en direct
-                        {!liveGamesLoading && liveCount > 0 && (
-                          <span className="ph-live-pill">{liveCount} en cours</span>
-                        )}
+                        <span className="ph-live-dot" />
+                        <span className="ph-live-label">LIVE</span>
                       </div>
+                      <button className="ph-card-action" onClick={() => navigate(`/${universe}`)}>Voir toutes →</button>
                     </div>
                     {liveGamesLoading ? (
                       <div style={{ display: 'flex', gap: 10 }}>
@@ -562,13 +534,85 @@ export const PremiumHomePage: React.FC<Props> = ({
                           <div key={i} className="ph-skel" style={{ flex: 1, height: 88 }} />
                         ))}
                       </div>
+                    ) : liveActiveGames.length > 0 ? (
+                      <div className="ph-live-match-grid">
+                        {liveActiveGames.map((game, index) => (
+                          <button
+                            key={game.id}
+                            className="ph-live-match-card"
+                            onClick={() => navigate(`/${game.universe}/watch/${game.id}`)}
+                          >
+                            <div className="ph-live-board" aria-hidden="true">
+                              <span className="ph-live-timer">{index === 0 ? '03:42' : '07:15'}</span>
+                              {Array.from({ length: 64 }).map((_, i) => <i key={i} />)}
+                            </div>
+                            <div className="ph-live-match-info">
+                              <span className="ph-live-feature">
+                                <span className="ph-live-mini-badge">LIVE</span>
+                                {index === 0 ? 'En vedette' : 'En direct'}
+                              </span>
+                              <div className="ph-live-player">
+                                <span className="ph-live-avatar">{game.white.name.slice(0, 1).toUpperCase()}</span>
+                                <strong>{game.white.name}</strong>
+                                <em>{game.white.rating}</em>
+                              </div>
+                              <div className="ph-live-player">
+                                <span className="ph-live-avatar">{game.black.name.slice(0, 1).toUpperCase()}</span>
+                                <strong>{game.black.name}</strong>
+                                <em>{game.black.rating}</em>
+                              </div>
+                              <div className="ph-live-meta">{game.tc} • {index === 0 ? 12 : 8} spectateurs</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     ) : (
-                      <LiveGamesSection
-                        games={games}
-                        universe={universe}
-                        onClickGame={(id, univ) => navigate(`/${univ}/watch/${id}`)}
-                      />
+                      <div className="ph-live-empty">
+                        Aucune partie en direct pour le moment.
+                      </div>
                     )}
+                  </div>
+
+                  <div className="ph-lower-grid">
+                    <div className="ph-card ph-upcoming-card">
+                      <div className="ph-card-head">
+                        <div className="ph-card-title">Tournois à venir</div>
+                        <button className="ph-card-action" onClick={() => navigate(`/${universe}/tournaments`)}>Voir tout →</button>
+                      </div>
+                      {[
+                        ['🏆', 'Tournoi du Soir', "Aujourd'hui • 20:00", '128'],
+                        ['🏆', 'Week-End Arena', 'Demain • 15:00', '256'],
+                        ['🏆', 'Classique Prestige', 'Dim. 26 mai • 17:00', '64'],
+                      ].map(([icon, name, date, players]) => (
+                        <div key={name} className="ph-upcoming-row">
+                          <span className="ph-upcoming-icon">{icon}</span>
+                          <span className="ph-upcoming-main"><strong>{name}</strong><small>{date}</small></span>
+                          <span className="ph-upcoming-players">♟ {players}</span>
+                          <span className="ph-register-badge">Inscription</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="ph-card ph-ranking-card">
+                      <div className="ph-card-head">
+                        <div className="ph-card-title">Classement</div>
+                        <button className="ph-card-action" onClick={() => navigate(`/${universe}/leaderboard`)}>Voir le classement →</button>
+                      </div>
+                      {displayLeaderboard.slice(0, 5).map(entry => (
+                        <div key={entry.rank} className="ph-rank-row">
+                          <span className={`ph-rank-medal rank-${entry.rank}`}>{entry.rank}</span>
+                          <span className="ph-rank-avatar">{entry.name.slice(0, 1).toUpperCase()}</span>
+                          <strong>{entry.name}</strong>
+                          <em>{entry.score}</em>
+                        </div>
+                      ))}
+                      <div className="ph-rank-row ph-rank-me">
+                        <span className="ph-rank-medal">—</span>
+                        <span className="ph-rank-avatar">{(user?.name || 'Vous').slice(0, 1).toUpperCase()}</span>
+                        <strong>Vous</strong>
+                        <em>{user?.rating?.[universe] ?? 1987}</em>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Quote */}
