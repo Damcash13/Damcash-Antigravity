@@ -57,7 +57,7 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
             queryParams: { prompt: 'select_account' },
           },
         }),
-        12_000,
+        30_000,
         'Google sign-in',
       );
       if (oauthError) throw oauthError;
@@ -80,7 +80,7 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
         supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: `${window.location.origin}/reset-password`,
         }),
-        12_000,
+        30_000,
         'Password reset',
       );
       if (resetError) throw resetError;
@@ -123,7 +123,7 @@ export const AuthModal: React.FC<Props> = ({ open, onClose }) => {
               },
             },
           }),
-          15_000,
+          30_000,
           'Registration',
         );
 

@@ -38,7 +38,7 @@ export const supabase: any = supabaseUrl && supabaseKey
 // call hangs forever because the underlying fetch never resolves.  This helper
 // races any promise against a timeout so the UI always gets a response.
 
-const DEFAULT_AUTH_TIMEOUT = 20_000; // 20 seconds – handles cold-start latency
+const DEFAULT_AUTH_TIMEOUT = 30_000; // 30 seconds – allows for slow Supabase responses
 
 export function withTimeout<T>(
   promise: Promise<T>,
