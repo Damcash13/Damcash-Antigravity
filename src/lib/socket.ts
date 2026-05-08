@@ -75,4 +75,31 @@ if (_io) {
       } catch {}
     }
   });
+
+  // ── Player presence tracking ──────────────────────────────────────────────
+  // Listen for presence broadcasts from the server and keep the invite store
+  // in sync so the online players list reflects real-time connections.
+  // Dynamic imports are used to avoid a circular dependency (inviteStore
+  // already imports socket.ts at module load time).
+  socket.on('player:connected', (player: any) => {
+    import('../stores/inviteStore').then(({ useInviteStore }) => {
+      useInviteStore.getState().upsertPlayer(player);
+    });
+  });
+
+  socket.on('player:disconnected', (data: { socketId: string }) => {
+    import('../stores/inviteStore').then(({ useInviteStore }) => {
+      useInviteStore.getState().removePlayer(data.socketId);
+    });
+  });
+
+  socket.on('player:universe-changed', (data: { socketId: string; universe: string }) => {
+    import('../stores/inviteStore').then(({ useInviteStore }) => {
+      const { upsertPlayer, onlinePlayers } = useInviteStore.getState();
+      const player = onlinePlayers.find((p: any) => p.socketId === data.socketId);
+      if (player) {
+        upsertPlayer({ ...player, universe: data.universe });
+      }
+    });
+  });
 }
