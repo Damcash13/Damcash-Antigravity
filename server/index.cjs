@@ -814,6 +814,26 @@ function deliverPendingInvites(socket) {
   }
 }
 
+function roomStatePayload(roomId, room, color) {
+  const lastMove = room.moves.length > 0 ? room.moves[room.moves.length - 1] : null;
+  const isCheckers = room.config?.universe === 'checkers';
+  return {
+    roomId,
+    color,
+    config: room.config,
+    moves: room.moves,
+    fen: !isCheckers ? (lastMove?.fen || null) : null,
+    board: isCheckers ? (lastMove?.board || null) : null,
+    turn: room.moves.length % 2 === 0 ? 'white' : 'black',
+    white: room.players.white,
+    black: room.players.black,
+    whitePlayer: players.get(room.players.white) || room.playerInfo?.white,
+    blackPlayer: players.get(room.players.black) || room.playerInfo?.black,
+    whiteTime: room.whiteTime,
+    blackTime: room.blackTime,
+  };
+}
+
 function broadcastPlayerList() {
   const list = buildPublicPlayerList();
   io.emit('players:online', list);
@@ -1387,23 +1407,7 @@ io.on('connection', (socket) => {
       players.delete(oldSocketId);
     }
 
-    const lastMove  = room.moves.length > 0 ? room.moves[room.moves.length - 1] : null;
-    const isCheckers = room.config?.universe === 'checkers';
-
-    socket.emit('room:state', {
-      roomId,
-      color,
-      config:   room.config,
-      moves:    room.moves,
-      fen:      !isCheckers ? (lastMove?.fen   || null) : null,
-      board:    isCheckers  ? (lastMove?.board || null) : null,
-      white: room.players.white,
-      black: room.players.black,
-      whitePlayer: players.get(room.players.white) || room.playerInfo?.white,
-      blackPlayer: players.get(room.players.black) || room.playerInfo?.black,
-      whiteTime: room.whiteTime,
-      blackTime: room.blackTime,
-    });
+    socket.emit('room:state', roomStatePayload(roomId, room, color));
     socket.emit('room:tokens', { roomId, token, color });
     socket.to(roomId).emit('player-reconnected', { socketId: socket.id, color });
 
@@ -1457,8 +1461,10 @@ io.on('connection', (socket) => {
     const wp = players.get(room.players.white) || room.playerInfo?.white;
     const bp = players.get(room.players.black) || room.playerInfo?.black;
 
-    if (room.players.white === socket.id || room.players.black === socket.id) {
+    const participantColor = room.players.white === socket.id ? 'white' : room.players.black === socket.id ? 'black' : null;
+    if (participantColor) {
       socket.join(roomId);
+      socket.emit('room:state', roomStatePayload(roomId, room, participantColor));
     }
 
     socket.emit('room:players', {
