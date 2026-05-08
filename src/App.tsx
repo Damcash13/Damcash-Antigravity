@@ -54,13 +54,16 @@ const LobbyView: React.FC<{
   onInvitePlayer:  (player: OnlinePlayer) => void;
   onChallengeFriendDirect: (socketId: string, name: string) => void;
   onOpenWallet:    () => void;
-}> = ({ onCreateGame, onChallengeFriend, onPlayComputer, onOpenWallet }) => {
+  onOpenAuth:      () => void;
+}> = ({ onCreateGame, onChallengeFriend, onPlayComputer, onInvitePlayer, onOpenWallet, onOpenAuth }) => {
   return (
     <PremiumHomePage
       onCreateGame={onCreateGame}
       onOpenWallet={onOpenWallet}
       onChallengeFriend={onChallengeFriend}
       onPlayComputer={onPlayComputer}
+      onInvitePlayer={onInvitePlayer}
+      onOpenAuth={onOpenAuth}
     />
   );
 };
@@ -89,6 +92,7 @@ const PageFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const isHomePage = /^\/(chess|checkers)\/?$/.test(location.pathname);
 
   const user = useUserStore(s => s.user);
   const isLoggedIn = useUserStore(s => s.isLoggedIn);
@@ -353,14 +357,16 @@ export default function App() {
 
   return (
     <div className={`app-wrapper app-container ${universe}-universe`}>
-      <Header
-        onOpenAuth={() => setShowAuth(true)}
-        onOpenWallet={() => setShowWallet(true)}
-        onInvitePlayer={handleInvitePlayer}
-        onOpenCreateGame={() => openConfig()}
-      />
+      {!isHomePage && (
+        <Header
+          onOpenAuth={() => setShowAuth(true)}
+          onOpenWallet={() => setShowWallet(true)}
+          onInvitePlayer={handleInvitePlayer}
+          onOpenCreateGame={() => openConfig()}
+        />
+      )}
 
-      <div className="main-layout">
+      <div className={isHomePage ? 'ph-app-root' : 'main-layout'}>
         {activeGamePrompt && (
           <div style={{
             position: 'fixed',
@@ -434,6 +440,7 @@ export default function App() {
                 onInvitePlayer={handleInvitePlayer}
                 onChallengeFriendDirect={handleChallengeFriendDirect}
                 onOpenWallet={() => setShowWallet(true)}
+                onOpenAuth={() => setShowAuth(true)}
               />
             } />
 
