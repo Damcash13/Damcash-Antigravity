@@ -174,44 +174,45 @@ export const useUserStore = create<UserStore>()(
         const { data, error } = result;
         if (error) throw error;
 
-        // Fetch backend profile (may fail if server is starting up — fall back gracefully)
-        try {
-          const res = await api.auth.me({ suppressAuthEvent: true });
-          const u = apiUserToUser(res.user);
-          set({
-            user: u,
-            isLoggedIn: true,
-            gamesPlayed: {
-              chess:    res.user.chess?.games    ?? 0,
-              checkers: res.user.checkers?.games ?? 0,
-            },
-          });
-        } catch (profileErr) {
-          console.warn('[login] Backend profile fetch failed, using Supabase session data', profileErr);
-          // Still log the user in using Supabase metadata so they aren't blocked
-          const meta = data.user?.user_metadata || {};
-          set({
-            user: {
-              id:            data.user!.id,
-              name:          meta.username || email.split('@')[0],
-              email:         data.user!.email || email,
-              country:       meta.country || '',
-              walletBalance: 0,
-              currency:      'USD',
-              rating:        { chess: 1500, checkers: 1450 },
-              wins:          0,
-              losses:        0,
-              draws:         0,
-              betsWon:       0,
-              betsLost:      0,
-            },
-            isLoggedIn: true,
-          });
-        }
-        // Reconnect socket with the fresh auth token so the server
-        // recognises this user for rated games / money games.
+        // Enter the app as soon as Supabase accepts the credentials. The
+        // backend profile is synced below without blocking the login modal.
+        const meta = data.user?.user_metadata || {};
+        const optimisticUser = {
+          id:            data.user!.id,
+          name:          meta.username || meta.preferred_username || meta.name || email.split('@')[0],
+          email:         data.user!.email || email,
+          country:       meta.country || '',
+          walletBalance: 0,
+          currency:      'USD',
+          rating:        { chess: 1500, checkers: 1450 },
+          wins:          0,
+          losses:        0,
+          draws:         0,
+          betsWon:       0,
+          betsLost:      0,
+        };
+        set({ user: optimisticUser, isLoggedIn: true });
+
+        // Reconnect socket with the fresh auth token so the server recognises
+        // this user for rated games / money games immediately.
         const token = data?.session?.access_token || null;
         reconnectWithToken(token);
+
+        api.auth.me({ suppressAuthEvent: true })
+          .then((res) => {
+            const u = apiUserToUser(res.user);
+            set({
+              user: u,
+              isLoggedIn: true,
+              gamesPlayed: {
+                chess:    res.user.chess?.games    ?? 0,
+                checkers: res.user.checkers?.games ?? 0,
+              },
+            });
+          })
+          .catch((profileErr) => {
+            console.warn('[login] Backend profile sync failed after login:', profileErr);
+          });
       },
       logout: () => {
         try {

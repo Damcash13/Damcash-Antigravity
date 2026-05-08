@@ -176,6 +176,15 @@ export const PremiumHomePage: React.FC<Props> = ({
     return () => { cancelled = true; clearInterval(interval); };
   }, [syncServerGames, universe]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [mobileMenuOpen]);
+
   // Displayed leaderboard: real API data or mock fallback
   const displayLeaderboard: Array<{ rank: number; name: string; score: number; country?: string; wins?: number; losses?: number; draws?: number; games?: number }> =
     leaderboard.length > 0
@@ -322,28 +331,35 @@ export const PremiumHomePage: React.FC<Props> = ({
           </div>
 
           {mobileMenuOpen && (
-            <div className="ph-mobile-menu-panel">
-              <div className="ph-mobile-menu-title">Menu</div>
-              {SIDEBAR_NAV.map((item, i) =>
-                item === null ? (
-                  <div key={`mobile-hr-${i}`} className="ph-mobile-menu-hr" />
-                ) : (
-                  <button
-                    key={item.key}
-                    className={`ph-mobile-menu-item${item.key === 'home' && isHome ? ' active' : ''}`}
-                    onClick={() => handleSidebarNav(item.key)}
-                  >
-                    <span>{item.icon}</span>
-                    {item.label}
+            <>
+              <button
+                className="ph-mobile-menu-backdrop"
+                aria-label="Fermer le menu"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+              <div className="ph-mobile-menu-panel">
+                <div className="ph-mobile-menu-title">Menu</div>
+                {SIDEBAR_NAV.map((item, i) =>
+                  item === null ? (
+                    <div key={`mobile-hr-${i}`} className="ph-mobile-menu-hr" />
+                  ) : (
+                    <button
+                      key={item.key}
+                      className={`ph-mobile-menu-item${item.key === 'home' && isHome ? ' active' : ''}`}
+                      onClick={() => handleSidebarNav(item.key)}
+                    >
+                      <span>{item.icon}</span>
+                      {item.label}
+                    </button>
+                  )
+                )}
+                {user && (
+                  <button className="ph-mobile-menu-wallet" onClick={() => { setMobileMenuOpen(false); onOpenWallet(); }}>
+                    Portefeuille · ${Number(user.walletBalance).toFixed(2)}
                   </button>
-                )
-              )}
-              {user && (
-                <button className="ph-mobile-menu-wallet" onClick={() => { setMobileMenuOpen(false); onOpenWallet(); }}>
-                  Portefeuille · ${Number(user.walletBalance).toFixed(2)}
-                </button>
-              )}
-            </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </header>

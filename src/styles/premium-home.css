@@ -418,6 +418,15 @@
   background: rgba(221, 184, 48, 0.12);
 }
 
+.ph-mobile-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
 .ph-mobile-menu-panel {
   position: absolute;
   top: calc(100% + 8px);
