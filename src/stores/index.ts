@@ -324,40 +324,31 @@ export const useUserStore = create<UserStore>()(
             return;
           }
 
-          const res = await api.auth.me({ suppressAuthEvent: true });
-          const u = apiUserToUser(res.user);
-          // Reconnect socket with restored auth token
+          // Immediately unblock the UI using metadata from the Supabase token.
+          // The full database profile is synced in the background below.
+          const meta = session.user?.user_metadata || {};
+          const optimisticUser = {
+            id:            session.user.id,
+            name:          meta.username || meta.preferred_username || meta.name || session.user.email?.split('@')[0] || 'User',
+            email:         session.user.email || '',
+            country:       meta.country || '',
+            walletBalance: 0,
+            currency:      'USD',
+            rating:        { chess: 1500, checkers: 1450 },
+            wins:          0,
+            losses:        0,
+            draws:         0,
+            betsWon:       0,
+            betsLost:      0,
+          };
+          // Reconnect socket with restored auth token immediately
           reconnectWithToken(session.access_token);
-          set({
-            user: u,
-            isLoggedIn: true,
-            gamesPlayed: {
-              chess:    res.user.chess?.games    ?? 0,
-              checkers: res.user.checkers?.games ?? 0,
-            },
-          });
-        } catch (err: any) {
-          console.error('[restoreSession] Profile fetch failed:', err);
-          // Only clear session if we are certain it's invalid (401/Unauthorized).
-          // If it's a timeout or 500, we keep the persisted 'isLoggedIn' state
-          // to avoid kicking the user out unnecessarily.
-          const authFailure = err?.status === 401
-            || err.message?.includes('401')
-            || err.message?.includes('Unauthorized')
-            || err.message?.includes('Invalid session');
+          set({ user: optimisticUser, isLoggedIn: true });
 
-          if (authFailure) {
-            try {
-              const { data, error } = await withTimeout<any>(
-                supabase.auth.refreshSession(),
-                10_000,
-                'Session refresh',
-              );
-              if (error || !data?.session) throw error || new Error('No refreshed session');
-
-              const res = await api.auth.me({ suppressAuthEvent: true });
+          // Sync full profile from database in the background — does not block
+          api.auth.me({ suppressAuthEvent: true })
+            .then((res) => {
               const u = apiUserToUser(res.user);
-              reconnectWithToken(data.session.access_token);
               set({
                 user: u,
                 isLoggedIn: true,
@@ -366,12 +357,48 @@ export const useUserStore = create<UserStore>()(
                   checkers: res.user.checkers?.games ?? 0,
                 },
               });
-            } catch (refreshErr) {
-              console.warn('[restoreSession] Refresh failed; clearing session:', refreshErr);
-              reconnectWithToken(null);
-              set({ user: null, isLoggedIn: false });
-            }
-          }
+            })
+            .catch(async (err: any) => {
+              console.error('[restoreSession] Background profile sync failed:', err);
+              // Only clear session if we are certain it's invalid (401/Unauthorized).
+              // If it's a timeout or 500, we keep the optimistic user to avoid
+              // kicking the user out unnecessarily.
+              const authFailure = err?.status === 401
+                || err.message?.includes('401')
+                || err.message?.includes('Unauthorized')
+                || err.message?.includes('Invalid session');
+
+              if (authFailure) {
+                try {
+                  const { data, error } = await withTimeout<any>(
+                    supabase!.auth.refreshSession(),
+                    10_000,
+                    'Session refresh',
+                  );
+                  if (error || !data?.session) throw error || new Error('No refreshed session');
+
+                  const res = await api.auth.me({ suppressAuthEvent: true });
+                  const u = apiUserToUser(res.user);
+                  reconnectWithToken(data.session.access_token);
+                  set({
+                    user: u,
+                    isLoggedIn: true,
+                    gamesPlayed: {
+                      chess:    res.user.chess?.games    ?? 0,
+                      checkers: res.user.checkers?.games ?? 0,
+                    },
+                  });
+                } catch (refreshErr) {
+                  console.warn('[restoreSession] Refresh failed; clearing session:', refreshErr);
+                  reconnectWithToken(null);
+                  set({ user: null, isLoggedIn: false });
+                }
+              }
+            });
+        } catch (err: any) {
+          console.error('[restoreSession] Session fetch failed:', err);
+          // getSession() itself failed — keep persisted state to avoid
+          // kicking the user out on a transient network error.
         }
       },
       listenToAuthChanges: () => {
