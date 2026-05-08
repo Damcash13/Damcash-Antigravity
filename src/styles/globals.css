@@ -6650,3 +6650,211 @@ input:focus, select:focus, textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ===== DAMCASH PREMIUM POPUPS ===== */
+.modal-overlay,
+.game-config-overlay {
+  background:
+    radial-gradient(circle at 50% 16%, rgba(218, 178, 83, 0.18), transparent 36%),
+    radial-gradient(circle at 12% 84%, rgba(255, 244, 218, 0.1), transparent 28%),
+    rgba(5, 6, 8, 0.8) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 14px;
+}
+
+.modal,
+.game-config-modal {
+  --bg-0: #f4ecde;
+  --bg-1: #fffdf8;
+  --bg-2: #fff7e8;
+  --bg-3: #eadcc5;
+  --border: rgba(218, 178, 83, 0.28);
+  --text-1: #181614;
+  --text-2: #675d4e;
+  --text-3: #9b8d79;
+  --accent: #c9951e;
+  --accent-hover: #b97c12;
+  --accent-dim: rgba(201, 149, 30, 0.14);
+
+  background:
+    radial-gradient(circle at 90% 0%, rgba(218, 178, 83, 0.18), transparent 36%),
+    linear-gradient(135deg, #fffdf8 0%, #f8f0e3 100%) !important;
+  color: #181614 !important;
+  border: 1px solid rgba(218, 178, 83, 0.36) !important;
+  border-radius: 24px !important;
+  position: relative;
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.42),
+    0 0 42px rgba(201, 149, 30, 0.14) !important;
+}
+
+.modal::before,
+.game-config-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(244, 218, 139, 0.8), transparent);
+  pointer-events: none;
+}
+
+.modal-title {
+  color: #181614;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.modal-close,
+.game-config-close {
+  width: 34px !important;
+  height: 34px !important;
+  border: 1px solid rgba(218, 178, 83, 0.32) !important;
+  border-radius: 999px !important;
+  background: #fff8ea !important;
+  color: #8a6317 !important;
+  box-shadow: 0 8px 18px rgba(37, 24, 7, 0.08);
+}
+
+.modal-close:hover,
+.game-config-close:hover {
+  background: #f3e4ca !important;
+  border-color: #c9951e !important;
+  color: #181614 !important;
+}
+
+.modal input,
+.modal select,
+.modal textarea,
+.game-config-modal input,
+.game-config-modal select,
+.game-config-modal textarea {
+  background: #fffdfa !important;
+  border-color: rgba(218, 178, 83, 0.3) !important;
+  color: #181614 !important;
+  border-radius: 12px !important;
+}
+
+.modal input:focus,
+.modal select:focus,
+.modal textarea:focus,
+.game-config-modal input:focus,
+.game-config-modal select:focus,
+.game-config-modal textarea:focus {
+  border-color: #c9951e !important;
+  box-shadow: 0 0 0 3px rgba(201, 149, 30, 0.16) !important;
+}
+
+.modal label,
+.game-config-modal label {
+  color: #675d4e !important;
+}
+
+.modal .tab-btn {
+  color: #7b705f;
+  border-color: transparent;
+  border-radius: 14px 14px 0 0;
+}
+
+.modal .tab-btn.active,
+.modal .tab-btn:hover {
+  background: #f7ecd2;
+  color: #9a6711;
+  border-bottom-color: #c9951e;
+}
+
+.modal .btn-primary,
+.game-config-modal .btn-primary,
+.game-config-modal .btn-full {
+  border: 1px solid rgba(244, 218, 139, 0.38) !important;
+  background: linear-gradient(135deg, #e2b84a 0%, #b97c12 100%) !important;
+  color: #111 !important;
+  box-shadow: 0 12px 24px rgba(201, 149, 30, 0.24) !important;
+}
+
+.modal .btn-primary:hover,
+.game-config-modal .btn-primary:hover,
+.game-config-modal .btn-full:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.modal .btn-secondary,
+.modal .btn-ghost,
+.game-config-modal .btn-secondary,
+.game-config-modal .btn-ghost {
+  border: 1px solid rgba(218, 178, 83, 0.28) !important;
+  background: #fff8ea !important;
+  color: #6b4d13 !important;
+}
+
+.game-config-header,
+.game-config-footer {
+  background: linear-gradient(135deg, #fff9ed 0%, #f4ead6 100%) !important;
+  border-color: rgba(218, 178, 83, 0.24) !important;
+  color: #181614 !important;
+}
+
+.game-config-mode-tab {
+  color: #7b705f !important;
+}
+
+.game-config-mode-tab:hover {
+  background: #fff8ea !important;
+  color: #9a6711 !important;
+}
+
+.game-config-body button:not(.btn) {
+  color: #181614;
+}
+
+.game-config-body button:not(.btn):hover {
+  border-color: #c9951e !important;
+  background: #fff8ea !important;
+}
+
+.game-config-modal [style*="color: var(--text-1)"] {
+  color: #181614 !important;
+}
+
+.game-config-modal [style*="color: var(--text-2)"],
+.game-config-modal [style*="color: var(--text-3)"] {
+  color: #675d4e !important;
+}
+
+.game-config-modal [style*="background: var(--bg-2)"] {
+  background: #fff8ea !important;
+}
+
+.game-config-modal [style*="border: 1px solid var(--border)"],
+.game-config-modal [style*="border: var(--border)"] {
+  border-color: rgba(218, 178, 83, 0.28) !important;
+}
+
+.game-config-modal [style*="background: var(--accent-dim)"] {
+  background: #f7ecd2 !important;
+}
+
+.game-config-modal [style*="color: var(--accent)"] {
+  color: #9a6711 !important;
+}
+
+.modal a {
+  color: #9a6711 !important;
+}
+
+@media (max-width: 600px) {
+  .modal-overlay,
+  .game-config-overlay {
+    align-items: flex-start !important;
+    overflow-y: auto;
+    padding: 18px 10px;
+  }
+
+  .modal,
+  .game-config-modal {
+    width: min(100%, 430px) !important;
+    max-width: calc(100vw - 20px) !important;
+    border-radius: 22px !important;
+  }
+}

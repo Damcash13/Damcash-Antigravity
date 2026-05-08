@@ -145,6 +145,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
 
   return (
     <div
+      className="game-config-overlay"
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
         zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -153,6 +154,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
       onClick={onClose}
     >
       <div
+        className="game-config-modal"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--bg-1)', border: '1px solid var(--border)',
@@ -162,7 +164,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
         }}
       >
         {/* Header */}
-        <div style={{
+        <div className="game-config-header" style={{
           padding: '16px 20px', borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: 'var(--bg-2)',
@@ -180,6 +182,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
             )}
           </div>
           <button
+            className="game-config-close"
             onClick={onClose}
             style={{ background: 'none', border: 'none', color: 'var(--text-2)',
               fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: 4 }}
@@ -194,6 +197,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
               { key: 'join',   label: `🔑 ${t('createGame.joinByCode')}` },
             ].map((m) => (
               <button
+                className="game-config-mode-tab"
                 key={m.key}
                 onClick={() => setMode(m.key as any)}
                 style={{
@@ -212,7 +216,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
 
           {/* ── JOIN BY CODE ── */}
           {mode === 'join' && step === 'config' && (
-            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div className="game-config-body" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ textAlign: 'center', fontSize: 48 }}>🔑</div>
               <div>
                 <label style={labelStyle}>{t('createGame.enterCode')}</label>
@@ -245,7 +249,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
 
           {/* ── CONFIG FORM (invite or create) ── */}
           {step === 'config' && mode !== 'join' && (
-            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div className="game-config-body" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
               {/* Universe */}
               <div>
@@ -497,7 +501,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
 
         {/* Footer / CTA */}
         {step === 'config' && mode !== 'join' && (
-          <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', background: 'var(--bg-2)', display: 'flex', gap: 10 }}>
+          <div className="game-config-footer" style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', background: 'var(--bg-2)', display: 'flex', gap: 10 }}>
             <button className="btn btn-ghost" style={{ flex: '0 0 auto' }} onClick={onClose}>
               {t('common.cancel')}
             </button>
