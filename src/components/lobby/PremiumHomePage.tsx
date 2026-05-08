@@ -62,12 +62,10 @@ const CHECKERS_TC: TcOption[] = [
 // ── Static content ────────────────────────────────────────────────────────────
 
 const SHORTCUTS = [
-  { key: 'quick',       label: 'Partie rapide',  detail: 'Jouer maintenant',      icon: '⚡', action: 'quick'       },
-  { key: 'challenges',  label: 'Défis',          detail: 'Inviter un ami',         icon: '⚔️', action: 'challenge'   },
-  { key: 'tournaments', label: 'Tournois',        detail: 'Événements & prix',      icon: '🏆', action: 'tournaments' },
-  { key: 'leaderboard', label: 'Classement',      detail: 'Meilleurs joueurs',      icon: '📊', action: 'leaderboard' },
-  { key: 'community',   label: 'Communauté',      detail: 'Joueurs en ligne',       icon: '👥', action: 'lobby'       },
-  { key: 'rewards',     label: 'Récompenses',     detail: 'Portefeuille & mises',   icon: '💰', action: 'wallet'      },
+  { key: 'quick',       label: 'Partie rapide',  detail: 'Jouez sans attendre',       icon: '⚡', action: 'quick'       },
+  { key: 'challenges',  label: 'Défis',          detail: 'Affrontez des adversaires', icon: '⚔️', action: 'challenge'   },
+  { key: 'tournaments', label: 'Tournois',       detail: 'Compétitions exclusives',   icon: '🏆', action: 'tournaments' },
+  { key: 'leaderboard', label: 'Classement',     detail: 'Voyez où vous vous situez', icon: '📊', action: 'leaderboard' },
 ] as const;
 
 type ActivityType = 'win' | 'loss' | 'challenge';
@@ -394,7 +392,7 @@ export const PremiumHomePage: React.FC<Props> = ({
                 <div className="ph-hero-glow" aria-hidden="true" />
 
                 <div className="ph-hero-copy">
-                  <div className="ph-hero-eyebrow">DamCash — Saison Actuelle</div>
+                  <div className="ph-hero-eyebrow">DAMCASH — SAISON ACTUELLE</div>
                   <h1 className="ph-hero-h1">
                     SAISON DES
                     <span className="ph-hero-h1-gold">CHAMPIONS</span>
@@ -452,7 +450,7 @@ export const PremiumHomePage: React.FC<Props> = ({
                         <span style={{ fontSize: 72, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.5))', display: 'block', lineHeight: 1 }}>⚫</span>
                       </div>
                       <div className="ph-game-card-content">
-                        <div className="ph-gc-badge">⚫ Jeu de dames</div>
+                        <div className="ph-gc-badge">JEU DE DAMES</div>
                         <div className="ph-gc-title">Affrontez des joueurs du monde entier</div>
                         <div className="ph-gc-sub">Tactiques rapides et finales nettes.</div>
                         <button className="ph-gc-btn">Jouer maintenant →</button>
@@ -471,7 +469,7 @@ export const PremiumHomePage: React.FC<Props> = ({
                         <img src="/pieces/wn.svg" alt="" className="ph-gc-piece" />
                       </div>
                       <div className="ph-game-card-content">
-                        <div className="ph-gc-badge">♟ Jeu d'échecs</div>
+                        <div className="ph-gc-badge">JEU D'ÉCHECS</div>
                         <div className="ph-gc-title">Stratégie. Réflexion. Victoire.</div>
                         <div className="ph-gc-sub">Calcul, vision, maîtrise.</div>
                         <button className="ph-gc-btn">Jouer maintenant →</button>

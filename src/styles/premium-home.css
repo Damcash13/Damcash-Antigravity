@@ -1190,3 +1190,309 @@
   .ph-hero-tagline { display: none; }
   .ph-shortcuts    { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ═══════════════════════════════
+   IMAGE BACKGROUND MOBILE CARDS
+═══════════════════════════════ */
+.ph-hero {
+  min-height: 280px;
+  border-radius: 24px;
+  padding: 34px 42px;
+  background-image:
+    linear-gradient(to right, rgba(0,0,0,0.78), rgba(0,0,0,0.25)),
+    url('/assets/damcash/season-champions-bg.png');
+  background-size: cover;
+  background-position: center right;
+  border: 1px solid rgba(221, 184, 48, 0.34);
+  box-shadow: 0 18px 42px rgba(23, 16, 4, 0.18);
+}
+
+.ph-hero::before,
+.ph-hero-glow,
+.ph-hero-bg-dots,
+.ph-hero-art {
+  display: none;
+}
+
+.ph-hero-copy {
+  max-width: 500px;
+}
+
+.ph-hero-eyebrow {
+  color: var(--ph-gold-rim);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.24em;
+}
+
+.ph-hero-h1 {
+  max-width: 500px;
+  font-size: clamp(44px, 6vw, 74px);
+  line-height: 0.94;
+  letter-spacing: 0;
+}
+
+.ph-hero-tagline,
+.ph-hero-desc {
+  display: none;
+}
+
+.ph-hero-actions {
+  width: min(350px, 100%);
+  flex-direction: column;
+  margin-top: 28px;
+}
+
+.ph-hero-cta,
+.ph-hero-cta-ghost {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 12px;
+  font-size: 16px;
+}
+
+.ph-hero-cta {
+  color: #140e04;
+  background: linear-gradient(180deg, #f1c755, #c68b13);
+  border: 1px solid rgba(255, 218, 113, 0.72);
+  box-shadow: 0 12px 28px rgba(191, 132, 16, 0.24);
+}
+
+.ph-hero-cta-ghost {
+  color: rgba(255,255,255,0.88);
+  background: rgba(28, 28, 28, 0.62);
+  border: 1px solid rgba(255,255,255,0.24);
+  backdrop-filter: blur(8px);
+}
+
+.ph-game-cards {
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.ph-game-card {
+  min-height: 250px;
+  height: auto;
+  align-items: center;
+  padding: 28px 32px;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background-size: cover;
+  background-position: center right;
+  box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+}
+
+.ph-game-card::before {
+  z-index: 1;
+  background: linear-gradient(to right, rgba(0,0,0,0.75), rgba(0,0,0,0.25));
+}
+
+.ph-game-card-dames {
+  background-image: url('/assets/damcash/checkers-bg.png');
+  background-position: center right;
+}
+
+.ph-game-card-dames::before {
+  background: linear-gradient(to right, rgba(0,0,0,0.78), rgba(0,0,0,0.22));
+}
+
+.ph-game-card-chess {
+  background-image: url('/assets/damcash/chess-bg.png');
+  background-position: center right;
+}
+
+.ph-game-card-chess::before {
+  background:
+    linear-gradient(to right, rgba(0,0,0,0.78), rgba(4,15,34,0.32)),
+    linear-gradient(to bottom, rgba(3,9,22,0.08), rgba(0,0,0,0.2));
+}
+
+.ph-game-card-visual {
+  display: none;
+}
+
+.ph-game-card-content {
+  width: min(420px, 72%);
+  gap: 8px;
+}
+
+.ph-gc-badge {
+  min-height: 36px;
+  margin-bottom: 16px;
+  padding: 0 16px;
+  border-color: rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.92);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.ph-gc-badge::before {
+  content: '';
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #3d3d3d, #050505 70%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+}
+
+.ph-gc-title {
+  max-width: 390px;
+  font-size: clamp(30px, 4.4vw, 45px);
+  font-weight: 950;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.ph-gc-sub {
+  max-width: 340px;
+  color: rgba(255,255,255,0.78);
+  font-size: 18px;
+  line-height: 1.35;
+  margin-bottom: 18px;
+}
+
+.ph-gc-btn {
+  min-height: 50px;
+  padding: 0 28px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f1c755, #c68b13);
+  color: #140e04;
+  font-size: 16px;
+  box-shadow: 0 12px 26px rgba(191, 132, 16, 0.22);
+}
+
+.ph-shortcuts {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.ph-shortcut {
+  min-height: 150px;
+  position: relative;
+  overflow: hidden;
+  justify-content: flex-end;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.82), rgba(247,239,223,0.74)),
+    #f8f2e8;
+  box-shadow: 0 14px 26px rgba(55, 38, 11, 0.08);
+}
+
+.ph-shortcut::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background:
+    radial-gradient(circle at 78% 25%, rgba(184,138,45,0.65), transparent 23%),
+    linear-gradient(135deg, transparent 42%, rgba(184,138,45,0.26));
+}
+
+.ph-shortcut-icon,
+.ph-shortcut-label,
+.ph-shortcut-detail {
+  position: relative;
+  z-index: 1;
+}
+
+.ph-shortcut-icon {
+  color: var(--ph-gold-btn);
+}
+
+.ph-shortcut-label {
+  font-size: 20px;
+}
+
+.ph-shortcut-detail {
+  color: var(--ph-text-2);
+  font-size: 14px;
+}
+
+@media (max-width: 767px) {
+  .ph-main {
+    gap: 16px;
+  }
+
+  .ph-hero {
+    min-height: 280px;
+    padding: 30px 28px;
+    background-position: 67% center;
+  }
+
+  .ph-hero-copy {
+    width: 78%;
+  }
+
+  .ph-hero-h1 {
+    font-size: 38px;
+  }
+
+  .ph-hero-cta,
+  .ph-hero-cta-ghost {
+    min-height: 48px;
+    font-size: 15px;
+  }
+
+  .ph-game-card {
+    min-height: 252px;
+    padding: 24px 26px;
+    background-position: 62% center;
+  }
+
+  .ph-game-card-content {
+    width: 78%;
+  }
+
+  .ph-gc-title {
+    font-size: 30px;
+  }
+
+  .ph-gc-sub {
+    font-size: 17px;
+  }
+
+  .ph-gc-btn {
+    min-height: 46px;
+    padding: 0 22px;
+    font-size: 15px;
+  }
+
+  .ph-shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .ph-hero {
+    min-height: 270px;
+    padding: 26px 22px;
+  }
+
+  .ph-hero-copy,
+  .ph-game-card-content {
+    width: 84%;
+  }
+
+  .ph-hero-h1 {
+    font-size: 34px;
+  }
+
+  .ph-gc-title {
+    font-size: 26px;
+  }
+
+  .ph-gc-sub {
+    font-size: 15px;
+  }
+
+  .ph-gc-badge {
+    font-size: 11px;
+  }
+
+  .ph-shortcut {
+    min-height: 138px;
+  }
+}
