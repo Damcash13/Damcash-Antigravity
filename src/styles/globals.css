@@ -926,7 +926,6 @@ body {
   background: var(--bg-2);
   color: var(--text-2);
   font-size: 12px;
-  min-width: 880px;
 }
 
 .admin-safety-row:last-child {
@@ -1042,7 +1041,6 @@ body {
   border-bottom: 1px solid var(--border);
   color: var(--text-2);
   font-size: 12px;
-  min-width: 760px;
 }
 
 .admin-mini-table > div:last-child {
