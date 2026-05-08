@@ -14,12 +14,11 @@ describe('Tournament currency — Float vs Decimal (audit #20)', () => {
     });
 
     it('Float loses precision on 1234.56 round-trip through arithmetic', () => {
-      const val = 1234.56;
-      const reconstructed = Math.round(val * 100) / 100;
-      // Floating point operations accumulate error over repeated calculations
-      expect((val * 3).toFixed(2)).toBe('3703.68'); // passes — but subtler ops fail
-      // Prove the issue: 1234.56 cannot survive all arithmetic without drift
-      expect(0.1 + 0.2 + 0.0).not.toBe(0.3);
+      // 1234.56 cannot be represented exactly in IEEE 754 double precision
+      expect((1234.56).toPrecision(20)).not.toBe('1234.5600000000000000');
+      // Repeated arithmetic operations accumulate drift: 0.1 + 0.2 + 0.3 should be 0.6
+      const driftTest = 0.1 + 0.2 + 0.3;
+      expect(driftTest).not.toBe(0.6); // actual: 0.6000000000000001
     });
   });
 
@@ -32,6 +31,7 @@ describe('Tournament currency — Float vs Decimal (audit #20)', () => {
 
     it('Prisma.Decimal represents 0.10 exactly', () => {
       const val = new Prisma.Decimal('0.10');
+      // toString() normalises trailing zeros ('0.10' → '0.1'); toFixed(2) preserves them
       expect(val.toString()).toBe('0.1');
       expect(val.toFixed(2)).toBe('0.10');
     });
@@ -45,6 +45,7 @@ describe('Tournament currency — Float vs Decimal (audit #20)', () => {
     it('Decimal arithmetic on 0.10 + 0.20 equals exactly 0.30', () => {
       const a = new Prisma.Decimal('0.10');
       const b = new Prisma.Decimal('0.20');
+      // toString() normalises trailing zeros; toFixed(2) is the money-safe format
       expect(a.plus(b).toString()).toBe('0.3');
       expect(a.plus(b).toFixed(2)).toBe('0.30');
     });
