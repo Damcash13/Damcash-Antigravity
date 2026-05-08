@@ -74,6 +74,9 @@ const log = {
 
 const app = express();
 const httpServer = createServer(app);
+httpServer.headersTimeout  = 10_000;   // slow-loris guard (10s); Socket.IO handshake < 1s
+httpServer.requestTimeout  = 0;        // disabled — Socket.IO long-poll/WS are long-lived
+httpServer.keepAliveTimeout = 65_000;  // outlasts Railway LB's ~60s idle timeout
 
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet({
