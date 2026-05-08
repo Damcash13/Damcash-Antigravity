@@ -122,6 +122,7 @@ export const PremiumHomePage: React.FC<Props> = ({
 
   const [activeTab, setActiveTab] = useState<'quick' | 'lobby' | 'correspondence'>('quick');
   const [showCustom, setShowCustom] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LbEntry[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [liveGamesLoading, setLiveGamesLoading]     = useState(true);
@@ -190,6 +191,7 @@ export const PremiumHomePage: React.FC<Props> = ({
   const isHome = /^\/(chess|checkers)\/?$/.test(location.pathname);
 
   const handleSidebarNav = (key: string) => {
+    setMobileMenuOpen(false);
     if (key === 'home')        navigate(`/${universe}`);
     else if (key === 'checkers')    { setUniverse('checkers'); navigate('/checkers'); }
     else if (key === 'chess')       { setUniverse('chess');    navigate('/chess'); }
@@ -218,6 +220,8 @@ export const PremiumHomePage: React.FC<Props> = ({
 
   // Avatar initial
   const avatarInitial = user?.name ? user.name.charAt(0).toUpperCase() : '?';
+  const userFlag = user?.country ? countryFlag(user.country) : '';
+  const userCountryName = user?.country ? countryName(user.country) : '';
 
   return (
     <div className="ph-layout">
@@ -257,10 +261,6 @@ export const PremiumHomePage: React.FC<Props> = ({
 
           {/* Right side */}
           <div className="ph-header-right">
-            <div className="ph-header-search-wrap">
-              <PlayerSearchBar onInvite={onInvitePlayer} />
-            </div>
-
             {isLoggedIn && user ? (
               <>
                 <div className="ph-header-notification">
@@ -277,8 +277,15 @@ export const PremiumHomePage: React.FC<Props> = ({
                       : avatarInitial}
                   </div>
                   <div className="ph-header-user-info">
-                    <span className="ph-header-username">{user.name}</span>
-                    <span className="ph-header-score">{user.rating[universe]}</span>
+                    <span className="ph-header-username">
+                      {userFlag && (
+                        <span className="ph-header-flag" title={userCountryName}>
+                          {userFlag}
+                        </span>
+                      )}
+                      <span className="ph-header-username-text">{user.name}</span>
+                    </span>
+                    <span className="ph-header-score">Elo {user.rating[universe]}</span>
                   </div>
                 </button>
               </>
@@ -292,7 +299,43 @@ export const PremiumHomePage: React.FC<Props> = ({
                 </button>
               </div>
             )}
+
+            <button
+              className={`ph-mobile-menu-btn${mobileMenuOpen ? ' active' : ''}`}
+              onClick={() => setMobileMenuOpen(open => !open)}
+              aria-label="Ouvrir le menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
           </div>
+
+          {mobileMenuOpen && (
+            <div className="ph-mobile-menu-panel">
+              <div className="ph-mobile-menu-title">Menu</div>
+              {SIDEBAR_NAV.map((item, i) =>
+                item === null ? (
+                  <div key={`mobile-hr-${i}`} className="ph-mobile-menu-hr" />
+                ) : (
+                  <button
+                    key={item.key}
+                    className={`ph-mobile-menu-item${item.key === 'home' && isHome ? ' active' : ''}`}
+                    onClick={() => handleSidebarNav(item.key)}
+                  >
+                    <span>{item.icon}</span>
+                    {item.label}
+                  </button>
+                )
+              )}
+              {user && (
+                <button className="ph-mobile-menu-wallet" onClick={() => { setMobileMenuOpen(false); onOpenWallet(); }}>
+                  Portefeuille · ${Number(user.walletBalance).toFixed(2)}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
@@ -336,6 +379,10 @@ export const PremiumHomePage: React.FC<Props> = ({
 
         {/* ── Main scrollable area ── */}
         <main className="ph-main">
+
+          <div className="ph-main-search">
+            <PlayerSearchBar onInvite={onInvitePlayer} />
+          </div>
 
           {/* Tabs */}
           <div className="ph-tabs" role="tablist">
