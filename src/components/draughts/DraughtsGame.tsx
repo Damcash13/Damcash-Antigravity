@@ -700,6 +700,7 @@ export const DraughtsGame: React.FC = () => {
     };
 
     const handleRoomCancelled = () => {
+      sessionStorage.removeItem('damcash_rejoin_draughts');
       addNotification(t('game.roomCancelled', 'Opponent left the room before starting'), 'info');
       navigate('/');
     };

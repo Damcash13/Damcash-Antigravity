@@ -629,6 +629,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     const handleTakebackExpired  = () => { setTakebackSent(false); addNotification(t('game.takebackExpired', 'Takeback request expired'), 'warning'); };
 
     const handleRoomCancelled = () => {
+      sessionStorage.removeItem('damcash_rejoin_chess');
       addNotification(t('game.roomCancelled'), 'info');
       navigate('/');
     };

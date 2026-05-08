@@ -178,7 +178,8 @@ function isAllowedProfileAvatarUrl(value, authUserId) {
     const appHost = APP_URL ? new URL(APP_URL).host : '';
     const allowedHosts = new Set([supabaseHost, appHost].filter(Boolean));
     if (!allowedHosts.has(url.host)) return false;
-    return url.pathname.includes(`/${AVATAR_BUCKET}/`) && url.pathname.includes(`/${authUserId}/`);
+    const segments = url.pathname.split('/');
+    return segments[1] === AVATAR_BUCKET && segments[2] === authUserId;
   } catch {
     return false;
   }
@@ -2959,7 +2960,7 @@ app.get('/api/leaderboard', async (req, res) => {
     const { universe } = req.query;
     const leaderboardUniverse = universe === 'checkers' ? 'checkers' : 'chess';
     const limit = parseListLimit(req.query.limit);
-    const offset = parseInt(req.query.offset) || 0;
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
     const orderByField = leaderboardUniverse === 'checkers' ? 'checkersRating' : 'chessRating';
     const users = await prisma.user.findMany({
       where: playedUserWhere(leaderboardUniverse),
@@ -2988,7 +2989,7 @@ app.get('/api/leaderboard', async (req, res) => {
     res.json(entries);
   } catch (err) {
     console.error('[/api/leaderboard] DB error:', err);
-    res.status(500).json({ error: 'Database error fetching leaderboard', details: err.message });
+    res.status(500).json({ error: 'Failed to load leaderboard' });
   }
 });
 
@@ -5131,14 +5132,19 @@ app.post('/api/wallet/stripe/webhook', async (req, res) => {
     if (session.payment_status === 'paid' && session.metadata?.userId) {
       const userId = session.metadata.userId;
       const amount = parseFloat(session.metadata.amount || '0');
-      if (amount > 0) {
+      if (amount >= 1 && amount <= 10000) {
         try {
           const existing = await prisma.transaction.findFirst({ where: { stripeSessionId: session.id } });
           if (!existing) {
-            const wallet = await prisma.wallet.update({ where: { userId }, data: { balance: { increment: amount } } });
-            await prisma.transaction.create({
-              data: { walletId: wallet.id, amount, type: 'DEPOSIT', status: 'COMPLETED', stripeSessionId: session.id },
-            });
+            const walletOwner = await prisma.wallet.findUnique({ where: { userId } });
+            if (!walletOwner) {
+              console.error('[Stripe Webhook] No wallet found for userId', userId);
+            } else {
+              const wallet = await prisma.wallet.update({ where: { userId }, data: { balance: { increment: amount } } });
+              await prisma.transaction.create({
+                data: { walletId: wallet.id, amount, type: 'DEPOSIT', status: 'COMPLETED', stripeSessionId: session.id },
+              });
+            }
           }
         } catch (e) { console.error('[Stripe Webhook] DB error', e); }
       }
