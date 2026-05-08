@@ -21,6 +21,7 @@ import { useNotifCenterStore } from './stores/notifCenterStore';
 import { DirectMessagesModal } from './components/messages/DirectMessagesModal';
 
 // Lazy load pages
+const PremiumHomePage = lazy(() => import('./components/lobby/PremiumHomePage').then(m => ({ default: m.PremiumHomePage })));
 const HomePage = lazy(() => import('./components/lobby/HomePage').then(m => ({ default: m.HomePage })));
 const ChessGame = lazy(() => import('./components/chess/ChessGame').then(m => ({ default: m.ChessGame })));
 const DraughtsGame = lazy(() => import('./components/draughts/DraughtsGame').then(m => ({ default: m.DraughtsGame })));
@@ -53,21 +54,14 @@ const LobbyView: React.FC<{
   onInvitePlayer:  (player: OnlinePlayer) => void;
   onChallengeFriendDirect: (socketId: string, name: string) => void;
   onOpenWallet:    () => void;
-}> = ({ onCreateGame, onChallengeFriend, onPlayComputer, onInvitePlayer, onChallengeFriendDirect, onOpenWallet }) => {
+}> = ({ onCreateGame, onChallengeFriend, onPlayComputer, onOpenWallet }) => {
   return (
-  <>
-    <Sidebar
-      onCreateGame={() => onCreateGame('5+0', 'online')}
+    <PremiumHomePage
+      onCreateGame={onCreateGame}
+      onOpenWallet={onOpenWallet}
       onChallengeFriend={onChallengeFriend}
       onPlayComputer={onPlayComputer}
-      onInvitePlayer={onInvitePlayer}
-      onChallengeFriendDirect={onChallengeFriendDirect}
-      onOpenWallet={onOpenWallet}
     />
-    <main className="main-content">
-      <HomePage onCreateGame={onCreateGame} onOpenWallet={onOpenWallet} />
-    </main>
-  </>
   );
 };
 
