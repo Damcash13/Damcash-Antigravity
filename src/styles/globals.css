@@ -6495,3 +6495,158 @@ input:focus, select:focus, textarea:focus {
     display: none;
   }
 }
+
+/* ===== PREMIUM HOME TAB CONTENT: LOBBY + CORRESPONDENCE ===== */
+.ph-layout .lobby-room-layout,
+.ph-layout .corr-container {
+  color: #1a1a1a;
+}
+
+.ph-layout .lobby-waiting-col,
+.ph-layout .lobby-players-col,
+.ph-layout .lobby-post-form,
+.ph-layout .corr-create-panel,
+.ph-layout .corr-game-card,
+.ph-layout .corr-empty {
+  border-color: rgba(218, 178, 83, 0.22);
+  background:
+    radial-gradient(circle at 88% 0%, rgba(218, 178, 83, 0.12), transparent 36%),
+    #fff;
+  border-radius: 24px;
+  box-shadow: 0 12px 30px rgba(37, 24, 7, 0.08);
+}
+
+.ph-layout .lobby-col-header {
+  border-color: rgba(218, 178, 83, 0.18);
+  background: linear-gradient(135deg, #fffaf0, #f7efe1);
+}
+
+.ph-layout .lobby-col-title,
+.ph-layout .lpf-title,
+.ph-layout .lobby-seek-name,
+.ph-layout .lobby-player-name,
+.ph-layout .corr-title,
+.ph-layout .corr-card-players,
+.ph-layout .corr-card-players strong {
+  color: #1a1a1a;
+}
+
+.ph-layout .lobby-col-sub,
+.ph-layout .lpf-field-label,
+.ph-layout .lpf-rated-label,
+.ph-layout .lobby-empty-state,
+.ph-layout .lobby-seek-meta,
+.ph-layout .lobby-seek-cell,
+.ph-layout .lobby-player-sub,
+.ph-layout .lobby-chat-meta,
+.ph-layout .corr-subtitle,
+.ph-layout .corr-section-label,
+.ph-layout .corr-card-meta,
+.ph-layout .corr-create-summary {
+  color: #7b705f;
+}
+
+.ph-layout .lobby-post-btn,
+.ph-layout .lpf-submit,
+.ph-layout .lobby-join-btn,
+.ph-layout .lobby-chat-send,
+.ph-layout .corr-tab-btn.active,
+.ph-layout .corr-tab-btn:hover,
+.ph-layout .corr-filter-chip.active,
+.ph-layout .corr-filter-chip:hover,
+.ph-layout .corr-create-btn {
+  border-color: rgba(244, 218, 139, 0.34);
+  background: linear-gradient(135deg, #e2b84a, #b97c12);
+  color: #111;
+  box-shadow: 0 8px 18px rgba(201, 149, 30, 0.18);
+}
+
+.ph-layout .lpf-tc-btn,
+.ph-layout .lpf-bet-btn,
+.ph-layout .lpf-custom-input,
+.ph-layout .lobby-cancel-seek,
+.ph-layout .lobby-cancel-btn,
+.ph-layout .lobby-player-search,
+.ph-layout .lobby-rtab,
+.ph-layout .lobby-chat-input,
+.ph-layout .corr-tab-btn,
+.ph-layout .corr-filter-chip,
+.ph-layout .corr-time-btn,
+.ph-layout .corr-input {
+  border-color: rgba(218, 178, 83, 0.22);
+  background: #fffdfa;
+  color: #1a1a1a;
+}
+
+.ph-layout .lpf-tc-btn.active,
+.ph-layout .lpf-bet-btn.active,
+.ph-layout .lpf-toggle.on,
+.ph-layout .lobby-rtab.active,
+.ph-layout .corr-time-btn.active {
+  border-color: #c9951e;
+  background: #f7ecd2;
+  color: #9a6711;
+}
+
+.ph-layout .lobby-seeks-table,
+.ph-layout .lobby-chat-container,
+.ph-layout .lobby-player-list {
+  background: #fff;
+}
+
+.ph-layout .lobby-table-head,
+.ph-layout .lobby-seek-row,
+.ph-layout .lobby-player-card,
+.ph-layout .lobby-chat-msgs,
+.ph-layout .lobby-chat-input-row,
+.ph-layout .corr-game-card {
+  border-color: rgba(218, 178, 83, 0.16);
+}
+
+.ph-layout .lobby-seek-row:hover:not(.mine),
+.ph-layout .lobby-player-card:hover,
+.ph-layout .corr-game-card:hover {
+  background: #fff8ea;
+}
+
+.ph-layout .lobby-chat-bubble {
+  background: #f8f1e6;
+  color: #1f1a12;
+}
+
+.ph-layout .lobby-chat-msg.mine .lobby-chat-bubble {
+  background: #e6bd4a;
+  color: #111;
+}
+
+.ph-layout .corr-game-card.my-turn {
+  border-color: #c9951e;
+  box-shadow: 0 0 0 1px rgba(201, 149, 30, 0.4), 0 12px 26px rgba(201, 149, 30, 0.12);
+}
+
+@media (max-width: 600px) {
+  .ph-layout .lobby-room-layout,
+  .ph-layout .corr-container {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .ph-layout .lobby-col-header,
+  .ph-layout .corr-header {
+    gap: 10px;
+  }
+
+  .ph-layout .corr-header-actions,
+  .ph-layout .corr-filter-row {
+    width: 100%;
+  }
+
+  .ph-layout .corr-tab-btn,
+  .ph-layout .corr-filter-chip {
+    flex: 1 1 auto;
+  }
+
+  .ph-layout .corr-time-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

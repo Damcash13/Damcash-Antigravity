@@ -14,9 +14,11 @@
 
 /* ── Page wrapper ── */
 .pf-page {
+  width: 100%;
   max-width: 960px;
   margin: 0 auto;
   padding: 0 16px 48px;
+  overflow-x: clip;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -312,6 +314,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 /* ── Section card ── */
@@ -320,6 +323,8 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 18px 20px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .pf-section-title {
@@ -1056,6 +1061,8 @@
    TABLE SCROLL WRAPPER
    ══════════════════════════════════════════════════════ */
 .pf-table-scroll {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 4px;
@@ -1074,15 +1081,63 @@
   .pf-stat-row   { grid-template-columns: repeat(2, 1fr); }
 
   .pf-page {
-    padding: 0 8px 32px;
+    max-width: 100%;
+    padding: 0 0 32px;
+    overflow-x: hidden;
   }
+
+  .pf-hero,
+  .pf-tabs,
+  .pf-section,
+  .pf-tab-body,
+  .pf-overview-grid,
+  .pf-main-col,
+  .pf-side-col {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .pf-hero-inner {
     padding: 20px 16px;
     gap: 16px;
+    align-items: flex-start;
   }
+
+  .pf-avatar {
+    width: 72px;
+    height: 72px;
+    font-size: 30px;
+  }
+
+  .pf-hero-info,
+  .pf-hero-name-row,
+  .pf-hero-sub,
+  .pf-social-row {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .pf-hero-name {
     font-size: 22px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    line-height: 1.1;
   }
+
+  .pf-name-input {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .pf-tabs {
+    scrollbar-width: none;
+  }
+
+  .pf-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
   .pf-section {
     padding: 14px 12px;
   }
@@ -1093,6 +1148,7 @@
     padding: 24px 12px;
   }
   .pf-kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
   .pf-kpi-val {
@@ -1116,11 +1172,53 @@
   .pf-setting-val {
     flex-direction: column;
     align-items: stretch;
+    min-width: 0;
   }
+
+  .pf-setting-input,
+  .pf-setting-select {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .pf-tab {
     padding: 10px 8px;
     font-size: 12px;
+    flex: 0 0 auto;
   }
+
+  .pf-wallet-grid,
+  .pf-achievements-grid,
+  .pf-rating-row,
+  .pf-stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pf-wallet-stat,
+  .pf-stat-card,
+  .pf-achievement,
+  .pf-kpi {
+    min-width: 0;
+  }
+
+  .pf-recent-row {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .pf-recent-review {
+    display: none;
+  }
+
+  .pf-recent-delta {
+    flex-shrink: 0;
+  }
+
+  .pf-table-scroll .pf-hist-head,
+  .pf-table-scroll .pf-hist-row {
+    min-width: 620px;
+  }
+
   .pf-tourn-row {
     flex-wrap: wrap;
     gap: 8px;
@@ -1130,5 +1228,172 @@
   }
   .pf-tourn-name {
     font-size: 13px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   DAMCASH PREMIUM PROFILE SKIN
+   ══════════════════════════════════════════════════════ */
+.page-frame-premium .pf-page {
+  color: #1a1a1a;
+}
+
+.page-frame-premium .pf-hero {
+  border-color: rgba(218, 178, 83, 0.28);
+  border-radius: 24px;
+  box-shadow: 0 14px 36px rgba(37, 24, 7, 0.12);
+}
+
+.page-frame-premium .pf-hero-bg {
+  background:
+    radial-gradient(circle at 78% 0%, rgba(218, 178, 83, 0.26), transparent 42%),
+    linear-gradient(135deg, #191827, #10111b 58%, #08090d);
+}
+
+.page-frame-premium .pf-hero-bg::after {
+  background:
+    linear-gradient(115deg, rgba(255,255,255,0.08), transparent 28%),
+    radial-gradient(circle at 18% 38%, rgba(218, 178, 83, 0.18), transparent 46%);
+}
+
+.page-frame-premium .pf-avatar {
+  background:
+    radial-gradient(circle at center, #151515 0 54%, transparent 55%),
+    linear-gradient(145deg, #fff1a8, #b97910 48%, #ffe5a0);
+  color: #fff;
+  border-color: rgba(244, 218, 139, 0.46);
+  box-shadow:
+    0 0 0 4px rgba(0,0,0,0.32),
+    0 0 24px rgba(218, 178, 83, 0.3);
+}
+
+.page-frame-premium .pf-hero-name {
+  color: #fff;
+}
+
+.page-frame-premium .pf-hero-sub,
+.page-frame-premium .pf-country-code,
+.page-frame-premium .pf-player-inline,
+.page-frame-premium .pf-social-link {
+  color: rgba(255,255,255,0.74);
+}
+
+.page-frame-premium .pf-rank-badge,
+.page-frame-premium .pf-rating-chip,
+.page-frame-premium .pf-mini-badge,
+.page-frame-premium .pf-player-flag,
+.page-frame-premium .pf-setting-flag {
+  border-color: rgba(218, 178, 83, 0.34);
+  background: rgba(218, 178, 83, 0.12);
+  color: #f4da8b;
+}
+
+.page-frame-premium .pf-tabs,
+.page-frame-premium .pf-section,
+.page-frame-premium .pf-stat-card,
+.page-frame-premium .pf-kpi,
+.page-frame-premium .pf-wallet-stat,
+.page-frame-premium .pf-achievement,
+.page-frame-premium .pf-band-row,
+.page-frame-premium .pf-setting-input,
+.page-frame-premium .pf-setting-select,
+.page-frame-premium .pf-filter-btn {
+  border-color: rgba(218, 178, 83, 0.22);
+  background: #fff;
+  color: #1a1a1a;
+}
+
+.page-frame-premium .pf-tabs,
+.page-frame-premium .pf-section {
+  border-radius: 22px;
+  box-shadow: 0 12px 30px rgba(37, 24, 7, 0.08);
+}
+
+.page-frame-premium .pf-tabs {
+  border-top: 1px solid rgba(218, 178, 83, 0.22);
+  margin-top: 14px;
+}
+
+.page-frame-premium .pf-tab {
+  color: #7b705f;
+}
+
+.page-frame-premium .pf-tab:hover,
+.page-frame-premium .pf-tab.active,
+.page-frame-premium .pf-filter-btn:hover,
+.page-frame-premium .pf-filter-btn.active,
+.page-frame-premium .pf-usw.active {
+  background: #f7ecd2;
+  color: #9a6711;
+  border-color: #c9951e;
+}
+
+.page-frame-premium .pf-section-title,
+.page-frame-premium .pf-stat-val,
+.page-frame-premium .pf-wallet-stat strong,
+.page-frame-premium .pf-recent-opp,
+.page-frame-premium .pf-hist-opp,
+.page-frame-premium .pf-tourn-name,
+.page-frame-premium .pf-tourn-stat strong,
+.page-frame-premium .pf-achievement-name,
+.page-frame-premium .pf-kpi-val,
+.page-frame-premium .pf-big-rating {
+  color: #1a1a1a;
+}
+
+.page-frame-premium .pf-section-title::after {
+  background: linear-gradient(90deg, #d8aa39, #b77e13);
+}
+
+.page-frame-premium .pf-stat-label,
+.page-frame-premium .pf-stat-sub,
+.page-frame-premium .pf-kpi-lbl,
+.page-frame-premium .pf-wallet-stat,
+.page-frame-premium .pf-recent-tc,
+.page-frame-premium .pf-dim,
+.page-frame-premium .pf-tourn-meta,
+.page-frame-premium .pf-empty,
+.page-frame-premium .pf-empty-small,
+.page-frame-premium .pf-band-name,
+.page-frame-premium .pf-band-range,
+.page-frame-premium .pf-setting-label {
+  color: #7b705f;
+}
+
+.page-frame-premium .pf-rating-banner,
+.page-frame-premium .pf-streak-card {
+  background:
+    radial-gradient(circle at 88% 0%, rgba(218, 178, 83, 0.14), transparent 42%),
+    #fffaf0;
+}
+
+.page-frame-premium .pf-hist-head,
+.page-frame-premium .pf-hist-row,
+.page-frame-premium .pf-recent-row,
+.page-frame-premium .pf-tourn-row,
+.page-frame-premium .pf-setting-row {
+  border-color: rgba(218, 178, 83, 0.16);
+}
+
+.page-frame-premium .pf-hist-row:hover,
+.page-frame-premium .pf-recent-reviewable:hover,
+.page-frame-premium .pf-tourn-row:hover,
+.page-frame-premium .pf-band-row:hover {
+  background: #fff8ea;
+}
+
+@media (max-width: 600px) {
+  .page-frame-premium .pf-page {
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  .page-frame-premium .pf-hero {
+    border-radius: 22px;
+  }
+
+  .page-frame-premium .pf-section,
+  .page-frame-premium .pf-tabs {
+    border-radius: 20px;
   }
 }
