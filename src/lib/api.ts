@@ -166,6 +166,14 @@ export const api = {
       }),
   },
 
+  me: {
+    activeGame: (opts?: { suppressAuthEvent?: boolean }) =>
+      request<{ activeGame: ApiActiveGame | null }>('/api/me/active-game', {
+        requireAuth: true,
+        suppressAuthEvent: opts?.suppressAuthEvent,
+      }),
+  },
+
   leaderboard: {
     list: (params: {
       universe: string;
@@ -751,6 +759,26 @@ export interface ApiLiveRoom {
   startedAt: number;
   fen?: string;
   draughtsBoard?: import('../types').DraughtsBoard;
+}
+
+export interface ApiActiveGame {
+  roomId: string;
+  universe: 'chess' | 'checkers';
+  timeControl: string;
+  rated: boolean;
+  betAmount: number;
+  color: 'white' | 'black';
+  token?: string | null;
+  moveCount: number;
+  whiteTime?: number;
+  blackTime?: number;
+  opponent?: {
+    name: string;
+    rating: { chess: number; checkers: number } | number;
+    country?: string;
+  } | null;
+  disconnectedAt?: number | null;
+  reconnectExpiresAt?: number | null;
 }
 
 export interface ApiFullStats {

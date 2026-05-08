@@ -103,6 +103,8 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
     const requestConfig = { ...config, universe: currentUniverse, betAmount: effectiveBet };
     socket.emit('invite:send', {
       targetSocketId: configTarget.socketId,
+      targetUserId: configTarget.userId,
+      targetClientId: configTarget.clientId,
       config: requestConfig,
       fromName: user?.name || 'Guest',
       fromRating: user?.rating[currentUniverse] || 1500,

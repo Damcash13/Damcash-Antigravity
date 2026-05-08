@@ -64,9 +64,9 @@ interface InviteStore {
   clearMyRoom: () => void;
 
   // Config modal state
-  configTarget: { socketId: string; name: string; universe?: Universe } | null;  // null = create open room
+  configTarget: { socketId: string; name: string; universe?: Universe; userId?: string; clientId?: string } | null;  // null = create open room
   configOpen: boolean;
-  openConfig: (target?: { socketId: string; name: string; universe?: Universe }) => void;
+  openConfig: (target?: { socketId: string; name: string; universe?: Universe; userId?: string; clientId?: string }) => void;
   closeConfig: () => void;
   initPresence: (username: string, rating: { chess: number; checkers: number }) => void;
   cleanupPresence: () => void;

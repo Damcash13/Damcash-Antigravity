@@ -444,6 +444,13 @@ const roomDisconnectTimers = new Map(); // roomId -> timeoutId for grace cleanup
 const socketToUserId = new Map(); // socketId -> db user id
 const userIdToSocketId = new Map(); // db user id -> socketId
 let tournamentMatchSchemaReady = false;
+
+function reconnectGraceMs(room) {
+  const betAmount = Number(room?.config?.betAmount || 0);
+  const rated = room?.config?.rated !== false;
+  if (betAmount > 0 || rated) return 5 * 60 * 1000;
+  return 90 * 1000;
+}
 let tournamentEligibilitySchemaReady = false;
 let safetySchemaReady = false;
 let directMessageSchemaReady = false;
@@ -749,6 +756,24 @@ function buildPublicPlayerList() {
     country: info.country,
     currentTC: info.currentTC || undefined,
   }));
+}
+
+function latestSocketForUser(userId) {
+  if (!userId) return null;
+  const direct = userIdToSocketId.get(userId);
+  if (direct && io.sockets.sockets.has(direct)) return direct;
+  for (const [socketId, info] of players.entries()) {
+    if (info.userId === userId && io.sockets.sockets.has(socketId)) return socketId;
+  }
+  return null;
+}
+
+function latestSocketForClient(clientId) {
+  if (!clientId) return null;
+  for (const [socketId, info] of players.entries()) {
+    if (info.clientId === clientId && io.sockets.sockets.has(socketId)) return socketId;
+  }
+  return null;
 }
 
 function broadcastPlayerList() {
@@ -1430,9 +1455,13 @@ io.on('connection', (socket) => {
   });
 
   // ── Direct invite ────────────────────────────────────────────────────────
-  socket.on('invite:send', ({ targetSocketId, config }) => {
+  socket.on('invite:send', ({ targetSocketId, targetUserId, targetClientId, config }) => {
     const sender = players.get(socket.id);
-    const target = players.get(targetSocketId);
+    const resolvedTargetSocketId =
+      latestSocketForUser(sanitizeText(targetUserId || '', 80)) ||
+      latestSocketForClient(sanitizeText(targetClientId || '', 80)) ||
+      targetSocketId;
+    const target = players.get(resolvedTargetSocketId);
     if (!sender || !target) {
       socket.emit('room:error', { message: 'That player is no longer available.' });
       return;
@@ -1449,9 +1478,18 @@ io.on('connection', (socket) => {
     const safeConfig = { ...config, universe: inviteUniverse };
     const inviteId = genId();
     const expiresAt = Date.now() + 30_000;
-    invites.set(inviteId, { fromId: socket.id, toId: targetSocketId, config: safeConfig, expiresAt });
+    invites.set(inviteId, {
+      fromId: socket.id,
+      fromUserId: sender.userId || null,
+      fromClientId: sender.clientId || null,
+      toId: resolvedTargetSocketId,
+      toUserId: target.userId || null,
+      toClientId: target.clientId || null,
+      config: safeConfig,
+      expiresAt,
+    });
 
-    io.to(targetSocketId).emit('invite:received', {
+    io.to(resolvedTargetSocketId).emit('invite:received', {
       inviteId,
       fromSocketId: socket.id,
       fromName:   sender.name || 'Unknown',
@@ -1467,18 +1505,26 @@ io.on('connection', (socket) => {
   socket.on('invite:accept', ({ inviteId, fromSocketId }) => {
     const invite = invites.get(inviteId);
     if (!invite) { socket.emit('invite:expired'); return; }
-    if (invite.toId !== socket.id) { socket.emit('invite:expired'); return; }
+    const accepter = players.get(socket.id);
+    const isRecipient =
+      invite.toId === socket.id ||
+      (invite.toUserId && socket.user?.id === invite.toUserId) ||
+      (invite.toClientId && accepter?.clientId === invite.toClientId);
+    if (!isRecipient) { socket.emit('invite:expired'); return; }
     invites.delete(inviteId);
 
     const inviteUniverse = normalizeUniverse(invite.config?.universe);
-    const inviter = players.get(invite.fromId);
-    const accepter = players.get(socket.id);
+    const inviterSocketId =
+      latestSocketForUser(invite.fromUserId) ||
+      latestSocketForClient(invite.fromClientId) ||
+      (io.sockets.sockets.has(invite.fromId) ? invite.fromId : null);
+    const inviter = inviterSocketId ? players.get(inviterSocketId) : null;
     if (!inviter || !accepter || normalizeUniverse(inviter.universe) !== inviteUniverse || normalizeUniverse(accepter.universe) !== inviteUniverse) {
       socket.emit('room:error', {
         message: `This challenge is no longer available in the ${universeLabel(inviteUniverse)} lobby.`,
       });
-      if (inviter) {
-        io.to(invite.fromId).emit('invite:declined', {
+      if (inviterSocketId) {
+        io.to(inviterSocketId).emit('invite:declined', {
           byName: accepter?.name || 'Opponent',
         });
       }
@@ -1487,27 +1533,32 @@ io.on('connection', (socket) => {
 
     const roomId = `room-${genId()}`;
     // Notify the inviter so they can navigate immediately
-    const wp = players.get(invite.fromId);
+    const wp = players.get(inviterSocketId);
     const bp = players.get(socket.id);
     const gameData = {
       roomId,
-      white: invite.fromId, // temporary mapping, startRoom will resolve correctly
+      white: inviterSocketId, // temporary mapping, startRoom will resolve correctly
       black: socket.id,
       config: invite.config,
       whitePlayer: { name: wp?.name || 'White', rating: wp?.rating || { chess: 1500, checkers: 1450 }, country: wp?.country || '' },
       blackPlayer: { name: bp?.name || 'Black', rating: bp?.rating || { chess: 1500, checkers: 1450 }, country: bp?.country || '' },
     };
 
-    io.to(invite.fromId).emit('invite:accepted', gameData);
+    io.to(inviterSocketId).emit('invite:accepted', gameData);
     // Notify the joiner as well
     socket.emit('invite:started', gameData);
 
-    startRoom(roomId, invite.fromId, socket.id, invite.config);
+    startRoom(roomId, inviterSocketId, socket.id, invite.config);
   });
 
   socket.on('invite:decline', ({ inviteId, fromSocketId }) => {
+    const invite = invites.get(inviteId);
     invites.delete(inviteId);
-    io.to(fromSocketId).emit('invite:declined', {
+    const notifySocket =
+      latestSocketForUser(invite?.fromUserId) ||
+      latestSocketForClient(invite?.fromClientId) ||
+      fromSocketId;
+    io.to(notifySocket).emit('invite:declined', {
       byName: players.get(socket.id)?.name || 'Opponent',
     });
   });
@@ -2539,7 +2590,7 @@ io.on('connection', (socket) => {
             rooms.delete(roomId);
             reconnectTokens.delete(roomId);
             log.info(`[ROOM] Closed ${roomId} after disconnected ${color} missed reconnect grace`);
-          }, 90_000);
+          }, reconnectGraceMs(room));
           roomDisconnectTimers.set(roomId, timeoutId);
         }
       }
@@ -2575,6 +2626,54 @@ app.get('/api/supabase/todos', async (_req, res) => {
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Supabase request failed', message: err.message });
+  }
+});
+
+app.get('/api/me/active-game', requireAuth, async (req, res) => {
+  try {
+    const userId = req.dbUser?.id || req.user?.id;
+    if (!userId) return res.json({ activeGame: null });
+
+    const active = Array.from(rooms.entries()).find(([, room]) => (
+      !room.settling &&
+      (room.userIds?.white === userId || room.userIds?.black === userId)
+    ));
+    if (!active) return res.json({ activeGame: null });
+
+    const [roomId, room] = active;
+    const color = room.userIds?.white === userId ? 'white' : 'black';
+    const opponentColor = color === 'white' ? 'black' : 'white';
+    const tokens = reconnectTokens.get(roomId);
+    const token = tokens?.[color]?.token || null;
+    const playerInfo = room.playerInfo || {};
+    const opponentSocketId = room.players?.[opponentColor];
+    const opponentInfo = players.get(opponentSocketId) || playerInfo[opponentColor] || null;
+    const disconnectedAt = room.disconnected?.[color]?.at || null;
+
+    res.json({
+      activeGame: {
+        roomId,
+        universe: room.config?.universe || 'chess',
+        timeControl: room.config?.timeControl || '5+0',
+        rated: room.config?.rated !== false,
+        betAmount: Number(room.config?.betAmount || 0),
+        color,
+        token,
+        moveCount: room.moves?.length || 0,
+        whiteTime: room.whiteTime,
+        blackTime: room.blackTime,
+        opponent: opponentInfo ? {
+          name: opponentInfo.name || (opponentColor === 'white' ? 'White' : 'Black'),
+          rating: opponentInfo.rating || { chess: 1500, checkers: 1450 },
+          country: opponentInfo.country || '',
+        } : null,
+        disconnectedAt,
+        reconnectExpiresAt: disconnectedAt ? disconnectedAt + reconnectGraceMs(room) : null,
+      },
+    });
+  } catch (err) {
+    console.error('[active-game] lookup failed:', err);
+    res.status(500).json({ error: 'Could not check active game' });
   }
 });
 
@@ -5132,7 +5231,7 @@ app.post('/api/wallet/stripe/webhook', async (req, res) => {
     if (session.payment_status === 'paid' && session.metadata?.userId) {
       const userId = session.metadata.userId;
       const amount = parseFloat(session.metadata.amount || '0');
-      if (amount >= 1 && amount <= 10000) {
+      if (amount >= 5 && amount <= 10000) {
         try {
           const existing = await prisma.transaction.findFirst({ where: { stripeSessionId: session.id } });
           if (!existing) {

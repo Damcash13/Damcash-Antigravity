@@ -13,7 +13,7 @@ import { useInviteStore, OnlinePlayer } from './stores/inviteStore';
 import { useFriendsStore } from './stores/friendsStore';
 import { useRatingUpdates } from './hooks/useRatingUpdates';
 import { clientId, socket } from './lib/socket';
-import { api } from './lib/api';
+import { api, ApiActiveGame } from './lib/api';
 import { supabase, withTimeout } from './lib/supabase';
 import { useSafetyStore } from './stores/safetyStore';
 import { useDirectMessageStore } from './stores/directMessageStore';
@@ -122,6 +122,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
   const [searching, setSearching] = useState<{ tc: string; mode: string } | null>(null);
+  const [activeGamePrompt, setActiveGamePrompt] = useState<ApiActiveGame | null>(null);
   const authRecoveryRef = useRef(false);
 
   useRatingUpdates();
@@ -150,6 +151,29 @@ export default function App() {
       }
     }
   }, [user?.id, isLoggedIn, setBlockedUsers, setMessageUnreadCount]);
+
+  useEffect(() => {
+    if (!user?.id || !isLoggedIn) {
+      setActiveGamePrompt(null);
+      return;
+    }
+    const parts = location.pathname.split('/');
+    const isGameRoute = parts.length >= 4 && (parts[1] === 'chess' || parts[1] === 'checkers') && parts[2] === 'game';
+    if (isGameRoute) {
+      setActiveGamePrompt(null);
+      return;
+    }
+
+    let cancelled = false;
+    api.me.activeGame({ suppressAuthEvent: true })
+      .then(({ activeGame }) => {
+        if (!cancelled) setActiveGamePrompt(activeGame);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveGamePrompt(null);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id, isLoggedIn, location.pathname]);
 
   useEffect(() => {
     const parts = location.pathname.split('/');
@@ -317,7 +341,7 @@ export default function App() {
       );
       return;
     }
-    openConfig({ socketId: player.socketId, name: player.name, universe: player.universe });
+    openConfig({ socketId: player.socketId, name: player.name, universe: player.universe, userId: player.userId, clientId: player.clientId });
   };
 
   const handleChallengeFriendDirect = (socketId: string, name: string) => {
@@ -330,7 +354,7 @@ export default function App() {
       );
       return;
     }
-    openConfig({ socketId, name, universe: target.universe });
+    openConfig({ socketId, name, universe: target.universe, userId: target.userId, clientId: target.clientId });
   };
 
   return (
@@ -343,6 +367,54 @@ export default function App() {
       />
 
       <div className="main-layout">
+        {activeGamePrompt && (
+          <div style={{
+            position: 'fixed',
+            left: '50%',
+            bottom: 18,
+            transform: 'translateX(-50%)',
+            zIndex: 700,
+            width: 'min(520px, calc(100vw - 24px))',
+            border: '1px solid var(--accent)',
+            background: 'var(--bg-1)',
+            boxShadow: 'var(--shadow)',
+            borderRadius: 12,
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 800, color: 'var(--text-1)', fontSize: 14 }}>Active game in progress</div>
+              <div style={{ color: 'var(--text-2)', fontSize: 12, marginTop: 2 }}>
+                {activeGamePrompt.universe === 'checkers' ? 'Checkers' : 'Chess'} · {activeGamePrompt.timeControl} · {activeGamePrompt.rated ? 'Rated' : 'Casual'}
+                {activeGamePrompt.betAmount > 0 ? ` · $${activeGamePrompt.betAmount}` : ''}
+                {activeGamePrompt.opponent?.name ? ` · vs ${activeGamePrompt.opponent.name}` : ''}
+              </div>
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => {
+                const color = activeGamePrompt.color === 'white' ? 'w' : 'b';
+                if (activeGamePrompt.token) {
+                  try {
+                    sessionStorage.setItem(
+                      activeGamePrompt.universe === 'checkers' ? 'damcash_rejoin_draughts' : 'damcash_rejoin_chess',
+                      JSON.stringify({ roomId: activeGamePrompt.roomId, token: activeGamePrompt.token }),
+                    );
+                  } catch {}
+                }
+                navigate(`/${activeGamePrompt.universe}/game/${activeGamePrompt.roomId}?color=${color}`);
+                setActiveGamePrompt(null);
+              }}
+            >
+              Rejoin
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setActiveGamePrompt(null)}>
+              Later
+            </button>
+          </div>
+        )}
         {searching && (
           <SearchingOverlay
             timeControl={searching.tc}
