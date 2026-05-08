@@ -82,6 +82,15 @@ const ONBOARDING_ITEMS = [
   },
 ];
 
+const QUICK_ACTIONS = [
+  { key: 'rapid', label: 'Rapid pairing', detail: 'Find a player', tc: '10+0' },
+  { key: 'challenge', label: 'Challenges', detail: 'Invite a friend', path: 'lobby' },
+  { key: 'tournaments', label: 'Tournaments', detail: 'Events and prizes', route: 'tournaments' },
+  { key: 'leaderboard', label: 'Leaderboard', detail: 'Top players', route: 'leaderboard' },
+  { key: 'community', label: 'Community', detail: 'Players online', path: 'lobby' },
+  { key: 'rewards', label: 'Rewards', detail: 'Wallet and stakes', wallet: true },
+] as const;
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -188,7 +197,7 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
   }
 
   return (
-    <div>
+    <div className="home-premium">
       {user && (
         <section className="home-mobile-wallet" aria-label="Wallet balance">
           <div>
@@ -196,28 +205,6 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
             <strong>${Number(user.walletBalance).toFixed(2)}</strong>
           </div>
           <button type="button" onClick={onOpenWallet}>{t('betting.deposit')}</button>
-        </section>
-      )}
-
-      {showOnboarding && (
-        <section className="home-onboarding" aria-label="Damcash quick guide">
-          <div className="home-onboarding-head">
-            <div>
-              <div className="home-onboarding-kicker">New here</div>
-              <h2>Damcash in 30 seconds</h2>
-            </div>
-            <button className="home-onboarding-dismiss" onClick={dismissOnboarding} aria-label="Dismiss quick guide">
-              ×
-            </button>
-          </div>
-          <div className="home-onboarding-grid">
-            {ONBOARDING_ITEMS.map(item => (
-              <div className="home-onboarding-item" key={item.title}>
-                <strong>{item.title}</strong>
-                <span>{item.body}</span>
-              </div>
-            ))}
-          </div>
         </section>
       )}
 
@@ -243,121 +230,228 @@ export const HomePage: React.FC<Props> = ({ onCreateGame, onOpenWallet }) => {
       {/* ── Quick Pairing ── */}
       {activeTab === 'quick' && (
         <div className="tab-content-enter" key="quick">
-          {/* Unified grid — 3 cards per category = 1 perfect row each */}
-          <div className="pairing-grid">
-            {Object.entries(grouped).map(([cat, tcs]) => (
-              <React.Fragment key={cat}>
-                <div className="pairing-cat-label" style={{ color: CAT_COLOR[cat] }}>
-                  <span className="pairing-cat-dot" style={{ background: CAT_COLOR[cat] }} />
-                  {t(`time.${cat.toLowerCase()}`)}
-                </div>
-                {tcs.map(({ value, label }) => (
-                  <div
-                    key={value}
-                    className="time-card"
-                    onClick={() => {
-                      setActiveTab('lobby');
-                      onCreateGame(value, 'online');
-                    }}
-                    style={{ borderTop: `2px solid ${CAT_COLOR[cat]}` }}
-                  >
-                    <div className="time-value">{label}</div>
-                    <div className="time-category" style={{ color: CAT_COLOR[cat] }}>{t(`time.${cat.toLowerCase()}`)}</div>
-                  </div>
-                ))}
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* Custom game — standalone row below the grid */}
-          <button
-            className="pairing-custom-btn"
-            onClick={() => setShowCustom(true)}
-          >
-            {t('lobby.custom')}
-          </button>
-
-          {/* ── Live Games ── */}
-          <div style={{ marginTop: 28 }}>
-            <div className="games-list-header" style={{ marginBottom: 14 }}>
-              <span className="section-title">
-                {t('lobby.liveGames')}
-                {!liveGamesLoading && liveCount > 0 && (
-                  <span style={{
-                    marginLeft: 8,
-                    background: 'var(--bg-3)',
-                    color: 'var(--text-2)',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: 20,
-                  }}>
-                    {liveCount} {t('social.playing')}
-                  </span>
-                )}
-              </span>
-              <span className="more-link">{t('lobby.moreGames')}</span>
+          <section className="home-hero-panel">
+            <div className="home-hero-copy">
+              <span className="home-hero-kicker">Damcash season</span>
+              <h1>Season of Champions</h1>
+              <p>Play chess and checkers, climb the ratings, join tournaments, and follow live games from one clean lobby.</p>
+              <div className="home-hero-actions">
+                <button className="home-primary-action" onClick={() => navigate(`/${universe}/tournaments`)}>
+                  {t('lobby.tournaments')}
+                </button>
+                <button className="home-secondary-action" onClick={() => setShowCustom(true)}>
+                  {t('lobby.custom')}
+                </button>
+              </div>
             </div>
-            {liveGamesLoading ? (
-              <div style={{ display: 'flex', gap: 10 }}>
-                {[1, 2, 3].map(i => (
-                  <div key={i} style={{ flex: 1, height: 90, borderRadius: 10 }} className="skeleton" />
+            <div className="home-hero-art" aria-hidden="true">
+              <div className="home-coin-stack">
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className="home-trophy">
+                <div className="home-trophy-cup" />
+                <div className="home-trophy-stem" />
+                <div className="home-trophy-base" />
+              </div>
+              <img className="home-piece home-piece-king" src="/pieces/bk.svg" alt="" />
+              <img className="home-piece home-piece-knight" src="/pieces/wn.svg" alt="" />
+            </div>
+          </section>
+
+          {showOnboarding && (
+            <section className="home-onboarding" aria-label="Damcash quick guide">
+              <div className="home-onboarding-head">
+                <div>
+                  <div className="home-onboarding-kicker">New here</div>
+                  <h2>Damcash in 30 seconds</h2>
+                </div>
+                <button className="home-onboarding-dismiss" onClick={dismissOnboarding} aria-label="Dismiss quick guide">
+                  x
+                </button>
+              </div>
+              <div className="home-onboarding-grid">
+                {ONBOARDING_ITEMS.map(item => (
+                  <div className="home-onboarding-item" key={item.title}>
+                    <strong>{item.title}</strong>
+                    <span>{item.body}</span>
+                  </div>
                 ))}
               </div>
-            ) : (
-              <LiveGamesSection
-                games={games}
-                universe={universe}
-                onClickGame={(id: string, univ: string) => navigate(`/${univ}/watch/${id}`)}
-              />
-            )}
-          </div>
+            </section>
+          )}
 
-          {/* ── Leaderboard ── */}
-          <div style={{ marginTop: 28 }}>
-            <div className="games-list-header" style={{ marginBottom: 10 }}>
-              <span className="section-title">{t('lobby.leaderboard')}</span>
-              <span className="more-link">{t('lobby.morePlayers')}</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {leaderboardLoading ? (
-                Array.from({ length: 7 }).map((_, i) => (
-                  <div key={i} className="skeleton-row" style={{ padding: '6px 0' }}>
-                    <div className="skeleton skeleton-line" style={{ width: 20 }} />
-                    <div className="skeleton skeleton-line" style={{ width: `${55 + (i % 3) * 15}px` }} />
-                    <div className="skeleton skeleton-line" style={{ width: 36, marginLeft: 'auto' }} />
-                  </div>
-                ))
-              ) : leaderboard.length === 0 ? (
-                <div style={{ color: 'var(--text-3)', fontSize: 12, padding: '8px 0' }}>{t('leaderboard.noPlayers')}</div>
-              ) : leaderboard.map(entry => (
-                <div key={entry.rank} className="lb-item">
-                  <span className={`lb-rank ${entry.rank <= 3 ? 'top-3' : ''}`}>{entry.rank}</span>
-                  {entry.country && (
-                    <span className="lb-flag" title={countryName(entry.country)}>
-                      {countryFlag(entry.country)}
-                    </span>
-                  )}
-                  <PlayerHoverCard
-                    username={entry.name}
-                    rating={entry.rating}
-                    wins={entry.wins}
-                    losses={entry.losses}
-                    draws={entry.draws}
-                    games={entry.games}
-                    country={entry.country}
+          <div className="home-dashboard-grid">
+            <div className="home-dashboard-main">
+              <div className="home-game-cards">
+                <button className="home-game-card checkers" onClick={() => onCreateGame('5+0', 'online')}>
+                  <span className="home-game-token checkers-token">
+                    <i />
+                    <i />
+                  </span>
+                  <span>
+                    <strong>{t('profile.checkers')}</strong>
+                    <small>Fast tactics and clean endgames.</small>
+                  </span>
+                  <em>{t('lobby.playNow', 'Play now')}</em>
+                </button>
+                <button className="home-game-card chess" onClick={() => onCreateGame('5+0', 'online')}>
+                  <span className="home-game-token">
+                    <img src="/pieces/wn.svg" alt="" />
+                  </span>
+                  <span>
+                    <strong>{t('profile.chess')}</strong>
+                    <small>Strategy, calculation, victory.</small>
+                  </span>
+                  <em>{t('lobby.playNow', 'Play now')}</em>
+                </button>
+              </div>
+
+              <div className="home-action-strip">
+                {QUICK_ACTIONS.map(item => (
+                  <button
+                    key={item.key}
+                    className="home-action-tile"
+                    onClick={() => {
+                      if ('tc' in item) {
+                        setActiveTab('lobby');
+                        onCreateGame(item.tc, 'online');
+                      } else if ('route' in item) {
+                        navigate(`/${universe}/${item.route}`);
+                      } else if ('wallet' in item) {
+                        onOpenWallet();
+                      } else {
+                        setActiveTab(item.path);
+                      }
+                    }}
                   >
-                    <span
-                      className="lb-name lb-name-link"
-                      onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(entry.name)}`)}
-                    >
-                      {entry.name}
-                    </span>
-                  </PlayerHoverCard>
-                  <span className="lb-rating">{entry.rating}</span>
+                    <span className={`home-action-icon ${item.key}`} />
+                    <strong>{item.label}</strong>
+                    <small>{item.detail}</small>
+                  </button>
+                ))}
+              </div>
+
+              <section className="home-panel">
+                <div className="home-panel-head">
+                  <div>
+                    <span className="section-title">{t('lobby.quickPairing')}</span>
+                    <p>Choose a clock. If no one pairs instantly, your seek is listed for others to join.</p>
+                  </div>
+                  <button className="more-link home-link-button" onClick={() => setActiveTab('lobby')}>
+                    {t('lobby.lobby')}
+                  </button>
                 </div>
-              ))}
+                <div className="pairing-grid">
+                  {Object.entries(grouped).map(([cat, tcs]) => (
+                    <React.Fragment key={cat}>
+                      <div className="pairing-cat-label" style={{ color: CAT_COLOR[cat] }}>
+                        <span className="pairing-cat-dot" style={{ background: CAT_COLOR[cat] }} />
+                        {t(`time.${cat.toLowerCase()}`)}
+                      </div>
+                      {tcs.map(({ value, label }) => (
+                        <div
+                          key={value}
+                          className="time-card"
+                          onClick={() => {
+                            setActiveTab('lobby');
+                            onCreateGame(value, 'online');
+                          }}
+                          style={{ borderTop: `2px solid ${CAT_COLOR[cat]}` }}
+                        >
+                          <div className="time-value">{label}</div>
+                          <div className="time-category" style={{ color: CAT_COLOR[cat] }}>{t(`time.${cat.toLowerCase()}`)}</div>
+                        </div>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </section>
+
+              <section className="home-panel">
+                <div className="games-list-header" style={{ marginBottom: 14 }}>
+                  <span className="section-title">
+                    {t('lobby.liveGames')}
+                    {!liveGamesLoading && liveCount > 0 && (
+                      <span className="home-count-pill">
+                        {liveCount} {t('social.playing')}
+                      </span>
+                    )}
+                  </span>
+                  <span className="more-link">{t('lobby.moreGames')}</span>
+                </div>
+                {liveGamesLoading ? (
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {[1, 2, 3].map(i => (
+                      <div key={i} style={{ flex: 1, height: 90, borderRadius: 10 }} className="skeleton" />
+                    ))}
+                  </div>
+                ) : (
+                  <LiveGamesSection
+                    games={games}
+                    universe={universe}
+                    onClickGame={(id: string, univ: string) => navigate(`/${univ}/watch/${id}`)}
+                  />
+                )}
+              </section>
             </div>
+
+            <aside className="home-dashboard-aside">
+              <section className="home-panel home-leaderboard-panel">
+                <div className="games-list-header" style={{ marginBottom: 10 }}>
+                  <span className="section-title">{t('lobby.leaderboard')}</span>
+                  <button className="more-link home-link-button" onClick={() => navigate(`/${universe}/leaderboard`)}>
+                    {t('leaderboard.viewAll')}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {leaderboardLoading ? (
+                    Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} className="skeleton-row" style={{ padding: '6px 0' }}>
+                        <div className="skeleton skeleton-line" style={{ width: 20 }} />
+                        <div className="skeleton skeleton-line" style={{ width: `${55 + (i % 3) * 15}px` }} />
+                        <div className="skeleton skeleton-line" style={{ width: 36, marginLeft: 'auto' }} />
+                      </div>
+                    ))
+                  ) : leaderboard.length === 0 ? (
+                    <div style={{ color: 'var(--text-3)', fontSize: 12, padding: '8px 0' }}>{t('leaderboard.noPlayers')}</div>
+                  ) : leaderboard.map(entry => (
+                    <div key={entry.rank} className="lb-item">
+                      <span className={`lb-rank ${entry.rank <= 3 ? 'top-3' : ''}`}>{entry.rank}</span>
+                      {entry.country && (
+                        <span className="lb-flag" title={countryName(entry.country)}>
+                          {countryFlag(entry.country)}
+                        </span>
+                      )}
+                      <PlayerHoverCard
+                        username={entry.name}
+                        rating={entry.rating}
+                        wins={entry.wins}
+                        losses={entry.losses}
+                        draws={entry.draws}
+                        games={entry.games}
+                        country={entry.country}
+                      >
+                        <span
+                          className="lb-name lb-name-link"
+                          onClick={() => navigate(`/${universe}/profile/${encodeURIComponent(entry.name)}`)}
+                        >
+                          {entry.name}
+                        </span>
+                      </PlayerHoverCard>
+                      <span className="lb-rating">{entry.rating}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="home-quote-card">
+                <span>"</span>
+                <p>Every move counts. Every decision shapes the champion you become.</p>
+                <small>Damcash</small>
+              </section>
+            </aside>
           </div>
         </div>
       )}
