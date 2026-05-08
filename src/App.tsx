@@ -78,7 +78,7 @@ const PageFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
 
   return (
-    <main className="main-content">
+    <main className="main-content page-frame-premium">
       <div className="page-back-row">
         <button className="page-back-btn" onClick={handleBack}>Back</button>
       </div>

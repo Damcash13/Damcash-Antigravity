@@ -25,8 +25,6 @@ const LANGUAGES = [
   { code: 'zh' },
 ];
 
-const BRAND_WORD = 'DAMCA$H';
-
 // ── Nav menu definitions ───────────────────────────────────────────────────────
 
 interface NavItem {
@@ -388,18 +386,15 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
       <div className="header-inner">
         {/* Logo */}
         <a className="logo" onClick={() => navigate(`/${universe}`)} style={{ cursor: 'pointer' }}>
-          <img src="/logo.svg" alt="DamCash" className="logo-mark" />
-          <span className="logo-wordmark logo-animated-wordmark" aria-label="DAMCA$H">
-            {BRAND_WORD.split('').map((letter, index) => (
-              <span
-                key={`${letter}-${index}`}
-                className={`logo-letter${letter === '$' ? ' logo-dollar' : ''}`}
-                style={{ '--letter-index': index } as React.CSSProperties}
-                aria-hidden="true"
-              >
-                {letter}
-              </span>
-            ))}
+          <span className="dc-brand-monogram" aria-hidden="true">
+            <span className="dc-brand-crown">♛</span>
+            <span className="dc-brand-d">D</span>
+            <span className="dc-brand-c">C</span>
+          </span>
+          <span className="dc-brand-separator" aria-hidden="true" />
+          <span className="dc-brand-lockup" aria-label="DamCash">
+            <span className="dc-brand-word"><span>Dam</span><span>Cash</span></span>
+            <span className="dc-brand-tagline">Stratégie. Rapidité. Victoire.</span>
           </span>
         </a>
 
