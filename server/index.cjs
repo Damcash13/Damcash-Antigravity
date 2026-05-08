@@ -5330,18 +5330,19 @@ app.post('/api/wallet/stripe/webhook', async (req, res) => {
       const amount = parseFloat(session.metadata.amount || '0');
       if (amount >= 5 && amount <= 10000) {
         try {
-          const existing = await prisma.transaction.findFirst({ where: { stripeSessionId: session.id } });
-          if (!existing) {
-            const walletOwner = await prisma.wallet.findUnique({ where: { userId } });
+          await prisma.$transaction(async (tx) => {
+            const existing = await tx.transaction.findUnique({ where: { stripeSessionId: session.id } });
+            if (existing) return;
+            const walletOwner = await tx.wallet.findUnique({ where: { userId } });
             if (!walletOwner) {
               console.error('[Stripe Webhook] No wallet found for userId', userId);
-            } else {
-              const wallet = await prisma.wallet.update({ where: { userId }, data: { balance: { increment: amount } } });
-              await prisma.transaction.create({
-                data: { walletId: wallet.id, amount, type: 'DEPOSIT', status: 'COMPLETED', stripeSessionId: session.id },
-              });
+              return;
             }
-          }
+            const wallet = await tx.wallet.update({ where: { userId }, data: { balance: { increment: amount } } });
+            await tx.transaction.create({
+              data: { walletId: wallet.id, amount, type: 'DEPOSIT', status: 'COMPLETED', stripeSessionId: session.id },
+            });
+          });
         } catch (e) { console.error('[Stripe Webhook] DB error', e); }
       }
     }
