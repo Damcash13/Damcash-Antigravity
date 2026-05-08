@@ -1170,6 +1170,12 @@
 
 /* < 768px */
 @media (max-width: 767px) {
+  /* Header : hide search + username text to keep bell + avatar visible */
+  .ph-header-search-wrap  { display: none; }
+  .ph-header-nav          { display: none; }
+  .ph-header-user-info    { display: none; }
+  .ph-header-profile-btn  { padding: 4px; border-radius: 50%; }
+
   .ph-main        { padding: 16px 16px 40px; }
   .ph-hero        { padding: 24px 22px; min-height: 160px; }
   .ph-hero-h1     { font-size: 28px; }
@@ -1177,7 +1183,6 @@
   .ph-hero-desc   { display: none; }
   .ph-game-cards  { grid-template-columns: 1fr; }
   .ph-shortcuts   { grid-template-columns: repeat(2, 1fr); }
-  .ph-header-nav  { display: none; }
 }
 
 /* < 480px */
