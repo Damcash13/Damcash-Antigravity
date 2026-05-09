@@ -5,6 +5,8 @@
 require('dotenv').config();
 
 console.log('--- DAMCASH SERVER V3.1 STARTING ON PORT ' + (process.env.PORT || 3000) + ' ---');
+console.log('[STARTUP] AGORA_APP_ID:', process.env.AGORA_APP_ID ? 'SET' : 'NOT SET');
+console.log('[STARTUP] AGORA_APP_CERTIFICATE:', process.env.AGORA_APP_CERTIFICATE ? 'SET' : 'NOT SET');
 
 const express    = require('express');
 const helmet     = require('helmet');
@@ -5435,8 +5437,13 @@ app.get(['/assets/*', '/*.js', '/*.css', '/*.map'], (req, res) => {
 // VITE_ build-time env vars weren't available during the Docker build (Railway quirk)
 // ── Public runtime config (CSP-safe alternative to inline script injection) ──
 app.get('/api/config', (_req, res) => {
+  const agoraAppId = process.env.AGORA_APP_ID || process.env.VITE_AGORA_APP_ID || '';
+  if (!agoraAppId) {
+    console.warn('[CONFIG] AGORA_APP_ID is not set in environment');
+  }
   res.json({
-    agoraAppId: process.env.AGORA_APP_ID || process.env.VITE_AGORA_APP_ID || '',
+    agoraAppId,
+    agoraAppCertificate: process.env.AGORA_APP_CERTIFICATE || '',
   });
 });
 
