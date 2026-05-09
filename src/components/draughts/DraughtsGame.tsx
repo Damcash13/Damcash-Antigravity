@@ -891,7 +891,7 @@ export const DraughtsGame: React.FC = () => {
           <div style={{ flex: 1 }}>
             <PlayerPopover player={opponent}>
               <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 16 }}>
-                {!isOnline && opponentInfo.country && (
+                {opponentInfo.country && (
                   <span style={{ fontSize: 22, lineHeight: 1 }} title={opponentInfo.country}>
                     {countryFlag(opponentInfo.country)}
                   </span>
@@ -1057,7 +1057,7 @@ export const DraughtsGame: React.FC = () => {
           <div>
             <PlayerPopover player={{ name: user?.name || 'You', rating: user?.rating.checkers || 1450 }}>
               <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                {!isOnline && user?.country && <span style={{ fontSize: 15 }}>{countryFlag(user.country)}</span>}
+                {user?.country && <span style={{ fontSize: 15 }}>{countryFlag(user.country)}</span>}
                 {user?.name || 'You'}
                 {isBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
               </div>
