@@ -3194,7 +3194,7 @@ app.get('/api/leaderboard', async (req, res) => {
 
 // ── REST: Tournaments ────────────────────────────────────────────────────────
 const TOURNAMENT_PAIRING_CUTOFF_MS = 2 * 60_000;
-const TOURNAMENT_FINISHED_VISIBLE_MS = 5 * 60_000;
+const TOURNAMENT_FINISHED_VISIBLE_MS = 15 * 60_000;
 const DEFAULT_PROTECTED_CASH_MIN_GAMES = 20;
 const MAX_TOURNAMENT_RATING_LIMIT = 4000;
 
@@ -5548,6 +5548,9 @@ async function startServer() {
   await ensureSafetySchema();
   await ensureDirectMessageSchema();
   await resetStaleTournamentPairingStatuses();
+  log.info('[Scheduler] Running startup tick — pre-populating next 24h of tournaments...');
+  await runSchedulerTick();
+  log.info('[Scheduler] Startup tick complete.');
   httpServer.listen(PORT, '0.0.0.0', () => {
     log.info(`DamCash server → http://0.0.0.0:${PORT}`);
     startTournamentScheduler();
