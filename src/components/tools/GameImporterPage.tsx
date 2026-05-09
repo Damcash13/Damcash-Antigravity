@@ -62,7 +62,7 @@ export const GameImporterPage: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '20px 0', maxWidth: 640, margin: '0 auto' }}>
       <div style={{ textAlign: 'center' }}>
-        <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>⚙️ Game Importer</h2>
+        <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>Game Importer</h2>
         <p style={{ color: 'var(--text-2)', fontSize: 14 }}>
           Paste a PGN game to import it and open it in the analysis board.
         </p>

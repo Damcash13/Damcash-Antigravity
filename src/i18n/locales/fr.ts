@@ -528,7 +528,7 @@ export default {
   social: {
     friends: 'Amis',
     online: 'en ligne',
-    inGame: '🎮 En jeu',
+    inGame: 'En jeu',
     seeking: '🔍 Recherche',
     onlineStatus: '✅ En ligne',
     offline: '⚫ Hors ligne',

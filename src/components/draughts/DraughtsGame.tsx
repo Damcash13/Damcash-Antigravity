@@ -825,7 +825,7 @@ export const DraughtsGame: React.FC = () => {
     if (playerColor === 'white') setWhiteTime(t => Math.ceil(t / 2));
     else setBlackTime(t => Math.ceil(t / 2));
     socket.emit('berserk:activate', { roomId });
-    addNotification('⚡ Berserk! Time halved — wins earn +1 bonus point', 'info');
+    addNotification('Berserk! Time halved — wins earn +1 bonus point', 'info');
   }, [isBerserk, isOnline, playerColor, roomId, addNotification]);
 
   const handleClockExpire = useCallback(() => {
@@ -885,7 +885,7 @@ export const DraughtsGame: React.FC = () => {
             />
           ) : (
             <div className="player-avatar">
-              {isVsComputer ? '🤖' : opponent.name[0]}
+              {isVsComputer ? 'AI' : opponent.name[0]}
             </div>
           )}
           <div style={{ flex: 1 }}>
@@ -897,7 +897,7 @@ export const DraughtsGame: React.FC = () => {
                   </span>
                 )}
                 <strong>{opponent.name}</strong>
-                {opponentBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
+                {opponentBerserk && <span className="berserk-badge">BERSERK</span>}
               </div>
             </PlayerPopover>
             {!isOnline && <div className="player-rating">({opponent.rating})</div>}
@@ -913,7 +913,7 @@ export const DraughtsGame: React.FC = () => {
         {/* Incoming draw offer banner */}
         {incomingDraw && (
           <div className="draw-offer-banner">
-            <span>🤝 {t('game.opponentOfferedDraw')}</span>
+            <span>{t('game.opponentOfferedDraw')}</span>
             <button className="btn btn-success btn-sm" onClick={handleAcceptDraw}>{t('game.acceptDraw')}</button>
             <button className="btn btn-secondary btn-sm" onClick={handleDeclineDraw}>{t('game.declineDraw')}</button>
           </div>
@@ -922,7 +922,7 @@ export const DraughtsGame: React.FC = () => {
         {/* Incoming takeback request banner */}
         {incomingTakeback && (
           <div className="draw-offer-banner">
-            <span>↩ {t('game.opponentRequestsTakeback')}</span>
+            <span>{t('game.opponentRequestsTakeback')}</span>
             <button className="btn btn-success btn-sm" onClick={handleAcceptTakeback}>{t('game.acceptTakeback')}</button>
             <button className="btn btn-secondary btn-sm" onClick={handleDeclineTakeback}>{t('game.declineTakeback')}</button>
           </div>
@@ -930,7 +930,7 @@ export const DraughtsGame: React.FC = () => {
 
         {/* Draw declined flash */}
         {drawDeclinedMsg && (
-          <div className="draw-declined-msg">❌ {t('game.drawDeclined')}</div>
+          <div className="draw-declined-msg">{t('game.drawDeclined')}</div>
         )}
 
         {/* Must capture notice */}
@@ -972,9 +972,6 @@ export const DraughtsGame: React.FC = () => {
           {gameStatus === 'ended' && (
             <div className="game-over-overlay">
               <div className="game-over-box">
-                <div className="game-over-title">
-                  {gameOutcome === 'draw' ? '🤝' : gameOutcome === playerColor ? '🏆' : '💔'}
-                </div>
                 <div className="game-over-title">{t('game.gameOver')}</div>
                 <div className="game-over-subtitle">{result}</div>
 
@@ -1000,7 +997,7 @@ export const DraughtsGame: React.FC = () => {
                 )}
                 {isVsComputer && (
                   <div style={{ fontSize: 12, color: 'var(--text-3)', margin: '8px 0', padding: '3px 12px', background: 'var(--bg-2)', borderRadius: 20, display: 'inline-block' }}>
-                    ⚙ Unrated — computer game
+                    Unrated — computer game
                   </div>
                 )}
 
@@ -1059,7 +1056,7 @@ export const DraughtsGame: React.FC = () => {
               <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
                 {user?.country && <span style={{ fontSize: 15 }}>{countryFlag(user.country)}</span>}
                 {user?.name || 'You'}
-                {isBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
+                {isBerserk && <span className="berserk-badge">BERSERK</span>}
               </div>
             </PlayerPopover>
             <div className="player-rating" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -1090,7 +1087,7 @@ export const DraughtsGame: React.FC = () => {
               onClick={handleBerserk}
               title="Halve your time — wins earn +1 bonus point"
             >
-              ⚡ Berserk
+              Berserk
             </button>
           )}
           {gameStatus === 'playing' && (
@@ -1102,7 +1099,7 @@ export const DraughtsGame: React.FC = () => {
                   disabled={takebackSent}
                   title={takebackSent ? t('game.takebackSent') : t('game.requestTakeback')}
                 >
-                  {takebackSent ? `↩ ${t('game.takebackSent')}` : `↩ ${t('game.takeback')}`}
+                  {takebackSent ? t('game.takebackSent') : t('game.takeback')}
                 </button>
               )}
               {moveHistory.length > 0 ? (
@@ -1110,14 +1107,14 @@ export const DraughtsGame: React.FC = () => {
                   className="btn btn-danger btn-sm"
                   onClick={() => { if(window.confirm(t('game.confirmResign'))) handleResign(); }}
                 >
-                  🏳 {t('game.resign')}
+                  {t('game.resign')}
                 </button>
               ) : (
                 <button
                   className="btn btn-secondary btn-sm"
                   onClick={() => { socket.emit('room:cancel', { roomId }); navigate('/'); }}
                 >
-                  🚪 {t('game.quitRoom')}
+                  {t('game.quitRoom')}
                 </button>
               )}
               {gameStatus === 'playing' && (
@@ -1146,7 +1143,7 @@ export const DraughtsGame: React.FC = () => {
 
         <div className="panel">
           <div className="panel-header">
-            <span className="panel-title">💰 {t('betting.wallet')}</span>
+            <span className="panel-title">{t('betting.wallet')}</span>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowBetting(s => !s)}>
               {showBetting ? '▲' : '▼'}
             </button>

@@ -163,7 +163,7 @@ export const BettingPanel: React.FC = () => {
             onClick={handleRequestBet}
             disabled={!user || amount > (user?.walletBalance ?? 0) || amount <= 0}
           >
-            💰 {t('betting.placeBet')} ${amount}
+            {t('betting.placeBet')} ${amount}
           </button>
         </div>
       )}

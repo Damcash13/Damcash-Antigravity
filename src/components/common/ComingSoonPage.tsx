@@ -38,7 +38,6 @@ export const ComingSoonPage: React.FC = () => {
   const navigate = useNavigate();
 
   const meta = feature ? FEATURE_META[feature] : null;
-  const icon  = meta?.icon  ?? '🔧';
   const title = meta?.title ?? 'Feature';
   const desc  = meta?.desc  ?? 'This feature is currently under development.';
 
@@ -53,7 +52,6 @@ export const ComingSoonPage: React.FC = () => {
       padding: '40px 20px',
       textAlign: 'center',
     }}>
-      <div style={{ fontSize: 72 }}>{icon}</div>
       <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)' }}>{title}</h1>
       <p style={{ fontSize: 15, color: 'var(--text-2)', maxWidth: 420, lineHeight: 1.6 }}>{desc}</p>
       <div style={{
@@ -68,7 +66,7 @@ export const ComingSoonPage: React.FC = () => {
         fontWeight: 700,
         fontSize: 13,
       }}>
-        🚧 Coming soon
+        Coming soon
       </div>
       <button
         className="btn btn-secondary"

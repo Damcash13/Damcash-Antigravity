@@ -249,9 +249,9 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
     <div className="tl-container">
       <div className="tl-topbar">
         <div>
-          <h2 className="tl-title">🏆 {t('lobby.tournaments')}</h2>
+          <h2 className="tl-title">{t('lobby.tournaments')}</h2>
           <p className="tl-sub">
-            {universe === 'chess' ? `♟ ${t('profile.chess')}` : `⬤ ${t('profile.checkers')}`} · {visible.length} · Times shown in {getUserTimeZone()}
+            {universe === 'chess' ? t('profile.chess') : t('profile.checkers')} · {visible.length} · Times shown in {getUserTimeZone()}
           </p>
         </div>
 
@@ -265,7 +265,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
                 style={filter === f && f !== 'all' ? { borderColor: STATUS_COLORS[f as TournamentStatus], color: STATUS_COLORS[f as TournamentStatus] } : {}}
                 onClick={() => setFilter(f)}
               >
-                {f === 'all' ? t('leaderboard.viewAll') : f === 'running' ? `🔴 ${t('tournament.running')}` : f === 'upcoming' ? `⏰ ${t('tournament.upcoming')}` : `✅ ${t('tournament.finished')}`}
+                {f === 'all' ? t('leaderboard.viewAll') : f === 'running' ? t('tournament.running') : f === 'upcoming' ? t('tournament.upcoming') : t('tournament.finished')}
               </button>
             ))}
           </div>
@@ -290,7 +290,6 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
 
       {!loading && visible.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-3)' }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🏆</div>
           <div style={{ fontWeight: 700, color: 'var(--text-2)', marginBottom: 8 }}>{emptyTitle}</div>
           <div className="tp-empty-help">{emptyHelp}</div>
           {user && (
@@ -312,7 +311,7 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
             padding: 24, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ margin: 0, color: 'var(--text-1)' }}>🏆 {t('tournament.createTournament') || 'Create Tournament'}</h3>
+              <h3 style={{ margin: 0, color: 'var(--text-1)' }}>{t('tournament.createTournament') || 'Create Tournament'}</h3>
               <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-3)' }}>✕</button>
             </div>
 
@@ -344,8 +343,8 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
                     value={form.universe}
                     onChange={e => setForm(f => ({ ...f, universe: e.target.value as 'chess' | 'checkers' }))}
                   >
-                    <option value="chess">♟ Chess</option>
-                    <option value="checkers">⬤ Checkers</option>
+                    <option value="chess">Chess</option>
+                    <option value="checkers">Checkers</option>
                   </select>
                 </label>
                 <label style={{ color: 'var(--text-3)', fontSize: 12 }}>

@@ -86,7 +86,7 @@ export const BoardEditorPage: React.FC = () => {
   return (
     <div style={{ display: 'flex', gap: 24, padding: '20px 0', flexWrap: 'wrap', justifyContent: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800 }}>🏗️ Board Editor</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800 }}>Board Editor</h2>
 
         {/* Piece palette */}
         <div style={{

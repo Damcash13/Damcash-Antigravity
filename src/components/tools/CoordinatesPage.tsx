@@ -89,7 +89,7 @@ export const CoordinatesPage: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '20px 0' }}>
       <div style={{ textAlign: 'center' }}>
-        <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 4 }}>📝 Coordinates Trainer</h2>
+        <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 4 }}>Coordinates Trainer</h2>
         <p style={{ color: 'var(--text-2)', fontSize: 14 }}>Learn to name chess squares instantly. 30 seconds on the clock.</p>
       </div>
 
@@ -106,7 +106,7 @@ export const CoordinatesPage: React.FC = () => {
               color: mode === m ? 'var(--accent)' : 'var(--text-2)',
             }}
           >
-            {m === 'find-square' ? '🎯 Find the square' : '🔤 Name the square'}
+            {m === 'find-square' ? 'Find the square' : 'Name the square'}
           </button>
         ))}
         <button
@@ -210,7 +210,7 @@ export const CoordinatesPage: React.FC = () => {
       {phase === 'ended' && (
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Time's up! Score: {score}</div>
-          {score >= best && score > 0 && <div style={{ color: 'var(--gold)' }}>🏆 New best!</div>}
+          {score >= best && score > 0 && <div style={{ color: 'var(--gold)' }}>New best!</div>}
           <button className="btn btn-primary" onClick={start}>Play again</button>
         </div>
       )}

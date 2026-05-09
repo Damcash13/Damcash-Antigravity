@@ -51,7 +51,7 @@ export const EndgameTrainingPage: React.FC = () => {
     <div style={{ display: 'flex', gap: 24, padding: '20px 0', flexWrap: 'wrap', justifyContent: 'center' }}>
       {/* Position list */}
       <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>👨‍💻 Endgame Training</h2>
+        <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Endgame Training</h2>
         <p style={{ color: 'var(--text-2)', fontSize: 13, marginBottom: 8 }}>
           Master theoretical endgames. Free-play mode — find the best technique yourself.
         </p>

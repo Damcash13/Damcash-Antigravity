@@ -172,8 +172,8 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
           <div>
             <div style={{ fontSize: 16, fontWeight: 800 }}>
               {configTarget
-                ? `⚔️ ${t('nav.challengeFriend')} ${configTarget.name}`
-                : mode === 'join' ? `🔑 ${t('createGame.joinByCode')}` : `🎮 ${t('nav.createGame')}`}
+                ? `${t('nav.challengeFriend')} ${configTarget.name}`
+                : mode === 'join' ? t('createGame.joinByCode') : t('nav.createGame')}
             </div>
             {step === 'config' && (
               <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
@@ -193,8 +193,8 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
         {!configTarget && step === 'config' && (
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
             {[
-              { key: 'create', label: `🔗 ${t('createGame.createRoom').split('&')[0].trim()}` },
-              { key: 'join',   label: `🔑 ${t('createGame.joinByCode')}` },
+              { key: 'create', label: t('createGame.createRoom').split('&')[0].trim() },
+              { key: 'join',   label: t('createGame.joinByCode') },
             ].map((m) => (
               <button
                 className="game-config-mode-tab"
@@ -459,20 +459,20 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
               {/* Share buttons */}
               <div style={{ display: 'flex', gap: 10, width: '100%' }}>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleCopyCode}>
-                  {copied ? `✓ ${t('common.copy')}!` : `📋 ${t('common.copy')}`}
+                  {copied ? `${t('common.copy')}!` : t('common.copy')}
                 </button>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={handleCopyLink}>
-                  🔗 {t('createGame.copyLink')}
+                  {t('createGame.copyLink')}
                 </button>
               </div>
 
               {/* QR / share via */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, width: '100%' }}>
                 {[
-                  { icon: '💬', label: 'WhatsApp', action: () => window.open(`https://wa.me/?text=Join my DamCash game! Code: ${roomCode}`) },
-                  { icon: '📧', label: 'Email',    action: () => window.open(`mailto:?subject=DamCash Challenge&body=Join my game! Code: ${roomCode}`) },
-                  { icon: '🐦', label: 'Twitter',  action: () => window.open(`https://twitter.com/intent/tweet?text=Join my DamCash game! Code: ${roomCode}`) },
-                ].map(({ icon, label, action }) => (
+                  { label: 'WhatsApp', action: () => window.open(`https://wa.me/?text=Join my DamCash game! Code: ${roomCode}`) },
+                  { label: 'Email',    action: () => window.open(`mailto:?subject=DamCash Challenge&body=Join my game! Code: ${roomCode}`) },
+                  { label: 'Twitter',  action: () => window.open(`https://twitter.com/intent/tweet?text=Join my DamCash game! Code: ${roomCode}`) },
+                ].map(({ label, action }) => (
                   <button
                     key={label}
                     onClick={action}
@@ -485,8 +485,7 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
                     onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
                     onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                   >
-                    <span style={{ fontSize: 20 }}>{icon}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{label}</span>
                   </button>
                 ))}
               </div>
@@ -512,8 +511,8 @@ export const GameConfigModal: React.FC<Props> = ({ open, onClose }) => {
               disabled={effectiveBet > (user?.walletBalance ?? 0) && effectiveBet > 0}
             >
               {configTarget
-                ? `⚔️ ${t('createGame.sendChallenge')} ${configTarget.name}`
-                : `🔗 ${t('createGame.createRoom')}`}
+                ? `${t('createGame.sendChallenge')} ${configTarget.name}`
+                : t('createGame.createRoom')}
             </button>
           </div>
         )}

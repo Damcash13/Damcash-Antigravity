@@ -37,10 +37,9 @@ export function useRatingUpdates() {
     const handler = (entry: RatingEntry) => {
       updateRating(entry);
       const sign   = entry.delta >= 0 ? '+' : '';
-      const emoji  = entry.result === 'win' ? '🏆' : entry.result === 'draw' ? '🤝' : '📉';
-      const uv     = entry.universe === 'chess' ? '♟' : '⬤';
+      const uv     = entry.universe === 'chess' ? 'Chess' : 'Checkers';
       addNotification(
-        `${emoji} Rating update — ${uv} ${entry.before} → ${entry.after} (${sign}${entry.delta}) vs ${entry.opponent}`,
+        `Rating update — ${uv} ${entry.before} → ${entry.after} (${sign}${entry.delta}) vs ${entry.opponent}`,
         entry.result === 'win' ? 'success' : entry.result === 'draw' ? 'info' : 'warning',
       );
     };

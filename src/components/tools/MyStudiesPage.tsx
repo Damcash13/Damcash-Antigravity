@@ -34,7 +34,7 @@ export const MyStudiesPage: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '20px 0', maxWidth: 700, margin: '0 auto' }}>
       <div style={{ textAlign: 'center' }}>
-        <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>🗂️ My Studies</h2>
+        <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>My Studies</h2>
         <p style={{ color: 'var(--text-2)', fontSize: 14 }}>
           Your saved and analysed games. Click any game to open it in the analysis board.
         </p>
@@ -45,7 +45,6 @@ export const MyStudiesPage: React.FC = () => {
           width: '100%', background: 'var(--bg-2)', border: '1px solid var(--border)',
           borderRadius: 10, padding: 40, textAlign: 'center',
         }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🗂️</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-2)', marginBottom: 8 }}>No studies yet</div>
           <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20 }}>
             Games you analyse or import will appear here automatically.

@@ -235,7 +235,7 @@ export default function App() {
       useNotificationStore.getState().addNotification(`New message from ${data.fromUsername}`, 'info');
       pushCenterNotification({
         type: 'system',
-        icon: '💬',
+        icon: '',
         title: `Message from ${data.fromUsername}`,
         body: data.body,
       });

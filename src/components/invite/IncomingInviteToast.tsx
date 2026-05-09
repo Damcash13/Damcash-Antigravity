@@ -44,7 +44,7 @@ const InviteCard: React.FC<{ invite: IncomingInvite }> = ({ invite }) => {
         </div>
         <div>
           <div style={{ fontWeight: 800, fontSize: 15 }}>
-            ⚔️ Challenge from {invite.fromName}
+            Challenge from {invite.fromName}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
             Rating: {invite.fromRating}
@@ -108,7 +108,7 @@ const InviteCard: React.FC<{ invite: IncomingInvite }> = ({ invite }) => {
             fontFamily: 'var(--font)', transition: 'background 0.15s',
           }}
         >
-          ⚔️ Accept Challenge
+          Accept Challenge
         </button>
       </div>
     </div>
@@ -133,7 +133,7 @@ export const IncomingInviteToast: React.FC = () => {
       play('notification');
       pushNotif({
         type: 'challenge',
-        icon: '⚔️',
+        icon: '',
         title: `Challenge from ${data.fromName}`,
         body: `${data.fromName} challenged you to a game`,
       });

@@ -430,7 +430,6 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
                 title="Messages"
                 aria-label="Messages"
               >
-                <span className="header-icon-glyph">💬</span>
                 {messageUnreadCount > 0 && (
                   <span>{messageUnreadCount > 9 ? '9+' : messageUnreadCount}</span>
                 )}
@@ -441,7 +440,6 @@ export const Header: React.FC<Props> = ({ onOpenWallet, onOpenAuth, onInvitePlay
                 title={t('betting.wallet')}
                 aria-label={t('betting.wallet')}
               >
-                <span className="header-icon-glyph">💰</span>
                 <span className="header-wallet-balance">${Number(user.walletBalance).toFixed(2)}</span>
               </button>
               <button

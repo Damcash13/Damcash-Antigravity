@@ -191,7 +191,7 @@ export const CorrespondenceGame: React.FC = () => {
 
   const autoResult = checkResult();
   const displayResult = game.result
-    ? (game.result === 'draw' ? '½–½ Draw' : game.result === game.myColor ? '🏆 You won!' : '🏳 You lost')
+    ? (game.result === 'draw' ? '½–½ Draw' : game.result === game.myColor ? 'You won!' : 'You lost')
     : autoResult;
 
   return (
@@ -253,9 +253,6 @@ export const CorrespondenceGame: React.FC = () => {
             {(displayResult || resigned) && (
               <div className="corr-result-overlay">
                 <div className="corr-result-box">
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>
-                    {resigned ? '🏳' : game.result === game.myColor ? '🏆' : '🤝'}
-                  </div>
                   <div className="corr-result-text">{resigned ? 'You resigned' : displayResult}</div>
                   <button className="btn btn-accent" style={{ marginTop: 16 }} onClick={() => navigate(-1)}>
                     Back to Games
@@ -281,7 +278,7 @@ export const CorrespondenceGame: React.FC = () => {
           {game.status === 'active' && (
             <div className="corr-actions">
               <button className="corr-action-btn draw" onClick={handleDraw}>½ Offer Draw</button>
-              <button className="corr-action-btn resign" onClick={handleResign}>🏳 Resign</button>
+              <button className="corr-action-btn resign" onClick={handleResign}>Resign</button>
             </div>
           )}
         </div>

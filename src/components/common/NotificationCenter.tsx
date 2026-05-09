@@ -13,12 +13,12 @@ function ago(ts: number): string {
 
 // ── Type config ───────────────────────────────────────────────────────────────
 const TYPE_CFG: Record<string, { icon: string; accent: string }> = {
-  challenge:       { icon: '⚔️',  accent: '#f59e0b' },
-  game_result:     { icon: '🎮',  accent: '#22c55e' },
-  friend_request:  { icon: '👥',  accent: '#3b82f6' },
-  friend_accepted: { icon: '✅',  accent: '#22c55e' },
-  tournament:      { icon: '🏆',  accent: '#fbbf24' },
-  system:          { icon: 'ℹ️',  accent: '#64748b' },
+  challenge:       { icon: '',  accent: '#f59e0b' },
+  game_result:     { icon: '',  accent: '#22c55e' },
+  friend_request:  { icon: '',  accent: '#3b82f6' },
+  friend_accepted: { icon: '',  accent: '#22c55e' },
+  tournament:      { icon: '',  accent: '#fbbf24' },
+  system:          { icon: '',  accent: '#64748b' },
 };
 
 // ── Single notification row ───────────────────────────────────────────────────

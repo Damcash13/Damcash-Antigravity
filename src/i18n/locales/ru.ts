@@ -392,7 +392,7 @@ export default {
   social: {
     friends: 'Друзья',
     online: 'онлайн',
-    inGame: '🎮 В игре',
+    inGame: 'В игре',
     seeking: '🔍 Ищет',
     onlineStatus: '✅ Онлайн',
     offline: '⚫ Офлайн',

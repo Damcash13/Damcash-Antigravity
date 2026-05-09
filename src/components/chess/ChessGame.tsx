@@ -812,7 +812,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     if (playerColor === 'w') setWhiteTime(t => Math.ceil(t / 2));
     else setBlackTime(t => Math.ceil(t / 2));
     socket.emit('berserk:activate', { roomId });
-    addNotification('⚡ Berserk! Time halved — wins earn +1 bonus point', 'info');
+    addNotification('Berserk! Time halved — wins earn +1 bonus point', 'info');
   }, [isBerserk, isOnline, playerColor, roomId, addNotification]);
 
   const isPlayerTurn = currentTurn === playerColor;
@@ -883,7 +883,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
             />
           ) : (
             <div className="player-avatar">
-              {isVsComputer ? '🤖' : opponent.name[0]}
+              {isVsComputer ? 'AI' : opponent.name[0]}
             </div>
           )}
           <div style={{ flex: 1 }}>
@@ -895,7 +895,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                   </span>
                 )}
                 <strong>{opponent.name}</strong>
-                {opponentBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
+                {opponentBerserk && <span className="berserk-badge">BERSERK</span>}
                 {isOpponentDisconnected && (
                   <span style={{ color: '#ef4444', fontSize: 11, fontWeight: 700, marginLeft: 6 }}>
                     ● {t('game.disconnected', 'OFFLINE')}
@@ -916,7 +916,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
         {/* Incoming draw offer banner */}
         {incomingDraw && (
           <div className="draw-offer-banner">
-            <span>🤝 {t('game.opponentOfferedDraw')}</span>
+            <span>{t('game.opponentOfferedDraw')}</span>
             <button className="btn btn-success btn-sm" onClick={handleAcceptDraw}>{t('game.acceptDraw')}</button>
             <button className="btn btn-secondary btn-sm" onClick={handleDeclineDraw}>{t('game.declineDraw')}</button>
           </div>
@@ -925,7 +925,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
         {/* Incoming takeback request banner */}
         {incomingTakeback && (
           <div className="draw-offer-banner">
-            <span>↩ {t('game.opponentRequestsTakeback')}</span>
+            <span>{t('game.opponentRequestsTakeback')}</span>
             <button className="btn btn-success btn-sm" onClick={handleAcceptTakeback}>{t('game.acceptTakeback')}</button>
             <button className="btn btn-secondary btn-sm" onClick={handleDeclineTakeback}>{t('game.declineTakeback')}</button>
           </div>
@@ -933,7 +933,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
 
         {/* Draw declined flash */}
         {drawDeclinedMsg && (
-          <div className="draw-declined-msg">❌ {t('game.drawDeclined')}</div>
+          <div className="draw-declined-msg">{t('game.drawDeclined')}</div>
         )}
 
         {/* Board */}
@@ -965,9 +965,6 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
           {gameStatus === 'ended' && (
             <div className="game-over-overlay">
               <div className="game-over-box">
-                <div className="game-over-title">
-                  {result?.includes('wins') ? (result.includes('White') && playerColor === 'w' ? '🏆' : '💔') : '🤝'}
-                </div>
                 <div className="game-over-title">{t('game.gameOver')}</div>
                 <div className="game-over-subtitle">{result}</div>
 
@@ -993,7 +990,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                 )}
                 {isVsComputer && (
                   <div style={{ fontSize: 12, color: 'var(--text-3)', margin: '8px 0', padding: '3px 12px', background: 'var(--bg-2)', borderRadius: 20, display: 'inline-block' }}>
-                    ⚙ Unrated — computer game
+                    Unrated — computer game
                   </div>
                 )}
 
@@ -1004,7 +1001,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                   </button>
                   {moveHistory.length > 2 && (
                     <button className="btn btn-secondary" onClick={handleAnalyse}>
-                      📊 {t('game.analysis')}
+                      {t('game.analysis')}
                     </button>
                   )}
                 </div>
@@ -1052,7 +1049,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
               <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
                 {user?.country && <span style={{ fontSize: 15 }}>{countryFlag(user.country)}</span>}
                 {user?.name || 'You'}
-                {isBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
+                {isBerserk && <span className="berserk-badge">BERSERK</span>}
               </div>
             </PlayerPopover>
             <div className="player-rating" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -1083,7 +1080,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
               onClick={handleBerserk}
               title="Halve your time — wins earn +1 bonus point"
             >
-              ⚡ Berserk
+              Berserk
             </button>
           )}
           {gameStatus === 'playing' && (
@@ -1095,7 +1092,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                   disabled={takebackSent}
                   title={takebackSent ? t('game.takebackSent') : t('game.requestTakeback')}
                 >
-                  {takebackSent ? `↩ ${t('game.takebackSent')}` : `↩ ${t('game.takeback')}`}
+                  {takebackSent ? t('game.takebackSent') : t('game.takeback')}
                 </button>
               )}
               <button
@@ -1112,7 +1109,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                   style={{ flex: 1 }}
                   onClick={handleResign}
                 >
-                  🏳 {t('game.resign')}
+                  {t('game.resign')}
                 </button>
               ) : (
                 <button
@@ -1123,7 +1120,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
                     navigate('/');
                   }}
                 >
-                  🚪 {t('game.quitRoom')}
+                  {t('game.quitRoom')}
                 </button>
               )}
             </>
@@ -1142,7 +1139,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
         {/* Betting */}
         <div className="panel">
           <div className="panel-header">
-            <span className="panel-title">💰 {t('betting.wallet')}</span>
+            <span className="panel-title">{t('betting.wallet')}</span>
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => setShowBetting(s => !s)}

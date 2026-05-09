@@ -334,7 +334,7 @@ export const AnalysisBoard: React.FC = () => {
         {/* Stockfish live eval panel */}
         <div className="sf-panel">
           <div className="sf-panel-header">
-            <span>⚡ Stockfish 18</span>
+            <span>Stockfish 18</span>
             <span className="sf-status" style={{ color: sfReady ? 'var(--accent)' : 'var(--text-3)' }}>
               {sfReady ? `depth ${sfDepth}` : 'loading…'}
             </span>
@@ -369,10 +369,10 @@ export const AnalysisBoard: React.FC = () => {
         {/* Tabs */}
         <div className="an-tabs">
           <button className={`an-tab ${activeTab === 'moves' ? 'active' : ''}`} onClick={() => setActiveTab('moves')}>
-            📋 Moves
+            Moves
           </button>
           <button className={`an-tab ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>
-            📊 Summary
+            Summary
           </button>
         </div>
 

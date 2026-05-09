@@ -280,7 +280,7 @@ export const TournamentPage: React.FC = () => {
     : `No entry fee is required. Current prize pool: ${formatMoney(tournament.prizePool)}.`;
   const entryLabel = tournament.betEntry > 0 ? formatMoney(tournament.betEntry) : '';
   const joinCta = hasJoined
-    ? isRunning ? `🏳 ${t('tournament.withdraw')}` : `✕ ${t('common.cancel')}`
+    ? isRunning ? t('tournament.withdraw') : t('common.cancel')
     : isRunning ? tournament.betEntry > 0 ? `Join for ${entryLabel} & catch up` : `Join & catch up`
     : waitingRoomOpen ? tournament.betEntry > 0 ? `Join waiting room · ${entryLabel}` : `Join waiting room`
     : tournament.betEntry > 0 ? `Register · ${entryLabel}` : t('tournament.registerNow');
@@ -493,10 +493,10 @@ export const TournamentPage: React.FC = () => {
             className={`tp-tab ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'standings' ? `📊 ${t('tournament.standing')}`
-           : tab === 'pairings'  ? `⚔️ ${t('tournament.pairingsTBD').split(' ')[0]}`
-           : tab === 'games'     ? `🎮 ${t('common.games')}`
-           :                       `ℹ️ ${t('profile.overview')}`}
+            {tab === 'standings' ? t('tournament.standing')
+           : tab === 'pairings'  ? t('tournament.pairingsTBD').split(' ')[0]
+           : tab === 'games'     ? t('common.games')
+           :                       t('profile.overview')}
           </button>
         ))}
       </div>
@@ -580,7 +580,6 @@ export const TournamentPage: React.FC = () => {
         <div className="tp-pairings">
           {tournament.players.length < 2 ? (
             <div className="tp-empty">
-              <div style={{ fontSize: 40 }}>⚔️</div>
               <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 8 }}>
                 {t('tournament.pairingsTBD')}
               </div>
@@ -696,7 +695,6 @@ export const TournamentPage: React.FC = () => {
         <div className="tp-games-list">
           {tournament.games.length === 0 ? (
             <div className="tp-empty">
-              <div style={{ fontSize: 40 }}>🎮</div>
               <div style={{ fontWeight: 700, color: 'var(--text-2)', marginTop: 8 }}>
                 {t('tournament.gamesPlayedYet')}
               </div>

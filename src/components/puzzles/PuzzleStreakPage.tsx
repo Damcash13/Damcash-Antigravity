@@ -97,7 +97,7 @@ export const PuzzleStreakPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '20px 0' }}>
       {/* Header */}
       <div style={{ textAlign: 'center' }}>
-        <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 4 }}>🔢 Puzzle Streak</h2>
+        <h2 style={{ fontSize: 26, fontWeight: 900, marginBottom: 4 }}>Puzzle Streak</h2>
         <p style={{ color: 'var(--text-2)', fontSize: 14 }}>Solve puzzles one by one. One wrong move ends your streak.</p>
       </div>
 
@@ -121,10 +121,9 @@ export const PuzzleStreakPage: React.FC = () => {
 
       {phase === 'dead' && (
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-          <div style={{ fontSize: 48 }}>💔</div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Streak ended at {streak}</div>
           {streak >= best && streak > 0 && (
-            <div style={{ color: 'var(--gold)', fontWeight: 700 }}>🏆 New best!</div>
+            <div style={{ color: 'var(--gold)', fontWeight: 700 }}>New best!</div>
           )}
           <button className="btn btn-primary" onClick={start}>Try again</button>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/${universe}`)}>← Back to lobby</button>

@@ -172,7 +172,6 @@ export const PuzzleStormPage: React.FC = () => {
 
         {phase === 'idle' && (
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', padding: 24 }}>
-            <div style={{ fontSize: 56 }}>🕐</div>
             <h2 style={{ fontSize: 22, fontWeight: 900 }}>Puzzle Storm</h2>
             <p style={{ color: 'var(--text-2)', maxWidth: 320, lineHeight: 1.6 }}>
               Solve as many puzzles as you can in 3 minutes. Each error costs 10 seconds.

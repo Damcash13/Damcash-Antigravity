@@ -275,14 +275,14 @@ export const PlayerHoverCard: React.FC<Props> = ({
               </div>
             )}
             <button className="phc-btn phc-btn-profile" onClick={handleViewProfile}>
-              👤 View profile
+              View profile
             </button>
             <button className="phc-btn phc-btn-stats" onClick={handleViewProfile}>
-              📊 Stats
+              Stats
             </button>
             {me && me.name !== username && (
               <button className="phc-btn phc-btn-message" onClick={handleMessage}>
-                💬 Message
+                Message
               </button>
             )}
             {me && me.name !== username && (
