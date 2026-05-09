@@ -110,6 +110,9 @@ app.use(express.json({
   },
 }));
 
+// ── Trust proxy for accurate IP detection behind Railway LB ──────────────────
+app.set('trust proxy', 1);
+
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -117,12 +120,14 @@ const authLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: false, // Disable X-Forwarded-For validation (trust proxy handled above)
 });
 const apiLimiter = rateLimit({
   windowMs: 60_000,
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: false,
 });
 const agoraLimiter = rateLimit({
   windowMs: 60_000,
@@ -130,6 +135,7 @@ const agoraLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many video token requests.' },
+  trustProxy: false,
 });
 app.use('/api/auth',   authLimiter);
 app.use('/api/wallet', apiLimiter);
@@ -417,6 +423,8 @@ const corsOptions = {
 
 io = new Server(httpServer, {
   cors: corsOptions,
+  pingInterval: 25000,  // Send ping every 25s (Railway LB idle timeout is ~60s)
+  pingTimeout: 60000,   // Wait 60s for pong before disconnecting
 });
 
 app.use(require('cors')(corsOptions));
