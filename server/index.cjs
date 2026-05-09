@@ -3387,6 +3387,9 @@ app.get('/api/tournaments', async (req, res) => {
     const limit = parseListLimit(req.query.limit, 100, 500);
     const offset = parseInt(req.query.offset, 10) || 0;
     const ts = await prisma.tournament.findMany({
+      where: {
+        startsAt: { gte: new Date(Date.now() - 5 * 60 * 60 * 1000) },
+      },
       select: {
         id: true,
         name: true,
