@@ -189,8 +189,10 @@ function isAllowedProfileAvatarUrl(value, authUserId) {
     const appHost = APP_URL ? new URL(APP_URL).host : '';
     const allowedHosts = new Set([supabaseHost, appHost].filter(Boolean));
     if (!allowedHosts.has(url.host)) return false;
-    const segments = url.pathname.split('/');
-    return segments[1] === AVATAR_BUCKET && segments[2] === authUserId;
+    // Supabase Storage URLs: /storage/v1/object/public/avatars/<userId>/...
+    // App-hosted URLs: /avatars/<userId>/...
+    const path = url.pathname;
+    return path.includes(`/${AVATAR_BUCKET}/${authUserId}/`);
   } catch {
     return false;
   }
@@ -224,7 +226,7 @@ function apiUserPayload(user) {
     avatarUrl: user.avatarUrl,
     bio: user.bio || '',
     socialLinks: user.socialLinks || {},
-    walletBalance: user.wallet?.balance || 0,
+    walletBalance: Number(user.wallet?.balance ?? 0),
     rating: { chess: user.chessRating, checkers: user.checkersRating },
     chess: { wins: user.chessWins, losses: user.chessLosses, draws: user.chessDraws, games: user.chessGames },
     checkers: { wins: user.checkersWins, losses: user.checkersLosses, draws: user.checkersDraws, games: user.checkersGames },
@@ -2948,7 +2950,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
         avatarUrl: user.avatarUrl || null,
         bio: user.bio || '',
         socialLinks: user.socialLinks || {},
-        walletBalance: user.wallet?.balance || 0,
+        walletBalance: Number(user.wallet?.balance ?? 0),
         rating: { chess: user.chessRating, checkers: user.checkersRating },
         chess: { wins: user.chessWins, losses: user.chessLosses, draws: user.chessDraws, games: user.chessGames },
         checkers: { wins: user.checkersWins, losses: user.checkersLosses, draws: user.checkersDraws, games: user.checkersGames }
@@ -3014,7 +3016,7 @@ app.patch('/api/auth/profile', requireAuth, async (req, res) => {
       updateData.avatarUrl = avatarUrl;
     }
     if (typeof bio === 'string') {
-      updateData.bio = bio.slice(0, 500); // cap at 500 chars
+      updateData.bio = sanitizeText(bio, 500); // cap + sanitize
     }
     if (socialLinks && typeof socialLinks === 'object') {
       // Only allow known keys; sanitize values
@@ -3794,8 +3796,8 @@ app.get('/api/users/search', async (req, res) => {
 
 app.get('/api/users/:username', async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { username: req.params.username },
+    const user = await prisma.user.findFirst({
+      where: { username: { equals: req.params.username, mode: 'insensitive' } },
       select: publicUserSelect,
     });
     if (!user) return res.status(404).json({ error: 'Not found' });
@@ -3805,7 +3807,7 @@ app.get('/api/users/:username', async (req, res) => {
 
 app.get('/api/users/:username/stats', async (req, res) => {
   try {
-    const u = await prisma.user.findUnique({ where: { username: req.params.username } });
+    const u = await prisma.user.findFirst({ where: { username: { equals: req.params.username, mode: 'insensitive' } } });
     if (!u) return res.status(404).json({ error: 'Not found' });
     const matches = await prisma.match.findMany({
       where: {
@@ -3862,12 +3864,15 @@ app.get('/api/users/:username/games', async (req, res) => {
 app.get('/api/users/:username/full-stats', requireAuth, async (req, res) => {
   try {
     const isAdmin = adminEmails().includes(req.user.email?.toLowerCase());
-    if (!isAdmin && req.dbUser?.username !== req.params.username) {
+    const requestingSelf = req.dbUser
+      ? req.dbUser.username.toLowerCase() === req.params.username.toLowerCase()
+      : req.user?.user_metadata?.username?.toLowerCase() === req.params.username.toLowerCase();
+    if (!isAdmin && !requestingSelf) {
       return res.status(403).json({ error: 'Private stats are only available for your own account' });
     }
 
-    const u = await prisma.user.findUnique({
-      where: { username: req.params.username },
+    const u = await prisma.user.findFirst({
+      where: { username: { equals: req.params.username, mode: 'insensitive' } },
       include: {
         wallet: { include: { transactions: { orderBy: { createdAt: 'desc' }, take: 200 } } },
         tournaments: { include: { tournament: { select: { id: true, name: true, icon: true, universe: true, format: true, timeControl: true, status: true, betEntry: true, prizePool: true, startsAt: true } } } },
@@ -3985,20 +3990,20 @@ app.get('/api/users/:username/full-stats', requireAuth, async (req, res) => {
         format: tp.tournament.format,
         timeControl: tp.tournament.timeControl,
         status: tp.tournament.status,
-        betEntry: tp.tournament.betEntry,
-        prizePool: tp.tournament.prizePool,
+        betEntry: Number(tp.tournament.betEntry),
+        prizePool: Number(tp.tournament.prizePool),
         startsAt: tp.tournament.startsAt,
-        score: tp.score,
+        score: Number(tp.score),
         wins: tp.wins, draws: tp.draws, losses: tp.losses,
       })),
       wallet: {
-        balance: u.wallet?.balance || 0,
+        balance: Number(u.wallet?.balance ?? 0),
         totalDeposited, totalWithdrawn,
         totalBetWon, totalBetLost,
         netProfit: totalBetWon - totalBetLost,
         gamesWithBets, betsWon,
         transactions: txns.map(t => ({
-          id: t.id, amount: t.amount, type: t.type,
+          id: t.id, amount: Number(t.amount), type: t.type,
           status: t.status, matchId: t.matchId, stripeSessionId: t.stripeSessionId, createdAt: t.createdAt,
         })),
       },

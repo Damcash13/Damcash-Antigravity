@@ -114,7 +114,9 @@
   line-height: 1;
 }
 
-.pf-hero-name:hover .pf-edit-icon { opacity: 1; }
+.pf-hero-name:hover .pf-edit-icon,
+.pf-hero-name:focus-within .pf-edit-icon,
+.pf-hero-name:focus .pf-edit-icon { opacity: 1; }
 .pf-edit-icon { opacity: 0; font-size: 16px; transition: opacity 0.15s; }
 
 .pf-name-input {

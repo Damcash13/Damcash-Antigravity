@@ -500,7 +500,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
           <div className="pf-avatar-wrap">
             <div className="pf-avatar">
               {profile.avatarUrl ? (
-                <img src={profile.avatarUrl} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                <img src={profile.avatarUrl} alt={profile.username} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
                 profile.username[0]?.toUpperCase()
               )}
@@ -513,7 +513,7 @@ const PublicProfilePage: React.FC<{ username: string }> = ({ username }) => {
               <span className="pf-rating-chip">Elo {rating}</span>
               <span className="pf-rank-badge" style={{ background: band.color + '28', color: band.color }}>{band.label}</span>
               {me && me.name !== profile.username && (
-                <button className="btn btn-secondary btn-sm" style={{ marginLeft: 8 }}>Follow</button>
+                <button className="btn btn-secondary btn-sm" style={{ marginLeft: 8 }} disabled title="Coming soon">Follow</button>
               )}
             </div>
             <div className="pf-hero-sub">
@@ -710,10 +710,12 @@ export const ProfilePage: React.FC = () => {
   const [apiGames,    setApiGames]    = useState<ApiMatch[]>([]);
   const [fullStats,   setFullStats]   = useState<ApiFullStats | null>(null);
   const [settingsMsg, setSettingsMsg] = useState('');
+  const [savingSettings, setSavingSettings] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.name || '');
   const [countryCode, setCountryCode] = useState(user?.country || '');
   const [newPw,       setNewPw]       = useState('');
   const [pwMsg,       setPwMsg]       = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<'all' | 'win' | 'draw' | 'loss'>('all');
   const [historyPage, setHistoryPage] = useState(0);
   const HISTORY_PAGE_SIZE = 20;
@@ -868,7 +870,7 @@ export const ProfilePage: React.FC = () => {
   }, [navigate, universe]);
 
   const saveProfileSettings = useCallback(async () => {
-    if (!user) return;
+    if (!user || savingSettings) return;
     const requestedName = newUsername.trim();
     if (requestedName.length < 2) {
       setSettingsMsg('Username must contain at least 2 characters.');
@@ -876,6 +878,7 @@ export const ProfilePage: React.FC = () => {
       return;
     }
 
+    setSavingSettings(true);
     const previousName = user.name;
     try {
       await updateProfile({
@@ -890,8 +893,9 @@ export const ProfilePage: React.FC = () => {
     } catch (e: any) {
       setSettingsMsg(e?.message || t('auth.somethingWentWrong'));
     }
+    setSavingSettings(false);
     setTimeout(() => setSettingsMsg(''), 3000);
-  }, [addNotification, bioInput, countryCode, navigateToUpdatedProfile, newUsername, socialLinksPayload, t, updateProfile, user]);
+  }, [addNotification, bioInput, countryCode, navigateToUpdatedProfile, newUsername, savingSettings, socialLinksPayload, t, updateProfile, user]);
 
   const saveHeroUsername = useCallback(async () => {
     if (!user) return;
@@ -934,7 +938,7 @@ export const ProfilePage: React.FC = () => {
           <div className="pf-avatar-wrap">
             <div className="pf-avatar pf-avatar-lg">
               {user.avatarUrl ? (
-                <img src={user.avatarUrl} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                <img src={user.avatarUrl} alt={user.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
                 user.name[0]?.toUpperCase()
               )}
@@ -963,7 +967,14 @@ export const ProfilePage: React.FC = () => {
                   >Save</button>
                 </div>
               ) : (
-                <h1 className="pf-hero-name" onClick={() => { setEditName(true); setNameInput(user.name); }}>
+                <h1
+                  className="pf-hero-name"
+                  tabIndex={0}
+                  role="button"
+                  aria-label="Edit username"
+                  onClick={() => { setEditName(true); setNameInput(user.name); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditName(true); setNameInput(user.name); } }}
+                >
                   {user.name} <span className="pf-edit-icon">Edit</span>
                 </h1>
               )}
@@ -1567,8 +1578,9 @@ export const ProfilePage: React.FC = () => {
                   />
                   <button
                     className="btn btn-secondary btn-sm"
+                    disabled={savingSettings}
                     onClick={saveProfileSettings}
-                  >{t('profile.saveChanges')}</button>
+                  >{savingSettings ? '...' : t('profile.saveChanges')}</button>
                 </div>
               </div>
               <div className="pf-setting-row">
@@ -1608,8 +1620,10 @@ export const ProfilePage: React.FC = () => {
                   <input className="pf-setting-input" type="password" placeholder={t('auth.passwordPlaceholder')} value={newPw} onChange={e => setNewPw(e.target.value)} />
                   <button
                     className="btn btn-secondary btn-sm"
+                    disabled={changingPassword}
                     onClick={async () => {
                       if (!newPw || newPw.length < 6) { setPwMsg(t('auth.passwordTooShort')); setTimeout(() => setPwMsg(''), 3000); return; }
+                      setChangingPassword(true);
                       try {
                         if (!supabase) throw new Error(t('auth.supabaseError'));
                         const { error } = await supabase.auth.updateUser({ password: newPw });
@@ -1619,9 +1633,10 @@ export const ProfilePage: React.FC = () => {
                       } catch (e: any) {
                         setPwMsg(e?.message || t('auth.somethingWentWrong'));
                       }
+                      setChangingPassword(false);
                       setTimeout(() => setPwMsg(''), 4000);
                     }}
-                  >{t('profile.changePassword')}</button>
+                  >{changingPassword ? '...' : t('profile.changePassword')}</button>
                   {pwMsg && <div style={{ fontSize: 12, color: pwMsg === t('profile.passwordChanged') ? '#22c55e' : 'var(--danger)' }}>{pwMsg}</div>}
                 </div>
               </div>
