@@ -1877,7 +1877,7 @@ io.on('connection', (socket) => {
   }
 
   // ── In-game events ───────────────────────────────────────────────────────
-  socket.on('move', async (payload) => {
+  socket.on('move', async (payload, callback) => {
     if (socketRateLimit(socket.id, 200)) return; // 200 moves/min cap
     if (!payload || typeof payload.roomId !== 'string') return;
     const room = rooms.get(payload.roomId);
@@ -1903,6 +1903,7 @@ io.on('connection', (socket) => {
         blackTime: room.blackTime,
       });
     };
+    try {
     // Verify sender is an actual participant (not a spectator injecting moves)
     const isParticipant = room.players.white === socket.id || room.players.black === socket.id;
     if (!isParticipant) return;
@@ -1920,6 +1921,7 @@ io.on('connection', (socket) => {
     const senderIsWhite = room.players.white === socket.id;
     if (senderIsWhite !== expectedWhite) {
       emitMoveRejected('out_of_turn');
+      if (typeof callback === 'function') callback({ success: false, error: 'out_of_turn' });
       return;
     }
 
@@ -1933,6 +1935,7 @@ io.on('connection', (socket) => {
       if (!moveResult) {
         log.warn(`[MOVE] Illegal chess move rejected: ${payload.from}->${payload.to} in room ${payload.roomId}`);
         emitMoveRejected('illegal');
+        if (typeof callback === 'function') callback({ success: false, error: 'illegal' });
         return;
       }
       // Attach the validated SAN and FEN to the payload for consistency
@@ -1968,6 +1971,9 @@ io.on('connection', (socket) => {
       blackTime:    room.blackTime,
     });
 
+    // Acknowledge successful move receipt to the sender
+    if (typeof callback === 'function') callback({ success: true });
+
     // ── Chess: server-side game-over detection ──────────────────────────
     if (room.chessEngine && room.chessEngine.isGameOver()) {
       let result, reason;
@@ -1989,6 +1995,12 @@ io.on('connection', (socket) => {
         result = 'draw'; reason = 'Draw';
       }
       await serverGameOver(payload.roomId, result, reason);
+    }
+    } catch (err) {
+      log.error('[move]', err instanceof Error ? err.message : String(err));
+      if (typeof callback === 'function') {
+        callback({ success: false, error: err instanceof Error ? err.message : 'Move failed' });
+      }
     }
   });
 
