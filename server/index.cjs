@@ -5157,12 +5157,9 @@ app.post('/api/puzzles/complete', requireAuth, async (req, res) => {
 });
 
 // ── Agora video token ─────────────────────────────────────────────────────────
-// Requires: npm install agora-access-token   (server-side only)
-// Docs: https://docs.agora.io/en/video-calling/get-started/authentication-workflow
 const AGORA_APP_ID          = process.env.AGORA_APP_ID;
 const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
 
-// Lazy-load so the server starts even if the package isn't installed yet
 let AgoraAccessToken = null;
 try { AgoraAccessToken = require('agora-access-token'); } catch { /* not installed yet */ }
 
@@ -5178,13 +5175,12 @@ app.post('/api/agora/token', agoraLimiter, async (req, res) => {
       return res.status(400).json({ error: 'channelName is required' });
     }
 
-    // ── Room membership gate (covers audit #2 and #13) ───────────────────────
+    // ── Room membership gate ──────────────────────────────────────────────────
     const room = rooms.get(channelName);
     if (!room) return res.status(403).json({ error: 'Forbidden' });
 
     const bearerToken = req.headers.authorization?.split(' ')[1];
     if (bearerToken) {
-      // Path A — authenticated user: verify via Supabase JWT → DB user ID
       let userId = null;
       try {
         const { data: { user }, error } = await supabase.auth.getUser(bearerToken);
@@ -5198,48 +5194,33 @@ app.post('/api/agora/token', agoraLimiter, async (req, res) => {
         socketToUserId.get(room.players.black) === userId;
       if (!isInRoom) return res.status(403).json({ error: 'Forbidden' });
     } else {
-      // Path B — guest: verify via live socket ID + room membership
-      if (!socketId || typeof socketId !== 'string') {
-        return res.status(403).json({ error: 'Forbidden' });
-      }
-      if (!io.sockets.sockets.has(socketId)) {
-        return res.status(403).json({ error: 'Forbidden' });
-      }
+      if (!socketId || typeof socketId !== 'string') return res.status(403).json({ error: 'Forbidden' });
+      if (!io.sockets.sockets.has(socketId)) return res.status(403).json({ error: 'Forbidden' });
       if (room.players.white !== socketId && room.players.black !== socketId) {
         return res.status(403).json({ error: 'Forbidden' });
       }
     }
 
-    // If agora-access-token is not installed or App Certificate is missing,
-    // return a null token (Agora allows this in testing mode with no App Certificate set)
     if (!AgoraAccessToken || !AGORA_APP_CERTIFICATE) {
       if (process.env.NODE_ENV === 'production') {
         return res.status(503).json({ error: 'Video not configured' });
       }
-      console.warn('[Agora] No App Certificate — returning null token (testing only)');
       return res.json({ token: null, appId: AGORA_APP_ID, channel: channelName, uid: safeUid });
     }
 
     const { RtcTokenBuilder, RtcRole } = AgoraAccessToken;
-    const expireTime = 3600; // 1 hour
-    const currentTime = Math.floor(Date.now() / 1000);
-    const privilegeExpireTime = currentTime + expireTime;
-
+    const privilegeExpireTime = Math.floor(Date.now() / 1000) + 3600;
     const token = RtcTokenBuilder.buildTokenWithUid(
-      AGORA_APP_ID,
-      AGORA_APP_CERTIFICATE,
-      channelName,
-      safeUid,
-      RtcRole.PUBLISHER,
-      privilegeExpireTime
+      AGORA_APP_ID, AGORA_APP_CERTIFICATE, channelName, safeUid,
+      RtcRole.PUBLISHER, privilegeExpireTime
     );
-
     res.json({ token, appId: AGORA_APP_ID, channel: channelName, uid: safeUid });
   } catch (err) {
     console.error('[Agora] Token generation failed:', err);
     res.status(500).json({ error: 'Failed to generate video token' });
   }
 });
+
 
 // ── Stripe wallet ─────────────────────────────────────────────────────────────
 const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
