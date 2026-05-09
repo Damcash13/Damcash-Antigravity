@@ -2499,12 +2499,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('flag:claim', async ({ roomId }) => {
+    if (typeof roomId !== 'string') return;
     const room = rooms.get(roomId);
     if (!room || room.settling) return;
 
     const isParticipant = room.players.white === socket.id || room.players.black === socket.id;
     if (!isParticipant) return;
     if (room.moves.length === 0) return;
+    if (room.lastMoveTime == null) return;
 
     const whiteToMove = room.moves.length % 2 === 0;
     const flaggedColor = whiteToMove ? 'white' : 'black';
@@ -2579,6 +2581,11 @@ io.on('connection', (socket) => {
 
   // ── Draw offer / accept / decline ───────────────────────────────────────────
   socket.on('draw:offer', ({ roomId }) => {
+    if (typeof roomId !== 'string') return;
+    const room = rooms.get(roomId);
+    if (!room) return;
+    const isParticipant = room.players.white === socket.id || room.players.black === socket.id;
+    if (!isParticipant) return;
     socket.to(roomId).emit('draw:offer', { from: socket.id });
   });
 
@@ -2595,6 +2602,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('draw:decline', ({ roomId }) => {
+    if (typeof roomId !== 'string') return;
+    const room = rooms.get(roomId);
+    if (!room) return;
+    const isParticipant = room.players.white === socket.id || room.players.black === socket.id;
+    if (!isParticipant) return;
     socket.to(roomId).emit('draw:declined');
   });
 
@@ -3492,7 +3504,7 @@ app.post('/api/tournaments', requireAuth, async (req, res) => {
     const t = await prisma.tournament.create({
       data: {
         name: name.trim().slice(0, 100),
-        icon: typeof icon === 'string' ? icon.slice(0, 10) : '🏆',
+        icon: typeof icon === 'string' ? icon.slice(0, 10) : '',
         universe,
         format,
         timeControl,
@@ -5064,6 +5076,7 @@ app.post('/api/tournaments/:id/pair', requireAuth, async (req, res) => {
       colorPref: 'random',
       tournamentId,
       tournamentName: tournament.name,
+      isTournament: true,
     };
 
     try {
@@ -5627,7 +5640,7 @@ function hourlyTournamentPricing(startAt) {
 }
 
 function tournamentNameForHourlySlot(startAt) {
-  return `⚡ Hourly Blitz ${String(startAt.getUTCHours()).padStart(2, '0')}:00 UTC`;
+  return `Hourly Blitz ${String(startAt.getUTCHours()).padStart(2, '0')}:00 UTC`;
 }
 
 async function createScheduledTournament({ name, icon, universe, timeControl, format, startsAt, durationMs, description, totalRounds, betEntry = 0, prizePool = 0, ratingMin = null, ratingMax = null, minGames = 0, minAccountAgeDays = 0 }) {
@@ -5680,7 +5693,7 @@ async function createScheduledTournament({ name, icon, universe, timeControl, fo
     await prisma.tournament.create({
       data: {
         name,
-        icon: icon || '🏆',
+        icon: icon || '',
         universe: universe || 'chess',
         format: format || 'arena',
         timeControl: timeControl || '5+0',
@@ -5807,16 +5820,72 @@ async function settleTournamentPrizePool(tournamentId) {
     });
     if (existingPayout) return 0;
 
-    const topScore = Math.max(...tournament.players.map(player => Number(player.score) || 0));
-    const winners = tournament.players.filter(player => Number(player.score || 0) === topScore);
-    if (winners.length === 0) return 0;
+    // ── Prize distribution: 1st=50%, 2nd=30%, 3rd=20% with tie splits ──────────
+    // Group players by equal score (descending). Tied players split the sum of
+    // the prize shares for the positions they occupy. If < 3 groups exist, the
+    // shares are scaled proportionally so 100% of the pool is always awarded.
+    const groups = [];
+    for (const player of tournament.players) {
+      const score = Number(player.score) || 0;
+      if (groups.length > 0 && Math.abs(groups[groups.length - 1].score - score) < 0.001) {
+        groups[groups.length - 1].players.push(player);
+      } else {
+        groups.push({ score, players: [player] });
+      }
+    }
 
-    const baseShareCents = Math.floor(poolCents / winners.length);
-    const remainderCents = poolCents % winners.length;
-    const payoutReviews = await Promise.all(winners.map((winner, index) => {
-      const amountCents = baseShareCents + (index < remainderCents ? 1 : 0);
-      return buildTournamentPayoutReview(tournament, winner, amountCents);
-    }));
+    const positionShares = [0.50, 0.30, 0.20]; // 1st, 2nd, 3rd
+    let rank = 1;
+    let totalRawShare = 0;
+    const groupPrizes = [];
+
+    for (const group of groups) {
+      const startRank = rank;
+      const endRank = rank + group.players.length - 1;
+      rank = endRank + 1;
+
+      let rawShare = 0;
+      for (let pos = startRank; pos <= endRank && pos <= 3; pos++) {
+        rawShare += positionShares[pos - 1] || 0;
+      }
+      if (rawShare > 0) {
+        groupPrizes.push({ group, startRank, rawShare });
+        totalRawShare += rawShare;
+      }
+    }
+
+    if (groupPrizes.length === 0) return 0;
+
+    // Scale so the full pool is always distributed
+    const scaleFactor = 1.0 / totalRawShare;
+    const prizeAssignments = [];
+
+    for (const { group, startRank, rawShare } of groupPrizes) {
+      const scaledShare = rawShare * scaleFactor;
+      const groupCents = Math.floor(poolCents * scaledShare);
+      const base = Math.floor(groupCents / group.players.length);
+      const rem = groupCents % group.players.length;
+      for (let i = 0; i < group.players.length; i++) {
+        prizeAssignments.push({
+          winner: group.players[i],
+          amountCents: base + (i < rem ? 1 : 0),
+          rank: startRank,
+        });
+      }
+    }
+
+    // Fix any rounding drift by giving extra cents to the top finishers
+    const distributed = prizeAssignments.reduce((s, a) => s + a.amountCents, 0);
+    let drift = poolCents - distributed;
+    for (const a of prizeAssignments) {
+      if (drift <= 0) break;
+      a.amountCents += 1;
+      drift--;
+    }
+
+    const payoutReviews = await Promise.all(prizeAssignments.map((a) =>
+      buildTournamentPayoutReview(tournament, a.winner, a.amountCents),
+    ));
     let paidCount = 0;
     let heldCount = 0;
 
@@ -5827,8 +5896,8 @@ async function settleTournamentPrizePool(tournamentId) {
       });
       if (alreadyPaid) return;
 
-      for (const [index, winner] of winners.entries()) {
-        const amountCents = baseShareCents + (index < remainderCents ? 1 : 0);
+      for (const [index, assignment] of prizeAssignments.entries()) {
+        const { winner, amountCents, rank: prizeRank } = assignment;
         if (amountCents <= 0) continue;
         const amount = amountCents / 100;
         const review = payoutReviews[index];
@@ -5854,7 +5923,7 @@ async function settleTournamentPrizePool(tournamentId) {
         });
         if (review.hold) {
           const notes = [
-            `Prize payout held for owner review: $${amount.toFixed(2)}.`,
+            `Prize payout held for owner review: $${amount.toFixed(2)} (Rank: ${prizeRank}).`,
             `Tournament: ${tournament.name}.`,
             `Reasons: ${review.reasons.join('; ')}.`,
           ].join(' ');
@@ -5936,7 +6005,7 @@ async function ensureHourlyTournamentWindow(now = new Date()) {
       const pricing = hourlyTournamentPricing(startsAt);
       const wasCreated = await createScheduledTournament({
         name: tournamentNameForHourlySlot(startsAt),
-        icon: '⚡',
+        icon: '',
         universe,
         timeControl: '5+0',
         format: 'arena',
@@ -5969,8 +6038,8 @@ async function ensureSpecialTournamentSchedule(now = new Date()) {
     const startsAt = new Date(Date.UTC(yr, mo, d, 14, 0, 0, 0));
     if (nowMs <= startsAt.getTime() + 2 * 60 * 60 * 1000) {
       const wasCreated = await createScheduledTournament({
-        name: '☀️ Sunday Special',
-        icon: '☀️',
+        name: 'Sunday Special',
+        icon: '',
         universe: 'chess',
         timeControl: '3+2',
         format: 'arena',
@@ -5992,8 +6061,8 @@ async function ensureSpecialTournamentSchedule(now = new Date()) {
     const startsAt = new Date(Date.UTC(yr, mo, d, 16, 0, 0, 0));
     if (nowMs <= startsAt.getTime() + 4 * 60 * 60 * 1000) {
       const wasCreated = await createScheduledTournament({
-        name: `🏆 Grand Slam — ${monthNames[mo]} ${yr}`,
-        icon: '🏆',
+        name: `Grand Slam — ${monthNames[mo]} ${yr}`,
+        icon: '',
         universe: 'chess',
         timeControl: '10+5',
         format: 'swiss',

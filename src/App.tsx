@@ -19,6 +19,7 @@ import { useSafetyStore } from './stores/safetyStore';
 import { useDirectMessageStore } from './stores/directMessageStore';
 import { useNotifCenterStore } from './stores/notifCenterStore';
 import { DirectMessagesModal } from './components/messages/DirectMessagesModal';
+import { AppErrorBoundary } from './components/common/AppErrorBoundary';
 
 // Lazy load pages
 const PremiumHomePage = lazy(() => import('./components/lobby/PremiumHomePage').then(m => ({ default: m.PremiumHomePage })));
@@ -448,10 +449,10 @@ export default function App() {
               />
             } />
 
-            <Route path="/chess/game/:id"    element={<ProtectedRoute><main className="main-content"><ChessGame /></main></ProtectedRoute>} />
-            <Route path="/checkers/game/:id" element={<ProtectedRoute><main className="main-content"><DraughtsGame /></main></ProtectedRoute>} />
-            <Route path="/chess/play/:mode/:tc"    element={<GuestPlayableRoute><main className="main-content"><ChessGame /></main></GuestPlayableRoute>} />
-            <Route path="/checkers/play/:mode/:tc" element={<GuestPlayableRoute><main className="main-content"><DraughtsGame /></main></GuestPlayableRoute>} />
+            <Route path="/chess/game/:id"    element={<ProtectedRoute><main className="main-content"><AppErrorBoundary><ChessGame /></AppErrorBoundary></main></ProtectedRoute>} />
+            <Route path="/checkers/game/:id" element={<ProtectedRoute><main className="main-content"><AppErrorBoundary><DraughtsGame /></AppErrorBoundary></main></ProtectedRoute>} />
+            <Route path="/chess/play/:mode/:tc"    element={<GuestPlayableRoute><main className="main-content"><AppErrorBoundary><ChessGame /></AppErrorBoundary></main></GuestPlayableRoute>} />
+            <Route path="/checkers/play/:mode/:tc" element={<GuestPlayableRoute><main className="main-content"><AppErrorBoundary><DraughtsGame /></AppErrorBoundary></main></GuestPlayableRoute>} />
 
             <Route path="/:universe/tournaments"     element={<ProtectedRoute><PageFrame><TournamentPage /></PageFrame></ProtectedRoute>} />
             <Route path="/:universe/tournament/:id" element={<ProtectedRoute><PageFrame><TournamentPage /></PageFrame></ProtectedRoute>} />

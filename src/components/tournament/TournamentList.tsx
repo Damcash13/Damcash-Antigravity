@@ -48,7 +48,7 @@ interface CreateForm {
 
 const DEFAULT_FORM: CreateForm = {
   name: '',
-  icon: '🏆',
+  icon: '',
   universe: 'chess',
   format: 'arena',
   timeControl: '5+0',
@@ -354,9 +354,9 @@ export const TournamentList: React.FC<Props> = ({ onSelectTournament }) => {
                     value={form.format}
                     onChange={e => setForm(f => ({ ...f, format: e.target.value as CreateForm['format'] }))}
                   >
-                    <option value="arena">🎪 Arena</option>
-                    <option value="swiss">🔀 Swiss</option>
-                    <option value="roundrobin">🔄 Round Robin</option>
+                    <option value="arena">Arena</option>
+                    <option value="swiss">Swiss</option>
+                    <option value="roundrobin">Round Robin</option>
                   </select>
                 </label>
               </div>

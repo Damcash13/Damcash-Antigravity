@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import { socket } from '../../lib/socket';
-import { useUniverseStore } from '../../stores';
+import { useUniverseStore, useUserStore } from '../../stores';
 import { createInitialBoard, applyMove } from '../../engines/draughts.engine';
 import { DraughtsBoard as DraughtsBoardType, DraughtsMove } from '../../types';
 
@@ -14,7 +14,7 @@ const CHESS_PIECES: Record<string, string> = {
   bb: '/pieces/bb.svg?v=3', bn: '/pieces/bn.svg?v=3', bp: '/pieces/bp.svg?v=3',
 };
 
-const CELL = 72;
+const CHESS_MAX = 576; // 8 * 72
 
 const ChessSpectateBoard: React.FC<{ fen: string }> = ({ fen }) => {
   let chess: Chess;
@@ -25,8 +25,9 @@ const ChessSpectateBoard: React.FC<{ fen: string }> = ({ fen }) => {
 
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: `repeat(8, ${CELL}px)`,
-      gridTemplateRows: `repeat(8, ${CELL}px)`,
+      display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)',
+      width: 'calc(min(100vw - 24px, ' + CHESS_MAX + 'px))',
+      aspectRatio: '1',
       border: '2px solid #555', borderRadius: 4, overflow: 'hidden',
     }}>
       {ranks.map((rank, ri) => files.map((file, fi) => {
@@ -36,7 +37,7 @@ const ChessSpectateBoard: React.FC<{ fen: string }> = ({ fen }) => {
         const key = piece ? `${piece.color}${piece.type}` : null;
         return (
           <div key={sq} style={{
-            width: CELL, height: CELL,
+            width: '100%', aspectRatio: '1',
             background: isLight ? '#f0d9b5' : '#b58863',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             position: 'relative',
@@ -54,12 +55,14 @@ const ChessSpectateBoard: React.FC<{ fen: string }> = ({ fen }) => {
   );
 };
 
+const DRAUGHTS_MAX = 640; // 10 * 64
+
 const DraughtsSpectateBoard: React.FC<{ board: DraughtsBoardType }> = ({ board }) => {
-  const DCELL = 64;
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: `repeat(10, ${DCELL}px)`,
-      gridTemplateRows: `repeat(10, ${DCELL}px)`,
+      display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)',
+      width: 'calc(min(100vw - 24px, ' + DRAUGHTS_MAX + 'px))',
+      aspectRatio: '1',
       border: '2px solid #555', borderRadius: 4, overflow: 'hidden',
     }}>
       {Array.from({ length: 10 }, (_, row) =>
@@ -68,7 +71,7 @@ const DraughtsSpectateBoard: React.FC<{ board: DraughtsBoardType }> = ({ board }
           const piece = board[row]?.[col];
           return (
             <div key={`${row}-${col}`} style={{
-              width: DCELL, height: DCELL,
+              width: '100%', aspectRatio: '1',
               background: isLight ? '#f5e6c8' : '#7a3f1e',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
@@ -81,9 +84,9 @@ const DraughtsSpectateBoard: React.FC<{ board: DraughtsBoardType }> = ({ board }
                   border: piece.color === 'white' ? '2px solid #aaa' : '2px solid #000',
                   boxShadow: '2px 3px 6px rgba(0,0,0,0.5)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 28, color: piece.color === 'white' ? '#333' : '#eee',
+                  fontSize: 'clamp(16px, 4vw, 28px)', color: piece.color === 'white' ? '#333' : '#eee',
                 }}>
-                  {piece.type === 'king' ? '♛' : ''}
+                  {piece.type === 'king' ? 'K' : ''}
                 </div>
               )}
             </div>
@@ -99,6 +102,7 @@ export const SpectateGame: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { universe } = useUniverseStore();
   const navigate = useNavigate();
+  const user = useUserStore(s => s.user);
 
   const [fen,      setFen]      = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
   const [board,    setBoard]    = useState<DraughtsBoardType>(createInitialBoard);
@@ -169,7 +173,7 @@ export const SpectateGame: React.FC = () => {
   if (error) {
     return (
       <div style={{ maxWidth: 520, margin: '72px auto', padding: 20, textAlign: 'center', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8 }}>
-        <div style={{ fontSize: 34, marginBottom: 10 }}>📺</div>
+        <div style={{ fontSize: 34, marginBottom: 10 }}>?</div>
         <h1 style={{ margin: '0 0 8px', fontSize: 22, color: 'var(--text-1)' }}>Live game unavailable</h1>
         <p style={{ margin: '0 0 18px', color: 'var(--text-3)', lineHeight: 1.45 }}>{error}</p>
         <button className="btn btn-primary" onClick={() => navigate(`/${universe}`)}>Back to live games</button>
@@ -271,7 +275,7 @@ export const SpectateGame: React.FC = () => {
               onChange={e => setChatMsg(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter' && chatMsg.trim()) {
-                  socket.emit('chat', { roomId: id, message: chatMsg, username: 'Spectator' });
+                  socket.emit('chat', { roomId: id, message: chatMsg, username: user?.name || 'Spectator' });
                   setChatMsg('');
                 }
               }}

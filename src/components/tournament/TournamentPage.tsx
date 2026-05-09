@@ -81,10 +81,10 @@ function getLiveStatus(startsAt: number, durationMs: number, now: number) {
 
 // ── Medal helper ──────────────────────────────────────────────────────────────
 function medal(rank: number) {
-  if (rank === 1) return '🥇';
-  if (rank === 2) return '🥈';
-  if (rank === 3) return '🥉';
-  return String(rank);
+  if (rank === 1) return '1st';
+  if (rank === 2) return '2nd';
+  if (rank === 3) return '3rd';
+  return `${rank}th`;
 }
 
 // ── Countdown — isolated so only this subtree re-renders every second ─────────
@@ -129,9 +129,9 @@ export const TournamentPage: React.FC = () => {
   const [now, setNow] = useState(Date.now());
 
   const FORMAT_LABEL: Record<string, string> = {
-    arena: `🎪 ${t('tournament.arena')}`,
-    swiss: `🔀 ${t('tournament.swiss')}`,
-    roundrobin: `🔄 ${t('tournament.roundRobin')}`,
+    arena: t('tournament.arena'),
+    swiss: t('tournament.swiss'),
+    roundrobin: t('tournament.roundRobin'),
   };
 
   // Fetch this tournament from API on mount
@@ -182,7 +182,7 @@ export const TournamentPage: React.FC = () => {
   if (!tournament) {
     return (
       <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-3)' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>?</div>
         <h2 style={{ color: 'var(--text-1)' }}>{t('common.error')}</h2>
         <p>{t('tournament.noTournaments')}</p>
         <button className="btn btn-secondary" onClick={() => navigate(`/${universe}`)}>

@@ -3632,6 +3632,7 @@ html, body {
 
 @media (max-width: 900px) {
   .sidebar { display: none; }
+  .game-room { flex-wrap: wrap; }
   .game-sidebar { max-width: 280px; }
   .chess-cell { width: 56px; height: 56px; }
   .chess-piece-el { font-size: 42px; }
@@ -3707,7 +3708,7 @@ html, body {
   .video-streams { margin-top: 10px; gap: 8px; }
   .panel-body { 
     padding: 8px 10px; 
-    overflow-y: visible;
+    overflow-y: auto;
   }
 
   /* Game controls: wrap buttons on small screens */

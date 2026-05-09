@@ -226,7 +226,20 @@ export const DraughtsGame: React.FC = () => {
 
     if (isOnline && !isRemote) {
       // Include serialized board so receiver can reconstruct exact state
-      socket.emit('move', { roomId, move, board: JSON.stringify(newBoard) });
+      const moveData = { roomId, move, board: JSON.stringify(newBoard) };
+      let retries = 0;
+      const maxRetries = 3;
+      const sendMove = () => {
+        socket.emit('move', moveData, (ack: any) => {
+          if (ack?.success) return;
+          if (retries < maxRetries) {
+            retries++;
+            console.warn(`[Move] Retry ${retries}/${maxRetries} for draughts move`);
+            setTimeout(sendMove, 100 * retries);
+          }
+        });
+      };
+      sendMove();
     }
 
     const { over, winner } = isGameOver(newBoard, nextTurn, nextDrawState);
@@ -898,6 +911,11 @@ export const DraughtsGame: React.FC = () => {
                 )}
                 <strong>{opponent.name}</strong>
                 {opponentBerserk && <span className="berserk-badge">BERSERK</span>}
+                {isOpponentDisconnected && (
+                  <span style={{ color: '#ef4444', fontSize: 11, fontWeight: 700, marginLeft: 6 }}>
+                    ● {t('game.disconnected', 'OFFLINE')}
+                  </span>
+                )}
               </div>
             </PlayerPopover>
             {!isOnline && <div className="player-rating">({opponent.rating})</div>}
@@ -1239,6 +1257,7 @@ export const DraughtsGame: React.FC = () => {
                     placeholder={t('game.typeMessage')}
                     onChange={e => setChatInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') sendChat(); }}
+                    maxLength={200}
                   />
                   <button className="btn btn-primary btn-sm" onClick={sendChat}>↵</button>
                 </div>

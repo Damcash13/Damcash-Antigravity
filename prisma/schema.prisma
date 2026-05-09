@@ -156,7 +156,7 @@ model CorrespondenceGame {
 model Tournament {
   id          String   @id @default(uuid())
   name        String
-  icon        String   @default("🏆")
+  icon        String   @default("")
   universe    String
   format      String   // 'arena', 'swiss', 'roundrobin'
   timeControl String
@@ -182,7 +182,7 @@ model TournamentPlayer {
   id           String     @id @default(uuid())
   tournamentId String
   userId       String
-  score        Float      @default(0)
+  score        Decimal    @default(0) @db.Decimal(12, 2)
   wins         Int        @default(0)
   draws        Int        @default(0)
   losses       Int        @default(0)
