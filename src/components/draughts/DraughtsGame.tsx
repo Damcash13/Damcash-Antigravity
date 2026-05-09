@@ -877,6 +877,7 @@ export const DraughtsGame: React.FC = () => {
               rating={opponent.rating}
               country={opponentInfo.country}
               isLocal={false}
+              isActiveTurn={gameStatus === 'playing' && turn !== playerColor}
               hasStream={!!video.remoteStream}
               isConnected={video.isConnected}
               isConnecting={video.isConnecting}
@@ -1036,6 +1037,7 @@ export const DraughtsGame: React.FC = () => {
               rating={user?.rating.checkers || 1450}
               country={user?.country}
               isLocal={true}
+              isActiveTurn={gameStatus === 'playing' && turn === playerColor}
               hasStream={!!video.localStream}
               isMuted={video.isMuted}
               isVideoOff={video.isVideoOff}

@@ -875,6 +875,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
               rating={opponent.rating}
               country={opponentInfo.country}
               isLocal={false}
+              isActiveTurn={gameStatus === 'playing' && currentTurn !== playerColor}
               hasStream={!!video.remoteStream}
               isConnected={video.isConnected}
               isConnecting={video.isConnecting}
@@ -1029,6 +1030,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
               rating={user?.rating.chess || 1500}
               country={user?.country}
               isLocal={true}
+              isActiveTurn={gameStatus === 'playing' && currentTurn === playerColor}
               hasStream={!!video.localStream}
               isMuted={video.isMuted}
               isVideoOff={video.isVideoOff}

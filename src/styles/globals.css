@@ -2012,23 +2012,42 @@ button,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-shrink: 0;
+}
+
+/* Ring wrapper — carries the glow/pulse when it's this player's turn */
+.pva-ring {
+  padding: 3px;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 0 0 2.5px var(--bg-3);
+  transition: box-shadow 0.3s ease;
+}
+
+.pva-wrap.pva-active-turn .pva-ring {
+  box-shadow: 0 0 0 2.5px #c9951e, 0 0 14px 2px rgba(201,149,30,0.45);
+  animation: pva-ring-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pva-ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 2.5px #c9951e, 0 0 14px 2px rgba(201,149,30,0.35); }
+  50%       { box-shadow: 0 0 0 2.5px #e8b840, 0 0 22px 5px rgba(201,149,30,0.65); }
 }
 
 .pva-circle {
   position: relative;
-  width: 80px;
-  height: 80px;
+  width: 110px;
+  height: 110px;
   border-radius: 50%;
   overflow: hidden;
   background: var(--bg-3);
-  border: 2px solid var(--border);
-  flex-shrink: 0;
   cursor: pointer;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+  flex-shrink: 0;
 }
 
-/* Agora injects a <video> element directly — force it to fill the circle */
+/* Agora injects a <video> element — force it to fill the circle */
 .pva-circle video {
   position: absolute !important;
   inset: 0 !important;
@@ -2036,102 +2055,151 @@ button,
   height: 100% !important;
   object-fit: cover !important;
   border-radius: 0 !important;
+  z-index: 2;
 }
 
+/* Gradient placeholder with large initial */
 .pva-placeholder {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--accent);
-  background: var(--bg-3);
+  font-size: 38px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
   z-index: 1;
+  letter-spacing: -1px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  user-select: none;
 }
 
+/* Connecting state */
 .pva-connecting {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.5);
-  z-index: 3;
+  background: rgba(0,0,0,0.45);
+  z-index: 4;
+  border-radius: 50%;
 }
 
 .pva-spinner {
-  width: 22px;
-  height: 22px;
-  border: 3px solid rgba(255,255,255,0.3);
+  width: 26px;
+  height: 26px;
+  border: 3px solid rgba(255,255,255,0.25);
   border-top-color: #fff;
   border-radius: 50%;
-  animation: pva-spin 0.7s linear infinite;
+  animation: pva-spin 0.75s linear infinite;
 }
 
-@keyframes pva-spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes pva-spin { to { transform: rotate(360deg); } }
 
-.pva-dot {
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #22c55e;
-  border: 2px solid var(--bg-1);
-  z-index: 4;
-}
-
-/* Hover overlay */
+/* Hover overlay with backdrop blur */
 .pva-overlay {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: rgba(0,0,0,0.55);
+  background: rgba(0,0,0,0.52);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.18s ease;
-  z-index: 5;
+  transition: opacity 0.2s ease;
+  z-index: 6;
 }
 
-.pva-circle:hover .pva-overlay {
-  opacity: 1;
-}
+.pva-circle:hover .pva-overlay { opacity: 1; }
 
+/* Control buttons */
 .pva-controls {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
 }
 
 .pva-btn {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  border: none;
-  background: rgba(255,255,255,0.18);
+  border: 1.5px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.14);
   color: #fff;
-  font-size: 13px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.1s;
   padding: 0;
+  flex-shrink: 0;
 }
 
-.pva-btn:hover { background: rgba(255,255,255,0.35); }
-.pva-btn.pva-btn-on { background: rgba(239,68,68,0.6); }
-.pva-btn.pva-btn-call { background: rgba(34,197,94,0.6); width: 34px; height: 34px; font-size: 16px; }
-.pva-btn.pva-btn-end { background: rgba(239,68,68,0.6); }
+.pva-btn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: scale(1.1);
+}
 
-/* Info below circle */
+.pva-btn.pva-btn-active {
+  background: rgba(239,68,68,0.55);
+  border-color: rgba(239,68,68,0.7);
+}
+
+.pva-btn.pva-btn-start {
+  width: 38px;
+  height: 38px;
+  background: rgba(34,197,94,0.55);
+  border-color: rgba(34,197,94,0.7);
+}
+
+.pva-btn.pva-btn-start:hover {
+  background: rgba(34,197,94,0.75);
+}
+
+.pva-btn.pva-btn-end {
+  background: rgba(239,68,68,0.55);
+  border-color: rgba(239,68,68,0.7);
+}
+
+.pva-btn.pva-btn-end:hover {
+  background: rgba(239,68,68,0.75);
+}
+
+/* Badges row */
+.pva-badges {
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pva-live-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: #ef4444;
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.4;
+  animation: pva-live-blink 2s ease-in-out infinite;
+}
+
+@keyframes pva-live-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.pva-connecting-badge {
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 2px;
+}
+
+/* Info below */
 .pva-info {
   display: flex;
   flex-direction: column;
@@ -2140,30 +2208,37 @@ button,
 }
 
 .pva-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-1);
   display: flex;
   align-items: center;
-  gap: 3px;
-  max-width: 90px;
+  gap: 4px;
+  max-width: 115px;
+  overflow: hidden;
+}
+
+.pva-flag { font-size: 14px; flex-shrink: 0; }
+
+.pva-name-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pva-flag { font-size: 13px; }
-
 .pva-rating {
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Adjust player-bar when containing a pva-wrap */
+/* Player-bar adjusts height to fit the 110px circle */
 .player-bar:has(.pva-wrap) {
   align-items: center;
   padding: 6px 12px;
-  gap: 12px;
+  gap: 14px;
+  min-height: 0;
 }
 
 .game-h2h-panel {
