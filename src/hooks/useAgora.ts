@@ -34,8 +34,22 @@ async function getAgoraRTC() {
   return AgoraRTC;
 }
 
-const _runtimeCfg = typeof window !== 'undefined' ? (window as any).__DC_CFG__ : undefined;
-const APP_ID = ((import.meta as any).env?.VITE_AGORA_APP_ID || _runtimeCfg?.AGORA_APP_ID) as string | undefined;
+// Build-time value (set when VITE_AGORA_APP_ID is defined in Railway build vars).
+// Falls back to runtime fetch from /api/config (CSP-safe, no inline script needed).
+const _buildTimeAppId = (import.meta as any).env?.VITE_AGORA_APP_ID as string | undefined;
+let _cachedAppId: string | undefined = _buildTimeAppId || undefined;
+
+async function getAppId(): Promise<string | undefined> {
+  if (_cachedAppId) return _cachedAppId;
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const cfg = await res.json();
+      if (cfg?.agoraAppId) _cachedAppId = cfg.agoraAppId;
+    }
+  } catch { /* network error — no video */ }
+  return _cachedAppId;
+}
 
 export interface AgoraVideoState {
   localStream: MediaStream | null;   // kept for VideoChat component compatibility
@@ -115,13 +129,16 @@ export function useAgora() {
 
   /** Join a video channel. channelName should be the game roomId. */
   const initiatePeerConnection = useCallback(async (channelName: string, autoPublish = true) => {
-    if (!APP_ID) {
-      setState(s => ({ ...s, error: 'Agora App ID not configured (VITE_AGORA_APP_ID)' }));
-      return;
-    }
     setState(s => ({ ...s, isConnecting: true, error: null }));
 
     try {
+      // 0. Resolve App ID (build-time or runtime fetch from /api/config)
+      const appId = await getAppId();
+      if (!appId) {
+        setState(s => ({ ...s, isConnecting: false, error: 'Video not configured — AGORA_APP_ID missing' }));
+        return;
+      }
+
       // 1. Get token from backend
       const { token, uid } = await api.agora.token(channelName, 0, socket.id);
 
@@ -156,7 +173,7 @@ export function useAgora() {
         });
 
         // 4. Join channel
-        await client.join(APP_ID, channelName, token, uid);
+        await client.join(appId, channelName, token, uid);
         joinedRef.current = true;
       }
 

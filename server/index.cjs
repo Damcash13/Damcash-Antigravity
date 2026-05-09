@@ -5433,6 +5433,13 @@ app.get(['/assets/*', '/*.js', '/*.css', '/*.map'], (req, res) => {
 
 // Inject runtime Supabase config into index.html so the frontend works even when
 // VITE_ build-time env vars weren't available during the Docker build (Railway quirk)
+// ── Public runtime config (CSP-safe alternative to inline script injection) ──
+app.get('/api/config', (_req, res) => {
+  res.json({
+    agoraAppId: process.env.AGORA_APP_ID || process.env.VITE_AGORA_APP_ID || '',
+  });
+});
+
 let _indexHtmlCache = null;
 app.get('*', (_req, res) => {
   const indexPath = path.join(distPath, 'index.html');
