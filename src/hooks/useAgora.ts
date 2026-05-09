@@ -34,12 +34,13 @@ async function getAgoraRTC() {
   return AgoraRTC;
 }
 
-// Build-time value (set when VITE_AGORA_APP_ID is defined in Railway build vars).
-// Falls back to runtime fetch from /api/config (CSP-safe, no inline script needed).
+// App ID is a public Agora identifier — safe as a hardcoded fallback.
+// Tries build-time env var first, then /api/config, then falls back to the constant.
+const AGORA_APP_ID_DEFAULT = 'e68bae3377a749a883bc32f169e8d2f7';
 const _buildTimeAppId = (import.meta as any).env?.VITE_AGORA_APP_ID as string | undefined;
 let _cachedAppId: string | undefined = _buildTimeAppId || undefined;
 
-async function getAppId(): Promise<string | undefined> {
+async function getAppId(): Promise<string> {
   if (_cachedAppId) return _cachedAppId;
   try {
     const res = await fetch('/api/config');
@@ -47,8 +48,8 @@ async function getAppId(): Promise<string | undefined> {
       const cfg = await res.json();
       if (cfg?.agoraAppId) _cachedAppId = cfg.agoraAppId;
     }
-  } catch { /* network error — no video */ }
-  return _cachedAppId;
+  } catch { /* network error — use default */ }
+  return _cachedAppId || AGORA_APP_ID_DEFAULT;
 }
 
 export interface AgoraVideoState {
@@ -132,12 +133,8 @@ export function useAgora() {
     setState(s => ({ ...s, isConnecting: true, error: null }));
 
     try {
-      // 0. Resolve App ID (build-time or runtime fetch from /api/config)
+      // 0. Resolve App ID (build-time env → /api/config → hardcoded fallback)
       const appId = await getAppId();
-      if (!appId) {
-        setState(s => ({ ...s, isConnecting: false, error: 'Video not configured — AGORA_APP_ID missing' }));
-        return;
-      }
 
       // 1. Get token from backend
       const { token, uid } = await api.agora.token(channelName, 0, socket.id);

@@ -5159,8 +5159,10 @@ app.post('/api/puzzles/complete', requireAuth, async (req, res) => {
 });
 
 // ── Agora video token ─────────────────────────────────────────────────────────
-const AGORA_APP_ID          = process.env.AGORA_APP_ID;
-const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
+// App ID is a public identifier — safe to hardcode as fallback (Agora docs confirm this).
+// App Certificate is a secret — must be set via AGORA_APP_CERTIFICATE env var.
+const AGORA_APP_ID          = process.env.AGORA_APP_ID || process.env.VITE_AGORA_APP_ID || 'e68bae3377a749a883bc32f169e8d2f7';
+const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || '';
 
 let AgoraAccessToken = null;
 try { AgoraAccessToken = require('agora-access-token'); } catch { /* not installed yet */ }
@@ -5437,14 +5439,7 @@ app.get(['/assets/*', '/*.js', '/*.css', '/*.map'], (req, res) => {
 // VITE_ build-time env vars weren't available during the Docker build (Railway quirk)
 // ── Public runtime config (CSP-safe alternative to inline script injection) ──
 app.get('/api/config', (_req, res) => {
-  const agoraAppId = process.env.AGORA_APP_ID || process.env.VITE_AGORA_APP_ID || '';
-  if (!agoraAppId) {
-    console.warn('[CONFIG] AGORA_APP_ID is not set in environment');
-  }
-  res.json({
-    agoraAppId,
-    agoraAppCertificate: process.env.AGORA_APP_CERTIFICATE || '',
-  });
+  res.json({ agoraAppId: AGORA_APP_ID });
 });
 
 let _indexHtmlCache = null;
