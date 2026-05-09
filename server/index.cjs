@@ -5551,11 +5551,11 @@ async function startServer() {
   await ensureSafetySchema();
   await ensureDirectMessageSchema();
   await resetStaleTournamentPairingStatuses();
-  log.info('[Scheduler] Running startup tick — pre-populating next 24h of tournaments...');
-  await runSchedulerTick();
-  log.info('[Scheduler] Startup tick complete.');
-  httpServer.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', async () => {
     log.info(`DamCash server → http://0.0.0.0:${PORT}`);
+    log.info('[Scheduler] Running startup tick — pre-populating next 24h of tournaments...');
+    await runSchedulerTick();
+    log.info('[Scheduler] Startup tick complete.');
     startTournamentScheduler();
   });
 }
