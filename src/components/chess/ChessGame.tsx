@@ -232,7 +232,29 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
     else setBlackTime(t => t + timeControl.increment);
 
     if (isOnline) {
-      socket.emit('move', { roomId, from, to, promotion: promotion || 'q' });
+      const moveData = { roomId, from, to, promotion: promotion || 'q' };
+      let retries = 0;
+      const maxRetries = 3;
+
+      const sendMove = () => {
+        socket.emit('move', moveData, (ack: any) => {
+          if (ack?.success) {
+            // Move was received and accepted by server
+            return;
+          }
+          // Move was rejected or not acknowledged
+          if (retries < maxRetries) {
+            retries++;
+            console.warn(`[Move] Retry ${retries}/${maxRetries} for move ${from}→${to}`);
+            setTimeout(sendMove, 100 * retries); // Exponential backoff
+          } else {
+            console.error(`[Move] Failed to send move ${from}→${to} after ${maxRetries} retries`);
+            addNotification('Move failed to send. Please try again.', 'error');
+          }
+        });
+      };
+
+      sendMove();
     }
 
     if (newGame.isGameOver()) {
@@ -494,7 +516,19 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
           if (pmRes.captured) play('capture');
           else play('move');
           if (pmGame.isCheck()) play('check');
-          socket.emit('move', { roomId, from: pm.from, to: pm.to, promotion: pm.promotion || 'q' });
+          const pmMoveData = { roomId, from: pm.from, to: pm.to, promotion: pm.promotion || 'q' };
+          let pmRetries = 0;
+          const pmMaxRetries = 3;
+          const sendPmMove = () => {
+            socket.emit('move', pmMoveData, (ack: any) => {
+              if (ack?.success) return;
+              if (pmRetries < pmMaxRetries) {
+                pmRetries++;
+                setTimeout(sendPmMove, 100 * pmRetries);
+              }
+            });
+          };
+          sendPmMove();
           if (playerColor === 'w') setWhiteTime(t => t + timeControl.increment);
           else setBlackTime(t => t + timeControl.increment);
           if (pmGame.isGameOver()) handleGameOver(pmGame);
