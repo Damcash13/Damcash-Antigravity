@@ -6,7 +6,8 @@ import { DraughtsBoard as Board } from './DraughtsBoard';
 import { Clock } from '../common/Clock';
 import { BettingPanel } from '../betting/BettingPanel';
 import { PlayerPopover } from '../common/PlayerPopover';
-import { VideoChat } from '../video/VideoChat';
+import { PlayerVideoAvatar } from '../video/PlayerVideoAvatar';
+import { useWebRTC } from '../../hooks/useWebRTC';
 import { useSound } from '../../hooks/useSound';
 import { useUserStore, useNotificationStore, useBettingStore, useLiveGamesStore } from '../../stores';
 import { HeadToHeadPanel } from '../common/HeadToHeadPanel';
@@ -91,7 +92,8 @@ export const DraughtsGame: React.FC = () => {
   const [chatInput, setChatInput] = useState('');
   const [activeTab, setActiveTab] = useState<'moves' | 'chat'>('moves');
   const [showBetting, setShowBetting] = useState(false);
-  const [showVideo, setShowVideo] = useState(true);
+  const [showVideo, setShowVideo] = useState(true); // kept for compat, unused
+  const video = useWebRTC();
   const [drawOffered, setDrawOffered] = useState(false);
   const [incomingDraw, setIncomingDraw] = useState(false);
   const [drawDeclinedMsg, setDrawDeclinedMsg] = useState(false);
@@ -462,6 +464,14 @@ export const DraughtsGame: React.FC = () => {
       addNotification('PDN exported.', 'success');
     }
   }, [gameOutcome, moveHistory, playerColor, user, opponent, addNotification]);
+
+  useEffect(() => {
+    if (isOnline && roomId) {
+      video.initiatePeerConnection(roomId, false);
+    }
+    return () => { video.stopLocalStream(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, roomId]);
 
   const sendChat = () => {
     if (!chatInput.trim()) return;
@@ -861,13 +871,26 @@ export const DraughtsGame: React.FC = () => {
       <div className="game-center">
         {/* Opponent bar */}
         <div className="player-bar" style={{ width: '100%', background: 'transparent' }}>
-          <div className="player-avatar">
-            {isVsComputer ? '🤖' : opponent.name[0]}
-          </div>
+          {isOnline && !isVsComputer ? (
+            <PlayerVideoAvatar
+              name={opponent.name}
+              rating={opponent.rating}
+              country={opponentInfo.country}
+              isLocal={false}
+              hasStream={!!video.remoteStream}
+              isConnected={video.isConnected}
+              isConnecting={video.isConnecting}
+              setVideoEl={video.setRemoteVideoEl}
+            />
+          ) : (
+            <div className="player-avatar">
+              {isVsComputer ? '🤖' : opponent.name[0]}
+            </div>
+          )}
           <div style={{ flex: 1 }}>
             <PlayerPopover player={opponent}>
               <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 16 }}>
-                {opponentInfo.country && (
+                {!isOnline && opponentInfo.country && (
                   <span style={{ fontSize: 22, lineHeight: 1 }} title={opponentInfo.country}>
                     {countryFlag(opponentInfo.country)}
                   </span>
@@ -876,7 +899,7 @@ export const DraughtsGame: React.FC = () => {
                 {opponentBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
               </div>
             </PlayerPopover>
-            <div className="player-rating">({opponent.rating})</div>
+            {!isOnline && <div className="player-rating">({opponent.rating})</div>}
           </div>
           <Clock
             timeMs={playerColor === 'white' ? blackTime : whiteTime}
@@ -1007,13 +1030,32 @@ export const DraughtsGame: React.FC = () => {
 
         {/* Player bar */}
         <div className="player-bar" style={{ width: '100%' }}>
-          <div className="player-avatar" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
-            {user?.name?.[0] || 'Y'}
-          </div>
+          {isOnline && !isVsComputer ? (
+            <PlayerVideoAvatar
+              name={user?.name || 'You'}
+              rating={user?.rating.checkers || 1450}
+              country={user?.country}
+              isLocal={true}
+              hasStream={!!video.localStream}
+              isMuted={video.isMuted}
+              isVideoOff={video.isVideoOff}
+              isConnected={video.isConnected}
+              isConnecting={video.isConnecting}
+              setVideoEl={video.setLocalVideoEl}
+              onStartCall={() => video.publishLocalTracks()}
+              onToggleMute={video.toggleMute}
+              onToggleVideo={video.toggleVideo}
+              onLeave={video.stopLocalStream}
+            />
+          ) : (
+            <div className="player-avatar" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
+              {user?.name?.[0] || 'Y'}
+            </div>
+          )}
           <div>
             <PlayerPopover player={{ name: user?.name || 'You', rating: user?.rating.checkers || 1450 }}>
               <div className="player-name" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                {user?.country && <span style={{ fontSize: 15 }}>{countryFlag(user.country)}</span>}
+                {!isOnline && user?.country && <span style={{ fontSize: 15 }}>{countryFlag(user.country)}</span>}
                 {user?.name || 'You'}
                 {isBerserk && <span className="berserk-badge">⚡ BERSERK</span>}
               </div>
@@ -1095,24 +1137,6 @@ export const DraughtsGame: React.FC = () => {
           )}
         </div>
 
-        {/* Horizontal Video Chat right under controls */}
-        {isOnline && (
-          <div className="panel video-panel-horizontal" style={{ marginTop: 12 }}>
-            <div className="panel-header">
-              <span className="panel-title">📹 {t('video.videoChat')}</span>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowVideo(v => !v)}>
-                {showVideo ? '▲' : '▼'}
-              </button>
-            </div>
-            <div className="panel-body" style={{ display: showVideo ? 'block' : 'none', padding: '12px' }}>
-              <VideoChat
-                roomId={roomId || `draughts-local-${gameIdRef.current}`}
-                playerName={user?.name || 'You'}
-                opponentName={opponentInfo.name}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Right sidebar */}

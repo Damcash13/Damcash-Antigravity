@@ -2007,6 +2007,165 @@ button,
   50% { opacity: 0.6; }
 }
 
+/* ── PlayerVideoAvatar ───────────────────────────────────────────────────────── */
+.pva-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.pva-circle {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-3);
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* Agora injects a <video> element directly — force it to fill the circle */
+.pva-circle video {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 0 !important;
+}
+
+.pva-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--bg-3);
+  z-index: 1;
+}
+
+.pva-connecting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  z-index: 3;
+}
+
+.pva-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: pva-spin 0.7s linear infinite;
+}
+
+@keyframes pva-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pva-dot {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid var(--bg-1);
+  z-index: 4;
+}
+
+/* Hover overlay */
+.pva-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  z-index: 5;
+}
+
+.pva-circle:hover .pva-overlay {
+  opacity: 1;
+}
+
+.pva-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.pva-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  padding: 0;
+}
+
+.pva-btn:hover { background: rgba(255,255,255,0.35); }
+.pva-btn.pva-btn-on { background: rgba(239,68,68,0.6); }
+.pva-btn.pva-btn-call { background: rgba(34,197,94,0.6); width: 34px; height: 34px; font-size: 16px; }
+.pva-btn.pva-btn-end { background: rgba(239,68,68,0.6); }
+
+/* Info below circle */
+.pva-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.pva-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pva-flag { font-size: 13px; }
+
+.pva-rating {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+/* Adjust player-bar when containing a pva-wrap */
+.player-bar:has(.pva-wrap) {
+  align-items: center;
+  padding: 6px 12px;
+  gap: 12px;
+}
+
 .game-h2h-panel {
   width: 100%;
   box-sizing: border-box;
