@@ -494,6 +494,29 @@ async function loadSocketPublicProfile(socket) {
   }
 }
 
+function fallbackPlayerForSocket(socket, universe = 'chess') {
+  const metadata = socket.user?.user_metadata || {};
+  const userId = socket.user?.id || null;
+  const clientId = sanitizeText(socket.handshake.auth?.clientId || '', 80) || null;
+  if (userId) {
+    socketToUserId.set(socket.id, userId);
+    userIdToSocketId.set(userId, socket.id);
+  }
+  return {
+    userId,
+    clientId,
+    name: sanitizeUsername(
+      metadata.username || metadata.preferred_username || metadata.name || socket.user?.email || `Guest_${socket.id.slice(0, 4)}`,
+    ) || `Guest_${socket.id.slice(0, 4)}`,
+    rating: { chess: 1500, checkers: 1450 },
+    gamesPlayed: { chess: 0, checkers: 0 },
+    status: 'idle',
+    universe: normalizeUniverse(universe),
+    country: typeof metadata.country === 'string' ? metadata.country.toUpperCase().slice(0, 2) : '',
+    registeredAt: Date.now(),
+  };
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function genCode() {
   return crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -1548,20 +1571,26 @@ io.on('connection', (socket) => {
 
   // ── Direct invite ────────────────────────────────────────────────────────
   socket.on('invite:send', ({ targetSocketId, targetUserId, targetClientId, config }) => {
-    const sender = players.get(socket.id);
+    const inviteUniverse = normalizeUniverse(config?.universe || players.get(socket.id)?.universe);
+    let sender = players.get(socket.id);
+    if (!sender) {
+      sender = fallbackPlayerForSocket(socket, inviteUniverse);
+      players.set(socket.id, sender);
+      broadcastPlayerList();
+    }
     const safeTargetUserId = sanitizeText(targetUserId || '', 80) || null;
     const safeTargetClientId = sanitizeText(targetClientId || '', 80) || null;
     const resolvedTargetSocketId =
       latestSocketForUser(safeTargetUserId) ||
       latestSocketForClient(safeTargetClientId) ||
       targetSocketId;
-    const target = players.get(resolvedTargetSocketId);
-    if (!sender || (!target && !safeTargetUserId && !safeTargetClientId)) {
+    const targetSocket = resolvedTargetSocketId ? io.sockets.sockets.get(resolvedTargetSocketId) : null;
+    const target = resolvedTargetSocketId ? players.get(resolvedTargetSocketId) : null;
+    if (!sender || (!target && !targetSocket)) {
       socket.emit('room:error', { message: 'That player is no longer available.' });
       return;
     }
 
-    const inviteUniverse = normalizeUniverse(config?.universe || sender.universe);
     if (normalizeUniverse(sender.universe) !== inviteUniverse || (target && normalizeUniverse(target.universe) !== inviteUniverse)) {
       socket.emit('room:error', {
         message: `You can only challenge players who are in the ${universeLabel(inviteUniverse)} lobby.`,
@@ -1578,8 +1607,8 @@ io.on('connection', (socket) => {
       fromUserId: sender.userId || null,
       fromClientId: sender.clientId || null,
       toId: resolvedTargetSocketId,
-      toUserId: target?.userId || safeTargetUserId,
-      toClientId: target?.clientId || safeTargetClientId,
+      toUserId: target?.userId || targetSocket?.user?.id || safeTargetUserId,
+      toClientId: target?.clientId || sanitizeText(targetSocket?.handshake?.auth?.clientId || '', 80) || safeTargetClientId,
       config: safeConfig,
       expiresAt,
       fromSnapshot: {
@@ -1589,7 +1618,7 @@ io.on('connection', (socket) => {
     };
     invites.set(inviteId, invite);
 
-    if (target) {
+    if (target || targetSocket) {
       io.to(resolvedTargetSocketId).emit('invite:received', inviteDeliveryPayload(invite));
     } else {
       socket.emit('invite:queued', { inviteId, expiresAt });
@@ -1607,7 +1636,13 @@ io.on('connection', (socket) => {
       socket.emit('invite:expired');
       return;
     }
-    const accepter = players.get(socket.id);
+    let accepter = players.get(socket.id);
+    const inviteUniverse = normalizeUniverse(invite.config?.universe);
+    if (!accepter) {
+      accepter = fallbackPlayerForSocket(socket, inviteUniverse);
+      players.set(socket.id, accepter);
+      broadcastPlayerList();
+    }
     const isRecipient =
       invite.toId === socket.id ||
       (invite.toUserId && socket.user?.id === invite.toUserId) ||
@@ -1615,7 +1650,6 @@ io.on('connection', (socket) => {
     if (!isRecipient) { socket.emit('invite:expired'); return; }
     invites.delete(inviteId);
 
-    const inviteUniverse = normalizeUniverse(invite.config?.universe);
     const inviterSocketId =
       latestSocketForUser(invite.fromUserId) ||
       latestSocketForClient(invite.fromClientId) ||
