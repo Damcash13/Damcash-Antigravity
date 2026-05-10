@@ -90,6 +90,20 @@ const PageFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
+function persistRejoinToken(data: any, color: 'w' | 'b') {
+  const token = data?.rejoinToken || data?.token;
+  const roomId = data?.roomId;
+  const universe = data?.config?.universe;
+  if (!token || !roomId || !universe) return;
+
+  try {
+    sessionStorage.setItem(
+      universe === 'checkers' ? 'damcash_rejoin_draughts' : 'damcash_rejoin_chess',
+      JSON.stringify({ roomId, token, color: color === 'w' ? 'white' : 'black' }),
+    );
+  } catch {}
+}
+
 // ── App component ─────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -217,6 +231,7 @@ export default function App() {
       setSearching(null);
       // Use the explicit color from the server if provided, otherwise fall back to detection
       const color = data.color || (data.black === socket.id ? 'b' : 'w');
+      persistRejoinToken(data, color);
       navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
     };
 
@@ -507,6 +522,7 @@ function JoinByCodeRedirect() {
     if (!code) return;
     const handleGameStart = (data: any) => {
       const color = data.color || (data.black === socket.id ? 'b' : 'w');
+      persistRejoinToken(data, color);
       navigate(`/${data.config.universe}/game/${data.roomId}?color=${color}`, { state: data });
     };
     const handleError = () => navigate('/');

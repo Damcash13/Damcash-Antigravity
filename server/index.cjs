@@ -1014,9 +1014,10 @@ async function startRoom(roomId, creatorId, joinerId, config) {
   };
 
   console.log(`[GameStart] Emitting game-start to White: ${white} and Black: ${black}`);
-  io.to(white).emit('game-start', { ...gameData, color: 'w' });
-  io.to(black).emit('game-start', { ...gameData, color: 'b' });
-  io.to(roomId).emit('game-start', gameData);
+  io.to(white).emit('game-start', { ...gameData, color: 'w', rejoinToken: whiteToken });
+  io.to(black).emit('game-start', { ...gameData, color: 'b', rejoinToken: blackToken });
+  io.to(white).emit('room:tokens', { roomId, token: whiteToken, color: 'white' });
+  io.to(black).emit('room:tokens', { roomId, token: blackToken, color: 'black' });
 
   [white, black].forEach((id) => {
     const p = players.get(id);
