@@ -1001,7 +1001,6 @@ async function startRoom(roomId, creatorId, joinerId, config) {
   const startedRoom = rooms.get(roomId);
   if (startedRoom) {
     startedRoom.startedAt = startedAt;
-    startedRoom.lastMoveTime = startedAt;
     startedRoom.playerInfo = {
       white: wp ? { ...wp } : null,
       black: bp ? { ...bp } : null,
@@ -1957,7 +1956,7 @@ io.on('connection', (socket) => {
 
     // ── Update authoritative clocks after the move is accepted ───────────
     const now = Date.now();
-    const elapsed = room.lastMoveTime ? now - room.lastMoveTime : 0;
+    const elapsed = room.lastMoveTime == null ? 0 : Math.max(0, now - room.lastMoveTime);
     const tc = parseTimeControl(room.config?.timeControl || '5+0');
 
     if (senderIsWhite) {
@@ -2721,6 +2720,19 @@ io.on('connection', (socket) => {
             if (!latestRoom || latestRoom.settling) return;
             if (latestRoom.players[color] !== socket.id) return;
 
+            const label = color === 'white' ? 'White' : 'Black';
+            const reason = `${label} missed the reconnect window`;
+            if ((latestRoom.moves?.length || 0) === 0) {
+              io.to(roomId).emit('room:cancelled', { reason });
+            } else {
+              io.to(roomId).emit('game-over', {
+                result: 'aborted',
+                reason,
+                whiteTime: latestRoom.whiteTime,
+                blackTime: latestRoom.blackTime,
+                by: 'server',
+              });
+            }
             markRoomMatchAborted(roomId, 'Player disconnected');
             releaseTournamentRoom(roomId);
             rooms.delete(roomId);

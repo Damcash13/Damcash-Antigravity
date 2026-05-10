@@ -111,39 +111,46 @@ export const PlayerVideoAvatar: React.FC<Props> = ({
           {/* LIVE badge — anchored top-left on the circle */}
           {isLive && <span className="pva-live-badge">LIVE</span>}
 
-          {/* Start call CTA — centered inside circle when no stream */}
-          {isLocal && !hasStream && !isConnecting && (
-            <button className="pva-start-btn" onClick={onStartCall} title="Démarrer la vidéo">
-              <IconStartCall />
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Controls row — below circle, visible only when local + streaming */}
-      {isLocal && hasStream && (
+      {/* Controls row — below circle */}
+      {isLocal && (
         <div className="pva-ctrl-row">
-          <button
-            className={`pva-ctrl-btn ${isMuted ? 'pva-ctrl-off' : ''}`}
-            onClick={onToggleMute}
-            title={isMuted ? 'Activer micro' : 'Couper micro'}
-          >
-            {isMuted ? <IconMicOff /> : <IconMic />}
-          </button>
-          <button
-            className={`pva-ctrl-btn ${isVideoOff ? 'pva-ctrl-off' : ''}`}
-            onClick={onToggleVideo}
-            title={isVideoOff ? 'Activer caméra' : 'Couper caméra'}
-          >
-            {isVideoOff ? <IconVideoOff /> : <IconVideo />}
-          </button>
-          <button
-            className="pva-ctrl-btn pva-ctrl-end"
-            onClick={onLeave}
-            title="Raccrocher"
-          >
-            <IconEndCall />
-          </button>
+          {!hasStream ? (
+            <button
+              className="pva-ctrl-btn pva-ctrl-start"
+              onClick={onStartCall}
+              title={isConnecting ? 'Connexion...' : 'Allumer la caméra'}
+              disabled={isConnecting}
+            >
+              <IconStartCall />
+            </button>
+          ) : (
+            <>
+              <button
+                className={`pva-ctrl-btn ${isMuted ? 'pva-ctrl-off' : ''}`}
+                onClick={onToggleMute}
+                title={isMuted ? 'Activer micro' : 'Couper micro'}
+              >
+                {isMuted ? <IconMicOff /> : <IconMic />}
+              </button>
+              <button
+                className={`pva-ctrl-btn ${isVideoOff ? 'pva-ctrl-off' : ''}`}
+                onClick={onToggleVideo}
+                title={isVideoOff ? 'Activer caméra' : 'Couper caméra'}
+              >
+                {isVideoOff ? <IconVideoOff /> : <IconVideo />}
+              </button>
+              <button
+                className="pva-ctrl-btn pva-ctrl-end"
+                onClick={onLeave}
+                title="Raccrocher"
+              >
+                <IconEndCall />
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

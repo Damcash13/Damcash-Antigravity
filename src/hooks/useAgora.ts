@@ -80,6 +80,9 @@ export function useAgora() {
   const remoteVideoElRef       = useRef<HTMLElement | null>(null);
   const pendingRemoteTrackRef  = useRef<any>(null);
   const joinedRef              = useRef(false);
+  const channelNameRef         = useRef<string | null>(null);
+  const joinPromiseRef         = useRef<Promise<void> | null>(null);
+  const listenersAttachedRef   = useRef(false);
 
   /** Attach a local DOM element — plays the track immediately if already ready. */
   const setLocalVideoEl = useCallback((el: HTMLElement | null) => {
@@ -117,6 +120,8 @@ export function useAgora() {
     localAudioRef.current = null;
     localVideoRef.current = null;
     joinedRef.current = false;
+    channelNameRef.current = null;
+    joinPromiseRef.current = null;
     setState(s => ({
       ...s,
       localStream: null,
@@ -128,11 +133,72 @@ export function useAgora() {
     }));
   }, []);
 
-  /** Join a video channel. channelName should be the game roomId. */
-  const initiatePeerConnection = useCallback(async (channelName: string, autoPublish = true) => {
+  /** Start broadcasting local camera and microphone */
+  const publishLocalTracks = useCallback(async () => {
+    if (localVideoRef.current) return true; // already publishing
+
+    if (!clientRef.current || !joinedRef.current) {
+      setState(s => ({ ...s, error: 'Video room is still connecting' }));
+      return false;
+    }
+
     setState(s => ({ ...s, isConnecting: true, error: null }));
 
     try {
+      const RTC = await getAgoraRTC();
+      const [audioTrack, videoTrack] = await RTC.createMicrophoneAndCameraTracks();
+      localAudioRef.current = audioTrack;
+      localVideoRef.current = videoTrack;
+
+      await clientRef.current.publish([audioTrack, videoTrack]);
+      
+      setState(s => ({
+        ...s,
+        localStream: {} as any,
+        isConnecting: false,
+        isConnected: true,
+        isMuted: false,
+        isVideoOff: false,
+      }));
+
+      if (localVideoElRef.current) {
+        videoTrack.play(localVideoElRef.current);
+      }
+      return true;
+    } catch (err: any) {
+      console.error('Agora publish error:', err);
+      const msg = err?.message?.includes('PERMISSION_DENIED')
+        ? 'Camera/microphone access denied'
+        : 'Failed to start camera';
+      setState(s => ({ ...s, error: msg, isConnecting: false }));
+      return false;
+    }
+  }, []);
+
+  /** Join a video channel. channelName should be the game roomId. */
+  const initiatePeerConnection = useCallback(async (channelName: string, autoPublish = true) => {
+    if (!channelName) return;
+
+    if (joinPromiseRef.current && channelNameRef.current === channelName) {
+      await joinPromiseRef.current;
+      if (autoPublish) await publishLocalTracks();
+      return;
+    }
+
+    if (joinedRef.current && channelNameRef.current === channelName) {
+      setState(s => ({ ...s, isConnecting: false, isConnected: true, error: null }));
+      if (autoPublish) await publishLocalTracks();
+      return;
+    }
+
+    if (joinedRef.current && channelNameRef.current !== channelName) {
+      await leave();
+    }
+
+    setState(s => ({ ...s, isConnecting: true, error: null }));
+    channelNameRef.current = channelName;
+
+    const joinTask = (async () => {
       // 0. Resolve App ID (build-time env → /api/config → hardcoded fallback)
       const appId = await getAppId();
 
@@ -147,7 +213,7 @@ export function useAgora() {
       const client = clientRef.current;
 
       // 3. Listen for remote users (already joined? don't re-add listeners)
-      if (!joinedRef.current) {
+      if (!listenersAttachedRef.current) {
         client.on('user-published', async (user: any, mediaType: 'audio' | 'video') => {
           await client.subscribe(user, mediaType);
           if (mediaType === 'video') {
@@ -168,11 +234,12 @@ export function useAgora() {
             setState(s => ({ ...s, remoteStream: null }));
           }
         });
-
-        // 4. Join channel
-        await client.join(appId, channelName, token, uid);
-        joinedRef.current = true;
+        listenersAttachedRef.current = true;
       }
+
+      // 4. Join channel
+      await client.join(appId, channelName, token, uid);
+      joinedRef.current = true;
 
       setState(s => ({ ...s, isConnecting: false, isConnected: true }));
 
@@ -180,7 +247,11 @@ export function useAgora() {
       if (autoPublish) {
         await publishLocalTracks();
       }
+    })();
 
+    joinPromiseRef.current = joinTask;
+    try {
+      await joinTask;
     } catch (err: any) {
       console.error('Agora join error:', err);
       if (err?.message === 'APP_UPDATED') {
@@ -191,35 +262,19 @@ export function useAgora() {
         ? 'Camera/microphone access denied'
         : err?.message || 'Failed to connect video';
       setState(s => ({ ...s, error: msg, isConnecting: false }));
+    } finally {
+      if (joinPromiseRef.current === joinTask) joinPromiseRef.current = null;
     }
-  }, []);
+  }, [leave, publishLocalTracks]);
 
-  /** Start broadcasting local camera and microphone */
-  const publishLocalTracks = useCallback(async () => {
-    if (!clientRef.current || !joinedRef.current) return;
-    if (localVideoRef.current) return; // already publishing
-
-    try {
-      const RTC = await getAgoraRTC();
-      const [audioTrack, videoTrack] = await RTC.createMicrophoneAndCameraTracks();
-      localAudioRef.current = audioTrack;
-      localVideoRef.current = videoTrack;
-
-      await clientRef.current.publish([audioTrack, videoTrack]);
-      
-      setState(s => ({ ...s, localStream: {} as any }));
-
-      if (localVideoElRef.current) {
-        videoTrack.play(localVideoElRef.current);
-      }
-    } catch (err: any) {
-      console.error('Agora publish error:', err);
-      const msg = err?.message?.includes('PERMISSION_DENIED')
-        ? 'Camera/microphone access denied'
-        : 'Failed to start camera';
-      setState(s => ({ ...s, error: msg }));
+  /** One-click camera start: join the room if needed, then publish camera/mic. */
+  const startCamera = useCallback(async (channelName: string) => {
+    if (!channelName) return false;
+    if (!joinedRef.current || channelNameRef.current !== channelName || joinPromiseRef.current) {
+      await initiatePeerConnection(channelName, false);
     }
-  }, []);
+    return publishLocalTracks();
+  }, [initiatePeerConnection, publishLocalTracks]);
 
   const toggleMute = useCallback(() => {
     if (localAudioRef.current) {
@@ -248,6 +303,7 @@ export function useAgora() {
     toggleVideo,
     initiatePeerConnection,
     publishLocalTracks,
+    startCamera,
     setLocalVideoEl,
     setRemoteVideoEl,
   };

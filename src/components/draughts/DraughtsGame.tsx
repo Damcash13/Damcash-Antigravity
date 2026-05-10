@@ -111,9 +111,11 @@ export const DraughtsGame: React.FC = () => {
   const boardRef = useRef(board);
   const drawStateRef = useRef(drawState);
   const turnRef = useRef(turn);
+  const moveHistoryRef = useRef(moveHistory);
   boardRef.current = board;
   drawStateRef.current = drawState;
   turnRef.current = turn;
+  moveHistoryRef.current = moveHistory;
   const userRef = useRef(user);
   userRef.current = user;
   const computerMovePending = useRef(false);
@@ -577,6 +579,11 @@ export const DraughtsGame: React.FC = () => {
         setResult(didWin ? t('game.youWon') : t('game.youLost'));
         play(didWin ? 'victory' : 'defeat');
       }
+      else if (data.result === 'aborted') {
+        setGameOutcome(null);
+        setResult(data.reason || t('game.opponentDisconnected'));
+        play('gameEnd');
+      }
       else if (data.by === 'server' && typeof data.reason === 'string') {
         setResult(data.reason);
         const didWin = (data.result === 'win' && playerColor === 'white') || (data.result === 'loss' && playerColor === 'black');
@@ -702,19 +709,20 @@ export const DraughtsGame: React.FC = () => {
 
     const handlePlayerDisconnected = (data: { socketId: string; explicit?: boolean }) => {
       if (data.socketId === socket.id) return; // Ignore self-disconnect signals
+      const moveCount = moveHistoryRef.current.length;
       if (data.explicit) {
         addNotification(t('game.opponentLeft', 'Opponent has left the room'), 'info');
         setOpponentInfo({ name: t('game.opponentLeft', 'Opponent Left'), rating: 1450, country: '' });
+        setIsOpponentDisconnected(true);
+        if (moveCount > 0) {
+          setGameStatus('ended');
+          setResult(t('game.opponentLeft'));
+        }
+        return;
       } else {
         addNotification(t('game.opponentDisconnected'), 'warning');
       }
       setIsOpponentDisconnected(true);
-      if (moveHistory.length === 0) {
-        navigate('/');
-      } else {
-        setGameStatus('ended');
-        setResult(data.explicit ? t('game.opponentLeft') : t('game.opponentDisconnected'));
-      }
     };
 
     const handlePlayerReconnected = () => {
@@ -878,6 +886,7 @@ export const DraughtsGame: React.FC = () => {
   // Check if must capture
   const allLegal = useMemo(() => getLegalMoves(board, turn), [board, turn]);
   const mustCapture = useMemo(() => allLegal.some(m => m.captured && m.captured.length > 0), [allLegal]);
+  const hasClockStarted = moveHistory.length > 0;
 
   return (
     <div className="game-room">
@@ -922,7 +931,7 @@ export const DraughtsGame: React.FC = () => {
           </div>
           <Clock
             timeMs={playerColor === 'white' ? blackTime : whiteTime}
-            active={gameStatus === 'playing' && turn !== playerColor}
+            active={gameStatus === 'playing' && hasClockStarted && turn !== playerColor}
             onTick={handleOpponentClockTick}
             onExpire={handleClockExpire}
           />
@@ -1059,7 +1068,7 @@ export const DraughtsGame: React.FC = () => {
               isConnected={video.isConnected}
               isConnecting={video.isConnecting}
               setVideoEl={video.setLocalVideoEl}
-              onStartCall={() => video.publishLocalTracks()}
+              onStartCall={() => { if (roomId) void video.startCamera(roomId); }}
               onToggleMute={video.toggleMute}
               onToggleVideo={video.toggleVideo}
               onLeave={video.stopLocalStream}
@@ -1088,7 +1097,7 @@ export const DraughtsGame: React.FC = () => {
           </div>
           <Clock
             timeMs={playerColor === 'white' ? whiteTime : blackTime}
-            active={gameStatus === 'playing' && turn === playerColor}
+            active={gameStatus === 'playing' && hasClockStarted && turn === playerColor}
             onTick={handlePlayerClockTick}
             onExpire={handleClockExpire}
           />

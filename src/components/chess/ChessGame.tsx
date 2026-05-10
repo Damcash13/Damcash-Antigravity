@@ -604,6 +604,9 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
         const didWin = data.winner === (playerColor === 'w' ? 'white' : 'black');
         setResult(didWin ? t('game.youWon') : t('game.youLost'));
         play(didWin ? 'victory' : 'defeat');
+      } else if (data.result === 'aborted') {
+        setResult(data.reason || t('game.opponentDisconnected'));
+        play('gameEnd');
       } else if (data.by === 'server' && typeof data.reason === 'string') {
         setResult(data.reason);
         const didWin = (data.result === 'win' && playerColor === 'w') || (data.result === 'loss' && playerColor === 'b');
@@ -648,6 +651,9 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       setMoveHistory(rebuilt.history());
       const lastM = data.moves?.[data.moves.length - 1];
       if (lastM) setLastMove({ from: lastM.from as Square, to: lastM.to as Square });
+      if (data.whiteTime !== undefined) setWhiteTime(data.whiteTime);
+      if (data.blackTime !== undefined) setBlackTime(data.blackTime);
+      setIsOpponentDisconnected(false);
       const myCol = data.color; // 'white' | 'black'
       const opp = myCol === 'white' ? data.blackPlayer : data.whitePlayer;
       if (opp) setOpponentInfo({ name: opp.name || 'Opponent', rating: Number(opp.rating?.chess ?? opp.rating) || 1500, country: opp.country || '' });
@@ -681,20 +687,20 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
 
     const handlePlayerDisconnected = (data: { socketId: string; explicit?: boolean }) => {
       if (data.socketId === socket.id) return; // Ignore self-disconnect signals (e.g. from fast remounts)
+      const moveCount = moveHistoryRef.current.length;
       if (data.explicit) {
         addNotification(t('game.opponentLeft', 'Opponent has left the room'), 'info');
         setOpponentInfo({ name: t('game.opponentLeft', 'Opponent Left'), rating: 1500, country: '' });
+        setIsOpponentDisconnected(true);
+        if (moveCount > 0) {
+          setGameStatus('ended');
+          setResult(t('game.opponentLeft'));
+        }
+        return;
       } else {
         addNotification(t('game.opponentDisconnected'), 'warning');
       }
       setIsOpponentDisconnected(true);
-      // If no moves were made, just go back. Otherwise, the game is likely aborted or ended.
-      if (moveHistory.length === 0) {
-        navigate('/');
-      } else {
-        setGameStatus('ended');
-        setResult(data.explicit ? t('game.opponentLeft') : t('game.opponentDisconnected'));
-      }
     };
 
     const handlePlayerReconnected = (data: { socketId: string; color: string }) => {
@@ -862,6 +868,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
       black: moveHistory[i + 1] || '',
     });
   }
+  const hasClockStarted = moveHistory.length > 0;
 
   return (
     <div className="game-room">
@@ -907,7 +914,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
           </div>
           <Clock
             timeMs={playerColor === 'w' ? blackTime : whiteTime}
-            active={gameStatus === 'playing' && currentTurn !== playerColor}
+            active={gameStatus === 'playing' && hasClockStarted && currentTurn !== playerColor}
             onTick={handleOpponentClockTick}
             onExpire={handleClockExpire}
           />
@@ -1034,7 +1041,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
               isConnected={video.isConnected}
               isConnecting={video.isConnecting}
               setVideoEl={video.setLocalVideoEl}
-              onStartCall={() => video.publishLocalTracks()}
+              onStartCall={() => { if (roomId) void video.startCamera(roomId); }}
               onToggleMute={video.toggleMute}
               onToggleVideo={video.toggleVideo}
               onLeave={video.stopLocalStream}
@@ -1063,7 +1070,7 @@ export const ChessGame: React.FC<Props> = ({ onOpenWallet }) => {
           </div>
           <Clock
             timeMs={playerColor === 'w' ? whiteTime : blackTime}
-            active={gameStatus === 'playing' && currentTurn === playerColor}
+            active={gameStatus === 'playing' && hasClockStarted && currentTurn === playerColor}
             onTick={handlePlayerClockTick}
             onExpire={handleClockExpire}
           />

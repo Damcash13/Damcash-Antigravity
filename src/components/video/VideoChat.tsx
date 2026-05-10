@@ -23,7 +23,7 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
     toggleMute,
     toggleVideo,
     initiatePeerConnection,
-    publishLocalTracks,
+    startCamera,
     setLocalVideoEl,
     setRemoteVideoEl,
   } = useWebRTC();
@@ -52,7 +52,7 @@ export const VideoChat: React.FC<Props> = ({ roomId, playerName, opponentName })
   }, [remoteStream, setRemoteVideoEl]);
 
   const handleStart = () => {
-    publishLocalTracks();
+    void startCamera(roomId);
   };
 
   const handleStop = () => {
