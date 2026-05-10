@@ -872,6 +872,64 @@ function roomStatePayload(roomId, room, color) {
   };
 }
 
+function attachRoomParticipantSocket(roomId, room, socket, color, { force = false } = {}) {
+  if (!room || !['white', 'black'].includes(color)) return false;
+  const oldSocketId = room.players?.[color];
+  if (!force && oldSocketId && oldSocketId !== socket.id && io.sockets.sockets.has(oldSocketId)) {
+    return false;
+  }
+
+  const pendingCleanup = roomDisconnectTimers.get(roomId);
+  if (pendingCleanup) {
+    clearTimeout(pendingCleanup);
+    roomDisconnectTimers.delete(roomId);
+  }
+
+  const tokens = reconnectTokens.get(roomId);
+  if (tokens?.[color]) tokens[color].socketId = socket.id;
+
+  room.players[color] = socket.id;
+  if (room.disconnected?.[color]) delete room.disconnected[color];
+  socket.join(roomId);
+
+  const oldPlayer = oldSocketId ? players.get(oldSocketId) : null;
+  const currentPlayer = players.get(socket.id);
+  const fallbackPlayer = room.playerInfo?.[color] || fallbackPlayerForSocket(socket, room.config?.universe);
+  const player = oldPlayer || currentPlayer || fallbackPlayer;
+  const userId = socket.user?.id || player.userId || null;
+  if (userId) {
+    player.userId = userId;
+    socketToUserId.set(socket.id, userId);
+    userIdToSocketId.set(userId, socket.id);
+  }
+  player.status = 'playing';
+  player.currentTC = room.config?.timeControl || null;
+  player.universe = normalizeUniverse(room.config?.universe || player.universe);
+  players.set(socket.id, player);
+  if (oldSocketId && oldSocketId !== socket.id) players.delete(oldSocketId);
+
+  return true;
+}
+
+function participantColorForSocket(room, socket) {
+  if (room?.players?.white === socket.id) return 'white';
+  if (room?.players?.black === socket.id) return 'black';
+  return null;
+}
+
+function rebindDeadParticipantSocket(roomId, room, socket) {
+  const userId = socketToUserId.get(socket.id) || socket.user?.id || null;
+  if (!userId) return null;
+
+  const whiteUserId = room.userIds?.white || socketToUserId.get(room.players?.white);
+  const blackUserId = room.userIds?.black || socketToUserId.get(room.players?.black);
+  const color = whiteUserId === userId ? 'white' : blackUserId === userId ? 'black' : null;
+  if (!color) return null;
+
+  const attached = attachRoomParticipantSocket(roomId, room, socket, color, { force: false });
+  return attached ? color : null;
+}
+
 function broadcastPlayerList() {
   const list = buildPublicPlayerList();
   io.emit('players:online', list);
@@ -1439,12 +1497,11 @@ io.on('connection', (socket) => {
 
   // ── Reconnect (page refresh mid-game) ───────────────────────────────────
   socket.on('room:rejoin', ({ roomId, token }) => {
-    // Rate-limit rejoin attempts to prevent token brute-forcing
-    if (socketRateLimit(socket.id, 10)) {  // max 10 rejoin attempts/min
-      socket.emit('room:rejoin:denied', { reason: 'Too many attempts — try again later' });
+    if (typeof roomId !== 'string' || typeof token !== 'string') return;
+    if (socketRateLimit(socket.id, 120)) {
+      socket.emit('room:rejoin:denied', { reason: 'Too many reconnect attempts — try again later' });
       return;
     }
-    if (typeof roomId !== 'string' || typeof token !== 'string') return;
     const tokens = reconnectTokens.get(roomId);
     if (!tokens) { socket.emit('room:rejoin:denied', { reason: 'Game not found' }); return; }
 
@@ -1456,81 +1513,35 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) { socket.emit('room:rejoin:denied', { reason: 'Game over' }); return; }
 
-    const pendingCleanup = roomDisconnectTimers.get(roomId);
-    if (pendingCleanup) {
-      clearTimeout(pendingCleanup);
-      roomDisconnectTimers.delete(roomId);
-    }
-
-    // Update socket ID in room and token store
-    const oldSocketId = tokens[color].socketId;
-    tokens[color].socketId = socket.id;
-    room.players[color] = socket.id;
-    socket.join(roomId);
-
-    // Re-register in players map under new socket ID
-    const oldPlayer = players.get(oldSocketId);
-    const fallbackPlayer = room.playerInfo?.[color];
-    if (oldPlayer || fallbackPlayer) {
-      players.set(socket.id, oldPlayer || fallbackPlayer);
-      players.delete(oldSocketId);
-    }
+    const wasCurrentSocket = room.players[color] === socket.id;
+    attachRoomParticipantSocket(roomId, room, socket, color, { force: true });
 
     socket.emit('room:state', roomStatePayload(roomId, room, color));
     socket.emit('room:tokens', { roomId, token, color });
-    socket.to(roomId).emit('player-reconnected', { socketId: socket.id, color });
+    if (!wasCurrentSocket) socket.to(roomId).emit('player-reconnected', { socketId: socket.id, color });
 
     log.info(`[rejoin] ${socket.id} rejoined ${roomId} as ${color}`);
   });
 
   // ── Request player info for a room (called on game component mount) ──────
   socket.on('room:request-players', ({ roomId }) => {
-    if (socketRateLimit(socket.id, 10)) return;
+    if (socketRateLimit(socket.id, 60)) return;
 
     const room = rooms.get(roomId);
     if (!room) return;
 
     // Shortcut reconnect for mobile users who lost sessionStorage (can't use room:rejoin).
     // Guard: only update the slot when the original socket is confirmed dead.
-    // If the original socket is still alive, the second tab gets read-only player info only.
-    const myUserId = socketToUserId.get(socket.id);
-    if (myUserId) {
-      const whiteUserId = room.userIds?.white || socketToUserId.get(room.players.white);
-      const blackUserId = room.userIds?.black || socketToUserId.get(room.players.black);
-
-      if (whiteUserId === myUserId) {
-        const oldSocketId = room.players.white;
-        if (!io.sockets.sockets.has(oldSocketId)) {
-          room.players.white = socket.id;
-          const tokens = reconnectTokens.get(roomId);
-          if (tokens?.white) tokens.white.socketId = socket.id;
-          const pendingCleanup = roomDisconnectTimers.get(roomId);
-          if (pendingCleanup) {
-            clearTimeout(pendingCleanup);
-            roomDisconnectTimers.delete(roomId);
-          }
-          log.warn(`[SHORTCUT-REJOIN] userId=${myUserId} roomId=${roomId} newSocket=${socket.id} replacedSocket=${oldSocketId} ts=${Date.now()}`);
-        }
-      } else if (blackUserId === myUserId) {
-        const oldSocketId = room.players.black;
-        if (!io.sockets.sockets.has(oldSocketId)) {
-          room.players.black = socket.id;
-          const tokens = reconnectTokens.get(roomId);
-          if (tokens?.black) tokens.black.socketId = socket.id;
-          const pendingCleanup = roomDisconnectTimers.get(roomId);
-          if (pendingCleanup) {
-            clearTimeout(pendingCleanup);
-            roomDisconnectTimers.delete(roomId);
-          }
-          log.warn(`[SHORTCUT-REJOIN] userId=${myUserId} roomId=${roomId} newSocket=${socket.id} replacedSocket=${oldSocketId} ts=${Date.now()}`);
-        }
-      }
+    const reboundColor = rebindDeadParticipantSocket(roomId, room, socket);
+    if (reboundColor) {
+      log.warn(`[SHORTCUT-REJOIN] userId=${socketToUserId.get(socket.id)} roomId=${roomId} newSocket=${socket.id} color=${reboundColor} ts=${Date.now()}`);
+      socket.to(roomId).emit('player-reconnected', { socketId: socket.id, color: reboundColor });
     }
 
     const wp = players.get(room.players.white) || room.playerInfo?.white;
     const bp = players.get(room.players.black) || room.playerInfo?.black;
 
-    const participantColor = room.players.white === socket.id ? 'white' : room.players.black === socket.id ? 'black' : null;
+    const participantColor = participantColorForSocket(room, socket);
     if (participantColor) {
       socket.join(roomId);
       socket.emit('room:state', roomStatePayload(roomId, room, participantColor));
@@ -1950,9 +1961,22 @@ io.on('connection', (socket) => {
       });
     };
     try {
-    // Verify sender is an actual participant (not a spectator injecting moves)
-    const isParticipant = room.players.white === socket.id || room.players.black === socket.id;
-    if (!isParticipant) return;
+    // Verify sender is an actual participant. If the network changed the
+    // socket ID, first try to reattach the authenticated user to their seat.
+    let participantColor = participantColorForSocket(room, socket);
+    if (!participantColor) {
+      participantColor = rebindDeadParticipantSocket(payload.roomId, room, socket);
+      if (participantColor) {
+        socket.emit('room:state', roomStatePayload(payload.roomId, room, participantColor));
+        socket.to(payload.roomId).emit('player-reconnected', { socketId: socket.id, color: participantColor });
+        log.warn(`[MOVE-REJOIN] ${socket.id} rebound to ${payload.roomId} as ${participantColor}`);
+      }
+    }
+    if (!participantColor) {
+      emitMoveRejected('not_participant');
+      if (typeof callback === 'function') callback({ success: false, error: 'not_participant' });
+      return;
+    }
     
     // For rated games, we prefer socket.user (Supabase verified), 
     // but if it's missing (e.g. auth fail), we fallback to our verified presence record
@@ -1960,11 +1984,12 @@ io.on('connection', (socket) => {
     if (room.config?.rated && !socket.user && (!pRecord || pRecord.status === 'idle')) {
       console.warn(`[Auth] Rated move rejected: User unverified. socket.id=${socket.id}`);
       socket.emit('room:error', { message: 'Authentication required for rated games' });
+      if (typeof callback === 'function') callback({ success: false, error: 'auth_required' });
       return;
     }
     // Verify turn order: white moves on even indices (0, 2, 4…), black on odd (1, 3, 5…)
     const expectedWhite = room.moves.length % 2 === 0;
-    const senderIsWhite = room.players.white === socket.id;
+    const senderIsWhite = participantColor === 'white';
     if (senderIsWhite !== expectedWhite) {
       emitMoveRejected('out_of_turn');
       if (typeof callback === 'function') callback({ success: false, error: 'out_of_turn' });

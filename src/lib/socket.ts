@@ -32,6 +32,11 @@ export const socket: any = _io
   ? (win.__damcashSocket || (win.__damcashSocket = _io(SOCKET_URL, {
       autoConnect: true,
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
       auth: { token: null, clientId },
     })))
   : {
@@ -49,7 +54,12 @@ export const socket: any = _io
  */
 export function reconnectWithToken(token: string | null): void {
   if (!_io || !socket?.auth) return;
+  const hadSameToken = socket.auth.token === token;
   socket.auth = { token, clientId };
+  if (hadSameToken) {
+    if (!socket.connected) socket.connect();
+    return;
+  }
   socket.disconnect().connect();
 }
 

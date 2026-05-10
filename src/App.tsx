@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, useNavigate, Navigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { SearchingOverlay } from './components/lobby/SearchingOverlay';
@@ -20,6 +21,8 @@ import { useDirectMessageStore } from './stores/directMessageStore';
 import { useNotifCenterStore } from './stores/notifCenterStore';
 import { DirectMessagesModal } from './components/messages/DirectMessagesModal';
 import { AppErrorBoundary } from './components/common/AppErrorBoundary';
+
+const HOME_LANGUAGES = ['en', 'fr', 'ru', 'nl', 'zh'] as const;
 
 // Lazy load pages
 const PremiumHomePage = lazy(() => import('./components/lobby/PremiumHomePage').then(m => ({ default: m.PremiumHomePage })));
@@ -102,6 +105,54 @@ function persistRejoinToken(data: any, color: 'w' | 'b') {
       JSON.stringify({ roomId, token, color: color === 'w' ? 'white' : 'black' }),
     );
   } catch {}
+}
+
+function HomeLanguageSwitcher() {
+  const { i18n, t } = useTranslation();
+  const activeLanguage = i18n.language.split('-')[0];
+
+  return (
+    <div
+      aria-label={t('menu.language', 'Language')}
+      style={{
+        position: 'fixed',
+        top: 14,
+        right: 14,
+        zIndex: 650,
+        display: 'flex',
+        gap: 4,
+        padding: 4,
+        border: '1px solid var(--border)',
+        borderRadius: 999,
+        background: 'rgba(12, 15, 20, 0.86)',
+        backdropFilter: 'blur(14px)',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+      }}
+    >
+      {HOME_LANGUAGES.map(code => (
+        <button
+          key={code}
+          type="button"
+          onClick={() => i18n.changeLanguage(code)}
+          title={t(`languages.${code}`, code.toUpperCase())}
+          aria-pressed={activeLanguage === code}
+          style={{
+            minWidth: 34,
+            minHeight: 28,
+            border: 'none',
+            borderRadius: 999,
+            cursor: 'pointer',
+            fontSize: 11,
+            fontWeight: 800,
+            color: activeLanguage === code ? '#0b0d12' : 'var(--text-2)',
+            background: activeLanguage === code ? 'var(--accent)' : 'transparent',
+          }}
+        >
+          {code.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 // ── App component ─────────────────────────────────────────────────────────────
@@ -384,6 +435,7 @@ export default function App() {
           onOpenCreateGame={() => openConfig()}
         />
       )}
+      {isHomePage && <HomeLanguageSwitcher />}
 
       <div className={isHomePage ? 'ph-app-root' : 'main-layout'}>
         {activeGamePrompt && (
